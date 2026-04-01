@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 48" fill="none">
+  <defs>
+    <linearGradient id="iconGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7C3AED"/>
+      <stop offset="100%" style="stop-color:#3B82F6"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Icon -->
+  <rect x="2" y="4" width="40" height="40" rx="10" fill="url(#iconGrad)"/>
+  <rect x="8" y="24" width="6" height="14" rx="2" fill="#10B981"/>
+  <rect x="16" y="16" width="6" height="22" rx="2" fill="white" fill-opacity="0.9"/>
+  <rect x="24" y="20" width="6" height="18" rx="2" fill="#F59E0B"/>
+  <rect x="32" y="12" width="6" height="26" rx="2" fill="white"/>
+  <path d="M9 20 L19 12 L27 16 L37 8" stroke="white" stroke-width="2" stroke-linecap="round" fill="none"/>
+  
+  <!-- Text -->
+  <text x="52" y="32" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="24" font-weight="700" fill="white">
+    <tspan fill="#7C3AED">Prod</tspan><tspan fill="#3B82F6">Vista</tspan>
+  </text>
+</svg>

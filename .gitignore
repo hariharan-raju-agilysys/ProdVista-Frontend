@@ -1,0 +1,40 @@
+# ==============================================
+# ProdVista Frontend .gitignore
+# ==============================================
+
+# ----- Node / Frontend -----
+node_modules/
+dist/
+.cache/
+*.tsbuildinfo
+
+# ----- Environment & Secrets -----
+.env
+.env.local
+.env.development
+.env.production
+.env.*.local
+
+# ----- IDE / Editor -----
+.idea/
+*.swp
+*.swo
+*~
+.vscode/settings.json
+.vscode/launch.json
+
+# ----- OS Files -----
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# ----- Logs -----
+*.log
+logs/
+
+# ----- Misc -----
+*.bak
+*.zip
+*.tar.gz
+*.rar

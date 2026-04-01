@@ -1,0 +1,388 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Command Palette & Floating widget animations */
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes slideInFromBottom {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-in {
+  animation: fadeInScale 0.15s ease-out forwards;
+}
+.fade-in {
+  animation: fadeIn 0.15s ease-out forwards;
+}
+.slide-in-from-bottom-2 {
+  animation: slideInFromBottom 0.2s ease-out forwards;
+}
+.slide-in-from-bottom-4 {
+  animation: slideInFromBottom 0.3s ease-out forwards;
+}
+.zoom-in-95 {
+  animation: fadeInScale 0.15s ease-out forwards;
+}
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #213547;
+  background-color: #f8fafc;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-lg shadow-md p-4 border border-gray-100;
+  }
+  
+  .btn-primary {
+    @apply bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 transition-colors;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 transition-colors;
+  }
+
+  /* Modal Components */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black/50 flex items-center justify-center z-50;
+  }
+
+  .modal-container {
+    @apply bg-white rounded-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col;
+  }
+
+  .modal-header {
+    @apply px-6 py-4 border-b flex items-center justify-between;
+  }
+
+  .modal-title {
+    @apply text-xl font-bold;
+  }
+
+  .modal-close-btn {
+    @apply p-2 hover:bg-gray-100 rounded-lg transition-colors;
+  }
+
+  .modal-footer {
+    @apply px-6 py-4 border-t flex justify-between;
+  }
+
+  .modal-content {
+    @apply flex-1 overflow-y-auto px-6 py-4;
+  }
+
+  /* Form Components */
+  .form-label {
+    @apply block text-sm font-medium text-gray-700 mb-2;
+  }
+
+  .form-input {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all;
+  }
+
+  .form-select {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition-all;
+  }
+
+  .form-hint {
+    @apply text-xs text-gray-500 mt-1;
+  }
+
+  .form-group {
+    @apply space-y-4;
+  }
+
+  /* Selection Buttons */
+  .selection-btn {
+    @apply p-3 rounded-lg border-2 text-left transition-all;
+  }
+
+  .selection-btn-active {
+    @apply border-blue-500 bg-blue-50;
+  }
+
+  .selection-btn-inactive {
+    @apply border-gray-200 hover:border-gray-300;
+  }
+
+  .selection-btn-text {
+    @apply font-medium;
+  }
+
+  /* Size Selection */
+  .size-btn {
+    @apply px-4 py-2 rounded-lg border-2 capitalize transition-all;
+  }
+
+  /* Step Indicator */
+  .step-container {
+    @apply px-6 py-3 border-b bg-gray-50;
+  }
+
+  .step-indicator {
+    @apply flex items-center justify-center gap-2;
+  }
+
+  .step-btn {
+    @apply w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all;
+  }
+
+  .step-btn-active {
+    @apply bg-blue-500 text-white;
+  }
+
+  .step-btn-completed {
+    @apply bg-green-500 text-white;
+  }
+
+  .step-btn-pending {
+    @apply bg-gray-200 text-gray-600;
+  }
+
+  .step-connector {
+    @apply w-12 h-1 mx-1 rounded;
+  }
+
+  .step-connector-completed {
+    @apply bg-green-500;
+  }
+
+  .step-connector-pending {
+    @apply bg-gray-200;
+  }
+
+  .step-title {
+    @apply text-center mt-2 text-sm text-gray-600;
+  }
+
+  /* Summary Card */
+  .summary-card {
+    @apply bg-gray-50 rounded-lg p-4;
+  }
+
+  .summary-title {
+    @apply font-medium text-gray-700 mb-2;
+  }
+
+  .summary-list {
+    @apply text-sm space-y-1;
+  }
+
+  .summary-row {
+    @apply flex justify-between;
+  }
+
+  .summary-label {
+    @apply text-gray-500;
+  }
+
+  .summary-value {
+    @apply font-medium;
+  }
+
+  .summary-value-truncate {
+    @apply font-medium truncate max-w-[200px];
+  }
+
+  /* Data Source Card */
+  .data-source-card {
+    @apply flex items-center gap-2;
+  }
+
+  .data-source-icon {
+    @apply w-5 h-5 text-gray-600;
+  }
+
+  .data-source-label {
+    @apply font-medium block;
+  }
+
+  .data-source-desc {
+    @apply text-xs text-gray-500;
+  }
+
+  /* Action Buttons */
+  .btn-nav {
+    @apply px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors;
+  }
+
+  .btn-action {
+    @apply px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors;
+  }
+
+  /* Grid Layouts */
+  .grid-2-cols {
+    @apply grid grid-cols-2 gap-2;
+  }
+
+  .grid-2-cols-gap-3 {
+    @apply grid grid-cols-2 gap-3;
+  }
+
+  .flex-gap-2 {
+    @apply flex gap-2;
+  }
+}
+
+/* React Grid Layout Styles */
+.react-grid-layout {
+  position: relative;
+  transition: height 200ms ease;
+}
+
+.react-grid-item {
+  transition: all 200ms ease;
+  transition-property: left, top;
+}
+
+.react-grid-item.cssTransforms {
+  transition-property: transform;
+}
+
+.react-grid-item.resizing {
+  z-index: 1;
+  will-change: width, height;
+}
+
+.react-grid-item.react-draggable-dragging {
+  transition: none;
+  z-index: 3;
+  will-change: transform;
+}
+
+.react-grid-item.dropping {
+  visibility: hidden;
+}
+
+.react-grid-item.react-grid-placeholder {
+  background: rgb(59, 130, 246);
+  opacity: 0.2;
+  transition-duration: 100ms;
+  z-index: 2;
+  border-radius: 0.5rem;
+}
+
+.react-grid-item > .react-resizable-handle {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+}
+
+.react-grid-item > .react-resizable-handle::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid rgba(0, 0, 0, 0.3);
+  border-bottom: 2px solid rgba(0, 0, 0, 0.3);
+}
+
+.react-resizable-hide > .react-resizable-handle {
+  display: none;
+}
+
+.react-grid-item > .react-resizable-handle.react-resizable-handle-sw {
+  bottom: 0;
+  left: 0;
+  cursor: sw-resize;
+  transform: rotate(90deg);
+}
+
+.react-grid-item > .react-resizable-handle.react-resizable-handle-se {
+  bottom: 0;
+  right: 0;
+  cursor: se-resize;
+}
+
+.react-grid-item > .react-resizable-handle.react-resizable-handle-nw {
+  top: 0;
+  left: 0;
+  cursor: nw-resize;
+  transform: rotate(180deg);
+}
+
+.react-grid-item > .react-resizable-handle.react-resizable-handle-ne {
+  top: 0;
+  right: 0;
+  cursor: ne-resize;
+  transform: rotate(270deg);
+}
+
+.react-grid-item > .react-resizable-handle.react-resizable-handle-w,
+.react-grid-item > .react-resizable-handle.react-resizable-handle-e {
+  top: 50%;
+  margin-top: -10px;
+  cursor: ew-resize;
+}
+
+.react-grid-item > .react-resizable-handle.react-resizable-handle-w {
+  left: 0;
+  transform: rotate(135deg);
+}
+
+.react-grid-item > .react-resizable-handle.react-resizable-handle-e {
+  right: 0;
+  transform: rotate(315deg);
+}
+
+.react-grid-item > .react-resizable-handle.react-resizable-handle-n,
+.react-grid-item > .react-resizable-handle.react-resizable-handle-s {
+  left: 50%;
+  margin-left: -10px;
+  cursor: ns-resize;
+}
+
+.react-grid-item > .react-resizable-handle.react-resizable-handle-n {
+  top: 0;
+  transform: rotate(225deg);
+}
+
+.react-grid-item > .react-resizable-handle.react-resizable-handle-s {
+  bottom: 0;
+  transform: rotate(45deg);
+}
+
+/* Log stream scrollbar */
+.log-stream::-webkit-scrollbar {
+  width: 6px;
+}
+
+.log-stream::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+.log-stream::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 3px;
+}
+
+/* Animation for pulse effect */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}

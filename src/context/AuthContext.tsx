@@ -1,0 +1,307 @@
+import { 
+  createContext, 
+  useContext, 
+  useState, 
+  useEffect, 
+  useCallback, 
+  useMemo,
+  ReactNode 
+} from 'react'
+import { authApi, type User, type LoginResponse } from '../services/authApi'
+import { authService, TenantInfo } from '../services/authService'
+
+// Organization storage keys
+const ORG_CODE_KEY = 'prodvista_org_code'
+const ORG_INFO_KEY = 'prodvista_org_info'
+
+export function getStoredOrgCode(): string | null {
+  return localStorage.getItem(ORG_CODE_KEY)
+}
+
+export function getStoredOrgInfo(): TenantInfo | null {
+  const info = localStorage.getItem(ORG_INFO_KEY)
+  if (!info) return null
+  try {
+    return JSON.parse(info)
+  } catch {
+    return null
+  }
+}
+
+export function setOrgInfo(code: string, info: TenantInfo) {
+  localStorage.setItem(ORG_CODE_KEY, code)
+  localStorage.setItem(ORG_INFO_KEY, JSON.stringify(info))
+}
+
+export function clearOrgInfo() {
+  localStorage.removeItem(ORG_CODE_KEY)
+  localStorage.removeItem(ORG_INFO_KEY)
+}
+
+interface AuthContextType {
+  user: User | null
+  isAuthenticated: boolean
+  isLoading: boolean
+  isManager: boolean
+  isAdmin: boolean
+  isGuest: boolean // True if user entered org code but not logged in
+  orgCode: string | null
+  orgInfo: TenantInfo | null
+  hasOrgAccess: boolean // True if either authenticated or has org code
+  login: (email: string, displayName: string) => Promise<LoginResponse>
+  logout: () => void
+  logoutToOrg: () => void // Logout but keep org code (stay as guest)
+  exitOrg: () => void // Exit org completely (clear org code too)
+  refreshUser: () => Promise<void>
+  setUserFromLocal: (user: User) => void
+}
+
+const AuthContext = createContext<AuthContextType | null>(null)
+
+const AUTH_STORAGE_KEY = 'ProdVista_auth_user'
+
+function loadUserFromStorage(): User | null {
+  // Try primary key first
+  const stored = localStorage.getItem(AUTH_STORAGE_KEY)
+  if (stored) {
+    try { return JSON.parse(stored) } catch { /* ignore */ }
+  }
+  // Fallback: read from authService's key (set by LoginPage)
+  const localUser = authService.getUser()
+  if (localUser) {
+    // Normalize to User shape for AuthContext
+    return {
+      id: localUser.id,
+      azureObjectId: '',
+      email: localUser.email,
+      displayName: localUser.displayName,
+      role: (localUser.role as 'User' | 'Manager' | 'Admin') || 'User',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      department: localUser.department,
+      jobTitle: localUser.jobTitle,
+      username: localUser.username,
+      firstName: localUser.firstName,
+      lastName: localUser.lastName,
+      tenantCode: localUser.tenantCode,
+      tenantName: localUser.tenantName,
+      profilePictureUrl: localUser.profilePictureUrl,
+    } as User & Record<string, unknown> as User
+  }
+  return null
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(loadUserFromStorage)
+  const [isLoading, setIsLoading] = useState(true)
+  const [orgCode, setOrgCode] = useState<string | null>(getStoredOrgCode)
+  const [orgInfo, setOrgInfoState] = useState<TenantInfo | null>(getStoredOrgInfo)
+
+  const isAuthenticated = !!user
+  const userRole = user?.role?.toLowerCase()
+  const isAdmin = userRole === 'admin'
+  const isManager = userRole === 'manager' || userRole === 'admin'
+  const isGuest = !isAuthenticated && !!orgCode
+  const hasOrgAccess = isAuthenticated || !!orgCode
+
+  useEffect(() => {
+    const userData = loadUserFromStorage()
+    if (userData) {
+      setUser(userData)
+      // Sync to primary key
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData))
+    }
+    // Load org info
+    setOrgCode(getStoredOrgCode())
+    setOrgInfoState(getStoredOrgInfo())
+    setIsLoading(false)
+  }, [])
+
+  // Listen for storage changes (e.g. LoginPage setting user)
+  useEffect(() => {
+    const handleStorage = () => {
+      const userData = loadUserFromStorage()
+      if (userData) {
+        setUser(userData)
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData))
+      }
+      // Also update org info
+      setOrgCode(getStoredOrgCode())
+      setOrgInfoState(getStoredOrgInfo())
+    }
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
+  }, [])
+
+  // Listen for auth:unauthorized events (API returns 401)
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      console.warn('Session expired - logging out')
+      // Clear user state but keep org info so they can log back in
+      setUser(null)
+      localStorage.removeItem(AUTH_STORAGE_KEY)
+      localStorage.removeItem('prodvista_auth_token')
+      localStorage.removeItem('prodvista_auth_user')
+      localStorage.removeItem('ProdVista_auth_token')
+      sessionStorage.clear()
+      authApi.clearToken()
+      authService.logout()
+      // Show alert to user
+      alert('Your session has expired. Please log in again.')
+      // Redirect to login
+      window.location.href = '/login'
+    }
+    window.addEventListener('auth:unauthorized', handleUnauthorized)
+    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized)
+  }, [])
+
+  /**
+   * Login with email and display name
+   */
+  const login = useCallback(async (email: string, displayName: string): Promise<LoginResponse> => {
+    setIsLoading(true)
+    try {
+      const response = await authApi.loginWithProfile({
+        azureObjectId: `local-${email.replace(/[^a-z0-9]/gi, '-')}`,
+        email,
+        displayName,
+        tenantId: 'local',
+      })
+      
+      setUser(response.user)
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(response.user))
+      return response
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  /**
+   * Logout - clears all session data AND org info (full logout)
+   */
+  const logout = useCallback(() => {
+    setUser(null)
+    setOrgCode(null)
+    setOrgInfoState(null)
+    // Clear all auth-related localStorage keys
+    localStorage.removeItem(AUTH_STORAGE_KEY)
+    localStorage.removeItem('prodvista_auth_token')
+    localStorage.removeItem('prodvista_auth_user')
+    localStorage.removeItem('prodvista_auth_tenant')
+    localStorage.removeItem('ProdVista_auth_token')
+    localStorage.removeItem('ProdVista-azure-auth')
+    localStorage.removeItem('ProdVista-user-role')
+    localStorage.removeItem('ProdVista-user-id')
+    localStorage.removeItem('ProdVista-selected-template')
+    localStorage.removeItem('ProdVista-custom-widgets')
+    localStorage.removeItem('ProdVista-dashboard-store')
+    localStorage.removeItem('selectedTemplate')
+    localStorage.removeItem('isManager')
+    // Clear org info
+    clearOrgInfo()
+    sessionStorage.clear()
+    authApi.clearToken()
+    authService.logout()
+  }, [])
+
+  /**
+   * Logout but keep org code - user stays as guest viewing dashboard
+   */
+  const logoutToOrg = useCallback(() => {
+    setUser(null)
+    // Clear only auth-related localStorage keys, keep org info
+    localStorage.removeItem(AUTH_STORAGE_KEY)
+    localStorage.removeItem('prodvista_auth_token')
+    localStorage.removeItem('prodvista_auth_user')
+    localStorage.removeItem('prodvista_auth_tenant')
+    localStorage.removeItem('ProdVista_auth_token')
+    localStorage.removeItem('ProdVista-azure-auth')
+    localStorage.removeItem('ProdVista-user-role')
+    localStorage.removeItem('ProdVista-user-id')
+    localStorage.removeItem('isManager')
+    sessionStorage.clear()
+    authApi.clearToken()
+    authService.logout()
+  }, [])
+
+  /**
+   * Exit org completely - clears org code and redirects to org entry
+   */
+  const exitOrg = useCallback(() => {
+    setUser(null)
+    setOrgCode(null)
+    setOrgInfoState(null)
+    clearOrgInfo()
+    // Clear all auth data too
+    localStorage.removeItem(AUTH_STORAGE_KEY)
+    localStorage.removeItem('prodvista_auth_token')
+    localStorage.removeItem('prodvista_auth_user')
+    localStorage.removeItem('prodvista_auth_tenant')
+    localStorage.removeItem('ProdVista_auth_token')
+    sessionStorage.clear()
+    authApi.clearToken()
+    authService.logout()
+  }, [])
+
+  /**
+   * Set user from local auth (called by LoginPage after successful login)
+   */
+  const setUserFromLocal = useCallback((userData: User) => {
+    setUser(userData)
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData))
+  }, [])
+
+  /**
+   * Refresh user data from backend
+   */
+  const refreshUser = useCallback(async () => {
+    if (!user) return
+    try {
+      const users = await authApi.getUsers()
+      const currentUser = users.find(u => u.id === user.id)
+      if (currentUser) {
+        setUser(currentUser)
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(currentUser))
+      }
+    } catch (error) {
+      console.error('Failed to refresh user:', error)
+    }
+  }, [user])
+
+  const providerValue = useMemo(() => ({
+    user,
+    isAuthenticated,
+    isLoading,
+    isManager,
+    isAdmin,
+    isGuest,
+    orgCode,
+    orgInfo,
+    hasOrgAccess,
+    login,
+    logout,
+    logoutToOrg,
+    exitOrg,
+    refreshUser,
+    setUserFromLocal,
+  }), [user, isAuthenticated, isLoading, isManager, isAdmin, isGuest, orgCode, orgInfo, hasOrgAccess, login, logout, logoutToOrg, exitOrg, refreshUser, setUserFromLocal]);
+
+  return (
+    <AuthContext.Provider value={providerValue}>
+      {children}
+    </AuthContext.Provider>
+  )
+}
+
+/**
+ * Hook to access auth context
+ */
+export function useAuth() {
+  const context = useContext(AuthContext)
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
+  return context
+}
+
+export default AuthContext
