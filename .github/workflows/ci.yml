@@ -1,6 +1,8 @@
 # =============================================================================
 # ProdVista Frontend — CI / CD
 # =============================================================================
+# Organisation : Agilysys-Inc
+# Repository   : prodvista-frontend
 # Standalone frontend repository (React + Vite + TypeScript).
 #
 # Triggers:
