@@ -1,6 +1,9 @@
 # =============================================================================
 # ProdVista Frontend — Multi-stage Dockerfile
 # =============================================================================
+# Organisation : Agilysys-Inc
+# Repository   : prodvista-frontend
+#
 # Stage 1: Build the Vite React app
 # Stage 2: Serve static files with nginx (~25 MB image)
 #
