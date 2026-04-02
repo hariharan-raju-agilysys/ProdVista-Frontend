@@ -48,6 +48,7 @@ import { AzureStatusIndicator } from './AzureStatusIndicator'
 import { getProfilePictureUrl, getInitials } from '../utils/gravatar'
 import CommandPalette from './CommandPalette'
 import FloatingAIButton from './FloatingAIButton'
+import PersistentChatWidget from './PersistentChatWidget'
 import FunLoader from './FunLoader'
 
 // Icon mapping for dynamic icons
@@ -659,6 +660,9 @@ export default function Layout() {
 
       {/* Floating AI Toolbox Button */}
       <FloatingAIButton onOpenCommandPalette={openCommandPalette} />
+
+      {/* Persistent Chat Widget - stays across page navigation */}
+      <PersistentChatWidget />
     </div>
   )
 }

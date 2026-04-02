@@ -2,14 +2,14 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Settings, Globe, RefreshCw, CheckCircle, XCircle, Upload, Download, Clock,
   Zap, ArrowRightLeft, PlayCircle, AlertTriangle, FileText, Loader2, Trash2, History,
-  Plus, Save, Users, Building2, ChevronLeft
+  Plus, Save, Users, Building2, ChevronLeft, Edit2, Search
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import * as hrService from '../services/hrPortalService'
 import type {
-  HrConnection, HrStats,
+  HrConnection, HrStats, HrDepartment,
   HrSyncLog, SyncSettings, FieldMapping, TestConnectionResult, CsvImportResult,
-  HrAuthStatus
+  HrAuthStatus, TestPreviewResult, DepartmentPreview
 } from '../services/hrPortalService'
 
 type SettingsTab = 'connections' | 'sync' | 'import' | 'mapping' | 'logs'
@@ -24,11 +24,18 @@ export default function HrSetupPage() {
 
   // Connection form
   const [showConnectionForm, setShowConnectionForm] = useState(false)
-  const [connForm, setConnForm] = useState({ connectionName: '', providerType: 'GreytHR', baseUrl: '', clientId: '', apiKey: '', useSso: false })
+  const [editingConnectionId, setEditingConnectionId] = useState<string | null>(null)
+  const [connForm, setConnForm] = useState({ connectionName: '', providerType: 'GreytHR', baseUrl: '', clientId: '', apiKey: '', useSso: false, defaultDepartmentCode: '', defaultDepartmentName: '' })
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null)
   const [testing, setTesting] = useState(false)
   const [ssoStatus, setSsoStatus] = useState<HrAuthStatus | null>(null)
   const [ssoLoading, setSsoLoading] = useState(false)
+  const [departments, setDepartments] = useState<HrDepartment[]>([])
+  const [deptLoading, setDeptLoading] = useState(false)
+  // Test preview state
+  const [testingPreview, setTestingPreview] = useState(false)
+  const [previewResult, setPreviewResult] = useState<TestPreviewResult | null>(null)
+  const [previewDepartments, setPreviewDepartments] = useState<DepartmentPreview[]>([])
 
   // Sync
   const [syncSettings, setSyncSettings] = useState<SyncSettings | null>(null)
@@ -44,6 +51,16 @@ export default function HrSetupPage() {
   const [importing, setImporting] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Load departments for dropdown
+  const loadDepartments = useCallback(async () => {
+    setDeptLoading(true)
+    try {
+      const depts = await hrService.getDepartments()
+      setDepartments(depts)
+    } catch { /* ignore */ }
+    setDeptLoading(false)
+  }, [])
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -74,13 +91,65 @@ export default function HrSetupPage() {
     hrService.getFieldMapping(activeConnId).then(setFieldMapping).catch(() => {})
   }, [activeConnId])
 
+  // Load departments when showing connection form
+  useEffect(() => {
+    if (showConnectionForm) loadDepartments()
+  }, [showConnectionForm, loadDepartments])
+
   const handleSaveConnection = async () => {
     try {
-      await hrService.createConnection(connForm)
+      if (editingConnectionId) {
+        await hrService.updateConnection(editingConnectionId, connForm)
+      } else {
+        await hrService.createConnection(connForm)
+      }
       setShowConnectionForm(false)
-      setConnForm({ connectionName: '', providerType: 'GreytHR', baseUrl: '', clientId: '', apiKey: '', useSso: false })
+      setEditingConnectionId(null)
+      setConnForm({ connectionName: '', providerType: 'GreytHR', baseUrl: '', clientId: '', apiKey: '', useSso: false, defaultDepartmentCode: '', defaultDepartmentName: '' })
+      setPreviewResult(null)
+      setPreviewDepartments([])
       loadData()
     } catch { /* ignore */ }
+  }
+
+  const handleEditConnection = (conn: HrConnection) => {
+    setEditingConnectionId(conn.id)
+    setConnForm({
+      connectionName: conn.connectionName,
+      providerType: conn.providerType,
+      baseUrl: conn.baseUrl,
+      clientId: '',
+      apiKey: '',
+      useSso: conn.useSso,
+      defaultDepartmentCode: conn.defaultDepartmentCode || '',
+      defaultDepartmentName: conn.defaultDepartmentName || ''
+    })
+    setPreviewResult(null)
+    setPreviewDepartments([])
+    setShowConnectionForm(true)
+  }
+
+  const handleTestPreview = async () => {
+    if (!connForm.baseUrl.trim()) return
+    setTestingPreview(true)
+    setPreviewResult(null)
+    try {
+      const result = await hrService.testConnectionPreview({
+        baseUrl: connForm.baseUrl,
+        providerType: connForm.providerType,
+        useSso: connForm.useSso,
+        clientId: connForm.clientId || undefined,
+        apiKey: connForm.apiKey || undefined,
+        fetchDepartments: true
+      })
+      setPreviewResult(result)
+      if (result.departments?.length) {
+        setPreviewDepartments(result.departments)
+      }
+    } catch (err: any) {
+      setPreviewResult({ success: false, message: err?.message || 'Test failed', providerType: connForm.providerType, authMethod: connForm.useSso ? 'SSO' : 'ApiKey' })
+    }
+    setTestingPreview(false)
   }
 
   const handleTestConnection = async () => {
@@ -279,6 +348,12 @@ export default function HrSetupPage() {
                             </span>
                           )}
                         </div>
+                        {conn.defaultDepartmentCode && (
+                          <div className="mt-1.5 flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-full bg-blue-50 text-blue-700 w-fit">
+                            <Building2 className="w-3 h-3" />
+                            <span>Filter: {conn.defaultDepartmentName || conn.defaultDepartmentCode}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -296,6 +371,10 @@ export default function HrSetupPage() {
                           {conn.lastSyncStatus}
                         </span>
                       )}
+                      <button onClick={(e) => { e.stopPropagation(); handleEditConnection(conn) }}
+                        className="p-1 rounded hover:bg-blue-50 text-gray-400 hover:text-blue-500">
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
                       <button onClick={(e) => { e.stopPropagation(); handleDeleteConnection(conn.id) }}
                         className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500">
                         <Trash2 className="w-3.5 h-3.5" />
@@ -640,10 +719,12 @@ export default function HrSetupPage() {
       {/* Connection Form Modal */}
       {showConnectionForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-5">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-5 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-gray-900">Add HR Portal Connection</h3>
-              <button onClick={() => setShowConnectionForm(false)} className="p-1 rounded hover:bg-gray-100 text-gray-400">✕</button>
+              <h3 className="text-sm font-bold text-gray-900">
+                {editingConnectionId ? 'Edit HR Portal Connection' : 'Add HR Portal Connection'}
+              </h3>
+              <button onClick={() => { setShowConnectionForm(false); setEditingConnectionId(null); setPreviewResult(null); setPreviewDepartments([]) }} className="p-1 rounded hover:bg-gray-100 text-gray-400">✕</button>
             </div>
             <div className="space-y-3">
               <div>
@@ -663,8 +744,103 @@ export default function HrSetupPage() {
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-700 mb-1 block">Base URL</label>
-                <input type="text" value={connForm.baseUrl} onChange={e => setConnForm(p => ({ ...p, baseUrl: e.target.value }))}
-                  placeholder="https://agilysys.greythr.com" className="w-full text-xs border border-gray-200 rounded px-3 py-1.5 focus:ring-2 focus:ring-blue-500" />
+                <div className="flex gap-2">
+                  <input type="text" value={connForm.baseUrl} onChange={e => setConnForm(p => ({ ...p, baseUrl: e.target.value }))}
+                    placeholder="https://agilysys.greythr.com" className="flex-1 text-xs border border-gray-200 rounded px-3 py-1.5 focus:ring-2 focus:ring-blue-500" />
+                  <button
+                    type="button"
+                    onClick={handleTestPreview}
+                    disabled={testingPreview || !connForm.baseUrl.trim()}
+                    className="flex items-center gap-1.5 text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    {testingPreview ? <Loader2 className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
+                    Test & Fetch
+                  </button>
+                </div>
+                {previewResult && (
+                  <div className={`mt-2 p-2 rounded-lg text-xs ${previewResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                    <div className="flex items-center gap-1.5">
+                      {previewResult.success ? <CheckCircle className="w-3.5 h-3.5 text-green-600" /> : <XCircle className="w-3.5 h-3.5 text-red-600" />}
+                      <span className={previewResult.success ? 'text-green-700' : 'text-red-700'}>{previewResult.message}</span>
+                    </div>
+                    {previewResult.statusCode && (
+                      <p className="text-[10px] text-gray-500 mt-1">Status: {previewResult.statusCode} • Auth: {previewResult.authMethod}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Default Department Filter */}
+              <div className="border border-blue-100 rounded-lg p-3 bg-blue-50/30">
+                <label className="text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-blue-500" />
+                  Default Department Filter
+                </label>
+                <p className="text-[10px] text-gray-500 mb-2">Only sync employees from this department. Leave empty to sync all.</p>
+                
+                {/* Show fetched preview departments first if available */}
+                {previewDepartments.length > 0 ? (
+                  <div className="space-y-2">
+                    <div className="text-[10px] text-green-600 flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3" />
+                      Found {previewDepartments.length} departments from provider
+                    </div>
+                    <select
+                      value={connForm.defaultDepartmentCode}
+                      onChange={e => {
+                        const dept = previewDepartments.find(d => d.departmentCode === e.target.value)
+                        setConnForm(p => ({
+                          ...p,
+                          defaultDepartmentCode: e.target.value,
+                          defaultDepartmentName: dept?.departmentName || ''
+                        }))
+                      }}
+                      className="w-full text-xs border border-gray-200 rounded px-3 py-1.5 focus:ring-2 focus:ring-blue-500 bg-white"
+                    >
+                      <option value="">All Departments</option>
+                      {previewDepartments.map(d => (
+                        <option key={d.departmentCode} value={d.departmentCode}>
+                          {d.departmentName} ({d.departmentCode})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : deptLoading ? (
+                  <div className="flex items-center gap-2 text-xs text-gray-500 py-1">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Loading departments...
+                  </div>
+                ) : departments.length > 0 ? (
+                  <select
+                    value={connForm.defaultDepartmentCode}
+                    onChange={e => {
+                      const dept = departments.find(d => d.departmentCode === e.target.value)
+                      setConnForm(p => ({
+                        ...p,
+                        defaultDepartmentCode: e.target.value,
+                        defaultDepartmentName: dept?.departmentName || ''
+                      }))
+                    }}
+                    className="w-full text-xs border border-gray-200 rounded px-3 py-1.5 focus:ring-2 focus:ring-blue-500 bg-white"
+                  >
+                    <option value="">All Departments</option>
+                    {departments.map(d => (
+                      <option key={d.departmentCode} value={d.departmentCode}>
+                        {d.departmentName} ({d.departmentCode}) — {d.actualCount} employees
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="text-xs text-amber-600 py-1 flex items-center gap-1.5">
+                    <AlertTriangle className="w-3 h-3" />
+                    No departments found. Upload employees first via CSV import.
+                  </div>
+                )}
+                {connForm.defaultDepartmentCode && (
+                  <div className="mt-2 text-[10px] px-2 py-1 rounded bg-blue-100 text-blue-700 inline-flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" />
+                    Only syncing: {connForm.defaultDepartmentName || connForm.defaultDepartmentCode}
+                  </div>
+                )}
               </div>
 
               {/* SSO Toggle */}
@@ -750,7 +926,7 @@ export default function HrSetupPage() {
               )}
 
               <button onClick={handleSaveConnection} className="w-full bg-blue-600 text-white text-xs py-2 rounded-lg hover:bg-blue-700 flex items-center justify-center gap-1.5">
-                <Save className="w-3.5 h-3.5" /> Save Connection
+                <Save className="w-3.5 h-3.5" /> {editingConnectionId ? 'Update Connection' : 'Save Connection'}
               </button>
             </div>
           </div>

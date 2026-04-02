@@ -1619,13 +1619,13 @@ export default function AiQueryAssistantPage() {
             </div>
           )}
 
-          {/* Processing Pipeline */}
-          {isProcessing && (
+          {/* Processing Pipeline - only show when processing AND no response yet */}
+          {isProcessing && !response && (
             <ThinkingIndicator phase={processingPhase} progress={processingProgress} />
           )}
 
           {/* Error Display */}
-          {error && (
+          {error && !isProcessing && (
             <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
               <XCircle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
               <div>
@@ -1635,8 +1635,8 @@ export default function AiQueryAssistantPage() {
             </div>
           )}
 
-          {/* Results Card */}
-          {response && (
+          {/* Results Card - only show when response exists with data AND not processing */}
+          {response && !isProcessing && (response.success || response.errorMessage) && (
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 p-6">
               <QueryResultCard response={response} validation={validation || undefined} />
             </div>

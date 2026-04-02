@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import {
   Bot, Database, Sparkles, X, ChevronUp,
   Zap, Search, Activity, FileText, Rocket,
+  MessageCircle,
 } from 'lucide-react'
 import clsx from 'clsx'
+import { usePersistentChat } from '../context/PersistentChatContext'
 
 interface QuickAction {
   id: string
@@ -16,7 +18,7 @@ interface QuickAction {
 }
 
 const quickActions: QuickAction[] = [
-  { id: 'ai-chat', label: 'AI Chat', icon: Bot, path: '/ai-chat', color: 'from-violet-500 to-purple-600', description: 'Ask anything' },
+  { id: 'ai-chat', label: 'AI Chat', icon: MessageCircle, path: '', color: 'from-violet-500 to-purple-600', description: 'Open chat widget' },
   { id: 'ai-query', label: 'AI Query', icon: Database, path: '/ai-query', color: 'from-blue-500 to-indigo-600', description: 'SQL from text' },
   { id: 'observability-query', label: 'KQL Explorer', icon: Zap, path: '/observability-query', color: 'from-emerald-500 to-teal-600', description: 'Query logs' },
   { id: 'command-center', label: 'Command Center', icon: Activity, path: '/command-center', color: 'from-cyan-500 to-blue-600', description: 'App Insights' },
@@ -43,6 +45,7 @@ export default function FloatingAIButton({ onOpenCommandPalette }: FloatingAIBut
   const [showTooltip, setShowTooltip] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
+  const { openChat } = usePersistentChat()
 
   // Rotate idle messages
   useEffect(() => {
@@ -73,7 +76,12 @@ export default function FloatingAIButton({ onOpenCommandPalette }: FloatingAIBut
 
   const handleAction = (action: QuickAction) => {
     setIsExpanded(false)
-    navigate(action.path)
+    // Open persistent chat widget instead of navigating for ai-chat
+    if (action.id === 'ai-chat') {
+      openChat()
+    } else {
+      navigate(action.path)
+    }
   }
 
   return (

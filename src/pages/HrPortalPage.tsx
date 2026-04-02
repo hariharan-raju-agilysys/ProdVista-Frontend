@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Users, Building2, Cake, MapPin, Briefcase, Search, Plus, Settings, UserPlus,
   ChevronRight, Calendar, Phone, Mail, Star, TrendingUp, X, Save,
-  Globe, RefreshCw, CheckCircle, XCircle, Upload, Download, Clock,
-  Zap, ArrowRightLeft, PlayCircle, AlertTriangle, FileText, Loader2, Trash2, History
+  Globe, RefreshCw, CheckCircle, XCircle, Upload, Download,
+  Zap, ArrowRightLeft, FileText, Loader2, Trash2, History
 } from 'lucide-react'
 import * as hrService from '../services/hrPortalService'
 import type {
@@ -191,6 +191,30 @@ export default function HrPortalPage() {
       }
     } catch { setTestResult({ success: false, message: 'Request failed' }) }
     setTesting(false)
+  }
+
+  // State for sync operation
+  const [syncing, setSyncing] = useState(false)
+  const [syncResult, setSyncResult] = useState<hrService.SyncResult | null>(null)
+
+  // Sync data from HR provider (e.g., GreytHR API)
+  const handleSyncFromProvider = async () => {
+    if (!activeConnId) return
+    setSyncing(true)
+    setSyncResult(null)
+    try {
+      const result = await hrService.syncFromProvider(activeConnId)
+      setSyncResult(result)
+      // Refresh data on success
+      if (result.success) {
+        loadData()
+        hrService.getSyncLogs({ connectionId: activeConnId, count: 20 }).then(setSyncLogs).catch(() => {})
+      }
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'Sync request failed'
+      setSyncResult({ success: false, message: errMsg, departmentsCreated: 0, departmentsUpdated: 0, employeesCreated: 0, employeesUpdated: 0, departmentErrors: [], employeeErrors: [], errors: [errMsg] })
+    }
+    setSyncing(false)
   }
 
   const handleSaveSyncSettings = async () => {
@@ -681,548 +705,383 @@ export default function HrPortalPage() {
       )}
 
       {/* ================================================================
-          SETTINGS VIEW — FULL INTEGRATION SETTINGS
+          SETTINGS VIEW — REDESIGNED BY PROVIDER TYPE
           ================================================================ */}
       {view === 'settings' && (
         <div className="space-y-4">
-          {/* Settings Sub-Tabs */}
-          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-            {([
-              { key: 'connections', label: 'Connections', icon: Globe },
-              { key: 'sync', label: 'Sync Settings', icon: RefreshCw },
-              { key: 'import', label: 'Import / Export', icon: Upload },
-              { key: 'mapping', label: 'Field Mapping', icon: ArrowRightLeft },
-              { key: 'logs', label: 'Sync History', icon: History },
-            ] as { key: typeof settingsTab; label: string; icon: any }[]).map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => setSettingsTab(tab.key)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                  settingsTab === tab.key ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <tab.icon className="w-3.5 h-3.5" />
-                {tab.label}
-              </button>
-            ))}
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">HR Portal Connections</h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {settingsTab === 'connections' ? 'Connect to HR providers to sync employee data' : 
+                 settingsTab === 'mapping' ? 'Configure field mappings for data import' :
+                 'View sync history and logs'}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {settingsTab !== 'connections' && (
+                <button onClick={() => setSettingsTab('connections')}
+                  className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1">
+                  ← Back to Connections
+                </button>
+              )}
+              {settingsTab === 'connections' && (
+                <button onClick={() => setShowConnectionForm(true)}
+                  className="flex items-center gap-1.5 text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700">
+                  <Plus className="w-3.5 h-3.5" /> Add Connection
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* ---- CONNECTIONS TAB ---- */}
+          {/* ---- CONNECTIONS VIEW ---- */}
           {settingsTab === 'connections' && (
             <div className="space-y-4">
-              {/* Add Connection Button */}
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-gray-900">HR Portal Connections</h2>
-                <button onClick={() => setShowConnectionForm(true)}
-                  className="flex items-center gap-1 text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700">
-                  <Plus className="w-3 h-3" /> Add Connection
-                </button>
-              </div>
-
               {connections.length === 0 ? (
                 <div className="bg-white border border-dashed border-gray-300 rounded-xl p-8 text-center">
-                  <Globe className="w-10 h-10 mx-auto mb-3 text-gray-300" />
-                  <p className="text-sm text-gray-500">No connections configured</p>
-                  <p className="text-xs text-gray-400 mt-1">Add an HR provider connection to sync employee data</p>
+                  <Globe className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p className="text-sm font-medium text-gray-600">No connections configured</p>
+                  <p className="text-xs text-gray-400 mt-1 max-w-sm mx-auto">
+                    Add GreytHR, Workday, or BambooHR for auto-sync. Use Manual for CSV import.
+                  </p>
                   <button onClick={() => setShowConnectionForm(true)}
-                    className="mt-3 text-xs bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700">
-                    Add Connection
+                    className="mt-4 text-xs bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                    Add Your First Connection
                   </button>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {connections.map(conn => (
-                    <div key={conn.id}
-                      className={`bg-white border rounded-xl p-4 transition-all cursor-pointer ${
-                        activeConnId === conn.id ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                      onClick={() => setActiveConnId(conn.id)}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-3">
-                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                            conn.isActive ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'
-                          }`}>
-                            <Globe className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-semibold text-gray-900">{conn.connectionName}</h4>
-                            <p className="text-[10px] text-gray-500 mt-0.5">{conn.providerType} • {conn.baseUrl}</p>
-                            <div className="flex items-center gap-3 mt-1.5">
-                              <span className="text-[10px] text-gray-400 flex items-center gap-1">
-                                <Users className="w-3 h-3" /> {conn.employeeCount} employees
-                              </span>
-                              <span className="text-[10px] text-gray-400 flex items-center gap-1">
-                                <Building2 className="w-3 h-3" /> {conn.departmentCount} departments
-                              </span>
-                              {conn.lastSyncAt && (
-                                <span className="text-[10px] text-gray-400 flex items-center gap-1">
-                                  <Clock className="w-3 h-3" /> Last sync: {new Date(conn.lastSyncAt).toLocaleString()}
+                <div className="space-y-4">
+                  {connections.map(conn => {
+                    const isExpanded = activeConnId === conn.id
+                    const isApiProvider = conn.providerType !== 'Manual'
+                    
+                    return (
+                      <div key={conn.id} className={`bg-white border rounded-xl overflow-hidden transition-all ${
+                        isExpanded ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-200 hover:border-gray-300'
+                      }`}>
+                        {/* Connection Header */}
+                        <div className="p-4 cursor-pointer" onClick={() => setActiveConnId(isExpanded ? '' : conn.id)}>
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-start gap-3">
+                              <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${
+                                isApiProvider 
+                                  ? 'bg-gradient-to-br from-violet-500 to-purple-600 text-white' 
+                                  : 'bg-gradient-to-br from-gray-400 to-gray-500 text-white'
+                              }`}>
+                                {isApiProvider ? <RefreshCw className="w-5 h-5" /> : <Upload className="w-5 h-5" />}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h4 className="text-sm font-semibold text-gray-900">{conn.connectionName}</h4>
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                                    isApiProvider ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-600'
+                                  }`}>
+                                    {isApiProvider ? 'API Sync' : 'Manual Import'}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-gray-500 mt-0.5">{conn.providerType} • {conn.baseUrl || 'No URL'}</p>
+                                <div className="flex items-center gap-3 mt-1.5">
+                                  <span className="text-[10px] text-gray-400 flex items-center gap-1">
+                                    <Users className="w-3 h-3" /> {conn.employeeCount} employees
+                                  </span>
+                                  <span className="text-[10px] text-gray-400 flex items-center gap-1">
+                                    <Building2 className="w-3 h-3" /> {conn.departmentCount} departments
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {conn.lastSyncStatus && (
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                                  conn.lastSyncStatus === 'Success' ? 'bg-green-100 text-green-700' :
+                                  conn.lastSyncStatus === 'Failed' ? 'bg-red-100 text-red-700' :
+                                  'bg-amber-100 text-amber-700'
+                                }`}>
+                                  {conn.lastSyncStatus}
                                 </span>
                               )}
+                              <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                            conn.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                          }`}>
-                            {conn.isActive ? 'Active' : 'Inactive'}
-                          </span>
-                          {conn.lastSyncStatus && (
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                              conn.lastSyncStatus === 'Success' ? 'bg-green-50 text-green-600' :
-                              conn.lastSyncStatus === 'Failed' ? 'bg-red-50 text-red-600' :
-                              'bg-amber-50 text-amber-600'
-                            }`}>
-                              {conn.lastSyncStatus}
-                            </span>
-                          )}
-                          <button onClick={(e) => { e.stopPropagation(); handleDeleteConnection(conn.id) }}
-                            className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
 
-                      {/* Test Connection Section (inline for active) */}
-                      {activeConnId === conn.id && (
-                        <div className="mt-3 pt-3 border-t border-gray-100">
-                          <div className="flex items-center gap-3">
-                            <button onClick={handleTestConnection} disabled={testing}
-                              className="flex items-center gap-1.5 text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg disabled:opacity-50">
-                              {testing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
-                              Test Connection
-                            </button>
-                            {testResult && (
-                              <div className={`flex items-center gap-1.5 text-xs ${testResult.success ? 'text-green-600' : 'text-red-600'}`}>
-                                {testResult.success ? <CheckCircle className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
-                                {testResult.message}
+                        {/* Expanded Panel - Different for API vs Manual */}
+                        {isExpanded && (
+                          <div className="border-t border-gray-100">
+                            {isApiProvider ? (
+                              /* =========== API PROVIDER (GreytHR, Workday, BambooHR) =========== */
+                              <div className="p-4 space-y-4">
+                                {/* Sync Actions */}
+                                <div className="bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 rounded-xl p-4">
+                                  <div className="flex items-center justify-between mb-3">
+                                    <div>
+                                      <h5 className="text-xs font-semibold text-violet-900 flex items-center gap-1.5">
+                                        <RefreshCw className="w-3.5 h-3.5" /> Real-time Sync from {conn.providerType}
+                                      </h5>
+                                      <p className="text-[10px] text-violet-600 mt-0.5">
+                                        Pull employees & departments from {conn.providerType} API
+                                      </p>
+                                    </div>
+                                    <button 
+                                      onClick={handleSyncFromProvider} 
+                                      disabled={syncing}
+                                      className="flex items-center gap-1.5 text-xs bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg disabled:opacity-50 shadow-sm"
+                                    >
+                                      {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                                      Sync Now
+                                    </button>
+                                  </div>
+                                  
+                                  {/* Test + Sync Result */}
+                                  <div className="flex items-center gap-3 pt-2 border-t border-violet-200/50">
+                                    <button onClick={handleTestConnection} disabled={testing}
+                                      className="flex items-center gap-1.5 text-[10px] text-violet-700 hover:bg-violet-100 px-2 py-1 rounded disabled:opacity-50">
+                                      {testing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+                                      Test Connection
+                                    </button>
+                                    {testResult && (
+                                      <span className={`text-[10px] flex items-center gap-1 ${testResult.success ? 'text-green-600' : 'text-red-600'}`}>
+                                        {testResult.success ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                                        {testResult.message}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {syncResult && (
+                                    <div className={`mt-3 p-3 rounded-lg text-xs ${syncResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                                      <div className={`font-medium flex items-center gap-1.5 ${syncResult.success ? 'text-green-700' : 'text-red-700'}`}>
+                                        {syncResult.success ? <CheckCircle className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                                        {syncResult.message}
+                                      </div>
+                                      {syncResult.success && (
+                                        <div className="mt-2 grid grid-cols-2 gap-2 text-[10px]">
+                                          <div className="bg-white rounded px-2 py-1 border border-green-200">
+                                            <span className="text-green-700 font-semibold">{syncResult.departmentsCreated}</span> depts created,{' '}
+                                            <span className="text-blue-700 font-semibold">{syncResult.departmentsUpdated}</span> updated
+                                          </div>
+                                          <div className="bg-white rounded px-2 py-1 border border-green-200">
+                                            <span className="text-green-700 font-semibold">{syncResult.employeesCreated}</span> employees created,{' '}
+                                            <span className="text-blue-700 font-semibold">{syncResult.employeesUpdated}</span> updated
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Quick Actions */}
+                                <div className="grid grid-cols-3 gap-3">
+                                  <button onClick={() => setSettingsTab('mapping')}
+                                    className="bg-white border border-gray-200 rounded-lg p-3 text-left hover:border-gray-300 hover:bg-gray-50 transition-colors">
+                                    <ArrowRightLeft className="w-4 h-4 text-purple-500 mb-1" />
+                                    <p className="text-xs font-medium text-gray-800">Field Mapping</p>
+                                    <p className="text-[10px] text-gray-400">Configure mappings</p>
+                                  </button>
+                                  <button onClick={() => setSettingsTab('logs')}
+                                    className="bg-white border border-gray-200 rounded-lg p-3 text-left hover:border-gray-300 hover:bg-gray-50 transition-colors">
+                                    <History className="w-4 h-4 text-blue-500 mb-1" />
+                                    <p className="text-xs font-medium text-gray-800">Sync History</p>
+                                    <p className="text-[10px] text-gray-400">{syncLogs.length} logs</p>
+                                  </button>
+                                  <button onClick={(e) => { e.stopPropagation(); handleDeleteConnection(conn.id) }}
+                                    className="bg-white border border-red-200 rounded-lg p-3 text-left hover:border-red-300 hover:bg-red-50 transition-colors">
+                                    <Trash2 className="w-4 h-4 text-red-500 mb-1" />
+                                    <p className="text-xs font-medium text-red-700">Delete</p>
+                                    <p className="text-[10px] text-red-400">Remove</p>
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              /* =========== MANUAL PROVIDER =========== */
+                              <div className="p-4 space-y-4">
+                                {/* CSV Import */}
+                                <div className="bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200 rounded-xl p-4">
+                                  <h5 className="text-xs font-semibold text-gray-800 flex items-center gap-1.5 mb-3">
+                                    <Upload className="w-3.5 h-3.5" /> Import Employees from CSV
+                                  </h5>
+                                  
+                                  <div
+                                    className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                                      dragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-gray-400 bg-white'
+                                    }`}
+                                    onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+                                    onDragLeave={() => setDragOver(false)}
+                                    onDrop={handleFileDrop}
+                                  >
+                                    {importing ? (
+                                      <div className="flex flex-col items-center gap-2">
+                                        <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+                                        <p className="text-xs text-gray-500">Importing...</p>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <Upload className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                                        <p className="text-sm text-gray-600">Drag & drop CSV here</p>
+                                        <input ref={fileInputRef} type="file" accept=".csv" className="hidden"
+                                          onChange={e => { const f = e.target.files?.[0]; if (f) handleCsvImport(f) }} />
+                                        <button onClick={() => fileInputRef.current?.click()}
+                                          className="mt-3 text-xs bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700">
+                                          Browse Files
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+
+                                  {importResult && (
+                                    <div className={`mt-3 p-3 rounded-lg text-xs ${
+                                      importResult.failed > 0 ? 'bg-amber-50 border border-amber-200' :
+                                      importResult.created > 0 || importResult.updated > 0 ? 'bg-green-50 border border-green-200' :
+                                      'bg-red-50 border border-red-200'
+                                    }`}>
+                                      <p className="font-medium">{importResult.message}</p>
+                                      {(importResult.created > 0 || importResult.updated > 0) && (
+                                        <div className="flex gap-4 mt-1.5 text-[10px]">
+                                          <span className="text-green-700">{importResult.created} created</span>
+                                          <span className="text-blue-700">{importResult.updated} updated</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Manual Entry & Export */}
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div className="bg-white border border-gray-200 rounded-lg p-3">
+                                    <h6 className="text-xs font-semibold text-gray-800 mb-2 flex items-center gap-1.5">
+                                      <UserPlus className="w-3.5 h-3.5 text-green-500" /> Manual Entry
+                                    </h6>
+                                    <div className="space-y-1.5">
+                                      <button onClick={() => setShowAddEmployee(true)}
+                                        className="w-full text-left text-xs px-3 py-1.5 rounded bg-green-50 hover:bg-green-100 text-green-700 flex items-center gap-1.5">
+                                        <Plus className="w-3 h-3" /> Add Employee
+                                      </button>
+                                      <button onClick={() => setShowAddDept(true)}
+                                        className="w-full text-left text-xs px-3 py-1.5 rounded bg-purple-50 hover:bg-purple-100 text-purple-700 flex items-center gap-1.5">
+                                        <Plus className="w-3 h-3" /> Add Department
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="bg-white border border-gray-200 rounded-lg p-3">
+                                    <h6 className="text-xs font-semibold text-gray-800 mb-2 flex items-center gap-1.5">
+                                      <Download className="w-3.5 h-3.5 text-blue-500" /> Export & Templates
+                                    </h6>
+                                    <div className="space-y-1.5">
+                                      <a href={hrService.getExportCsvUrl()} download
+                                        className="w-full text-left text-xs px-3 py-1.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 flex items-center gap-1.5">
+                                        <Download className="w-3 h-3" /> Export Employees
+                                      </a>
+                                      <a href={hrService.downloadCsvTemplate()} download
+                                        className="w-full text-left text-xs px-3 py-1.5 rounded bg-gray-50 hover:bg-gray-100 text-gray-700 flex items-center gap-1.5">
+                                        <FileText className="w-3 h-3" /> Download Template
+                                      </a>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Quick Actions */}
+                                <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+                                  <button onClick={() => setSettingsTab('mapping')}
+                                    className="text-[10px] text-gray-500 hover:text-gray-700 flex items-center gap-1">
+                                    <ArrowRightLeft className="w-3 h-3" /> Field Mapping
+                                  </button>
+                                  <span className="text-gray-300">|</span>
+                                  <button onClick={() => setSettingsTab('logs')}
+                                    className="text-[10px] text-gray-500 hover:text-gray-700 flex items-center gap-1">
+                                    <History className="w-3 h-3" /> Import History
+                                  </button>
+                                  <span className="text-gray-300">|</span>
+                                  <button onClick={(e) => { e.stopPropagation(); handleDeleteConnection(conn.id) }}
+                                    className="text-[10px] text-red-500 hover:text-red-700 flex items-center gap-1">
+                                    <Trash2 className="w-3 h-3" /> Delete
+                                  </button>
+                                </div>
                               </div>
                             )}
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ---- FIELD MAPPING VIEW ---- */}
+          {settingsTab === 'mapping' && (
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                <h3 className="text-xs font-semibold text-gray-900 flex items-center gap-1.5">
+                  <ArrowRightLeft className="w-3.5 h-3.5 text-purple-500" /> Field Mapping
+                </h3>
+              </div>
+              <div className="p-4">
+                <p className="text-xs text-gray-500 mb-3">Map provider fields to ProdVista fields</p>
+                <div className="space-y-2">
+                  {Object.entries(fieldMapping).map(([field, label]) => (
+                    <div key={field} className="flex items-center gap-3">
+                      <code className="bg-gray-100 px-2 py-1 rounded text-[10px] text-gray-700 w-32">{field}</code>
+                      <span className="text-gray-400">→</span>
+                      <input type="text" value={label}
+                        onChange={e => setFieldMapping(prev => ({ ...prev, [field]: e.target.value }))}
+                        className="flex-1 text-xs border border-gray-200 rounded px-3 py-1.5" />
                     </div>
                   ))}
                 </div>
-              )}
-
-              {/* Departments fetched after test connection */}
-              {(connectionDepts.length > 0 || fetchingDepts) && activeConnId && testResult?.success && (
-                <div className="bg-white border border-green-200 rounded-xl overflow-hidden">
-                  <div className="px-4 py-3 border-b border-green-100 bg-green-50/50 flex items-center justify-between">
-                    <h3 className="text-xs font-semibold text-gray-900 flex items-center gap-1.5">
-                      <Building2 className="w-3.5 h-3.5 text-green-600" />
-                      Departments Found ({connectionDepts.length})
-                    </h3>
-                    {fetchingDepts && <Loader2 className="w-3.5 h-3.5 animate-spin text-green-500" />}
-                  </div>
-                  <div className="p-4 space-y-3">
-                    {/* Department filter dropdown */}
-                    <div>
-                      <label className="text-xs font-medium text-gray-700 mb-1 block">Select Department to Filter</label>
-                      <select
-                        value={selectedDept}
-                        onChange={e => setSelectedDept(e.target.value)}
-                        className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-green-500"
-                      >
-                        <option value="">All Departments</option>
-                        {connectionDepts.map(d => (
-                          <option key={d.departmentCode} value={d.departmentCode}>
-                            {d.departmentName} ({d.actualCount} employees)
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-[10px] text-gray-400 mt-1">This filters employees, birthdays, and overview across all views</p>
-                    </div>
-
-                    {/* Department list */}
-                    <div className="space-y-1 max-h-48 overflow-y-auto">
-                      {connectionDepts.map(d => (
-                        <button
-                          key={d.departmentCode}
-                          onClick={() => { setSelectedDept(d.departmentCode); setView('department'); loadDeptSummary(d.departmentCode) }}
-                          className={`w-full flex items-center justify-between text-[10px] py-1.5 px-2.5 rounded-lg transition-colors text-left ${
-                            selectedDept === d.departmentCode ? 'bg-green-100 border border-green-300 text-green-800' : 'hover:bg-gray-50 text-gray-700'
-                          }`}
-                        >
-                          <span className="flex items-center gap-1.5">
-                            <Building2 className="w-3 h-3 flex-shrink-0" />
-                            {d.departmentName} <span className="text-gray-400">({d.departmentCode})</span>
-                          </span>
-                          <span className="flex items-center gap-1 text-gray-400">
-                            <Users className="w-3 h-3" />{d.actualCount}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Quick action */}
-                    {selectedDept && (
-                      <button
-                        onClick={() => setView('overview')}
-                        className="w-full flex items-center justify-center gap-1.5 text-xs bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-                      >
-                        <ChevronRight className="w-3.5 h-3.5" />
-                        View {departments.find(d => d.departmentCode === selectedDept)?.departmentName || selectedDept} Portal
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Departments & Employees Quick Management */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-white border border-gray-200 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xs font-semibold text-gray-900 flex items-center gap-1.5">
-                      <Building2 className="w-3.5 h-3.5 text-purple-500" /> Departments ({departments.length})
-                    </h3>
-                    <button onClick={() => setShowAddDept(true)} className="text-[10px] text-purple-600 hover:underline flex items-center gap-0.5">
-                      <Plus className="w-3 h-3" /> Add
-                    </button>
-                  </div>
-                  <div className="space-y-1 max-h-48 overflow-y-auto">
-                    {departments.map(d => (
-                      <div key={d.departmentCode} className="flex items-center justify-between text-[10px] py-1 px-2 rounded hover:bg-gray-50">
-                        <span className="text-gray-700">{d.departmentName} <span className="text-gray-400">({d.departmentCode})</span></span>
-                        <span className="text-gray-400">{d.actualCount}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="bg-white border border-gray-200 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xs font-semibold text-gray-900 flex items-center gap-1.5">
-                      <Users className="w-3.5 h-3.5 text-green-500" /> Employees
-                    </h3>
-                    <button onClick={() => setShowAddEmployee(true)} className="text-[10px] text-green-600 hover:underline flex items-center gap-0.5">
-                      <Plus className="w-3 h-3" /> Add
-                    </button>
-                  </div>
-                  <p className="text-xs text-gray-500">{stats?.totalEmployees ?? 0} employees across {stats?.departments ?? 0} departments</p>
-                  <p className="text-[10px] text-gray-400 mt-1">Use Employee Directory tab or Import/Export for bulk operations</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ---- SYNC SETTINGS TAB ---- */}
-          {settingsTab === 'sync' && (
-            <div className="space-y-4">
-              {!activeConnId ? (
-                <div className="bg-white border border-dashed border-gray-300 rounded-xl p-8 text-center">
-                  <Settings className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm text-gray-500">Select a connection first</p>
-                  <p className="text-xs text-gray-400 mt-1">Go to Connections tab to create or select one</p>
-                </div>
-              ) : syncSettings ? (
-                <>
-                  {/* Active Connection Indicator */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 flex items-center gap-2">
-                    <Globe className="w-4 h-4 text-blue-500" />
-                    <span className="text-xs font-medium text-blue-800">
-                      {connections.find(c => c.id === activeConnId)?.connectionName || 'Connection'}
-                    </span>
-                    {syncSettings.lastSyncAt && (
-                      <span className="text-[10px] text-blue-600 ml-auto">
-                        Last synced: {new Date(syncSettings.lastSyncAt).toLocaleString()}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Auto-Sync Toggle */}
-                  <div className="bg-white border border-gray-200 rounded-xl p-4">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-1.5">
-                      <RefreshCw className="w-4 h-4 text-blue-500" /> Automatic Sync
-                    </h3>
-                    <div className="space-y-3">
-                      <label className="flex items-center justify-between">
-                        <span className="text-xs text-gray-700">Enable automatic synchronization</span>
-                        <button
-                          onClick={() => setSyncSettings(prev => prev ? { ...prev, autoSyncEnabled: !prev.autoSyncEnabled } : prev)}
-                          className={`relative w-10 h-5 rounded-full transition-colors ${syncSettings.autoSyncEnabled ? 'bg-blue-600' : 'bg-gray-300'}`}
-                        >
-                          <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform shadow-sm ${
-                            syncSettings.autoSyncEnabled ? 'translate-x-5' : 'translate-x-0.5'
-                          }`} />
-                        </button>
-                      </label>
-
-                      {syncSettings.autoSyncEnabled && (
-                        <div className="pl-0 space-y-3">
-                          <div>
-                            <label className="text-xs font-medium text-gray-700 mb-1 block">Sync Interval</label>
-                            <select
-                              value={syncSettings.syncIntervalMinutes}
-                              onChange={e => setSyncSettings(prev => prev ? { ...prev, syncIntervalMinutes: Number(e.target.value) } : prev)}
-                              className="text-xs border border-gray-200 rounded px-3 py-1.5 w-full"
-                            >
-                              <option value={60}>Every hour</option>
-                              <option value={360}>Every 6 hours</option>
-                              <option value={720}>Every 12 hours</option>
-                              <option value={1440}>Every 24 hours</option>
-                              <option value={10080}>Weekly</option>
-                            </select>
-                          </div>
-                          {syncSettings.nextSyncAt && (
-                            <p className="text-[10px] text-gray-400 flex items-center gap-1">
-                              <Clock className="w-3 h-3" /> Next sync: {new Date(syncSettings.nextSyncAt).toLocaleString()}
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* What to Sync */}
-                  <div className="bg-white border border-gray-200 rounded-xl p-4">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-1.5">
-                      <PlayCircle className="w-4 h-4 text-green-500" /> Sync Options
-                    </h3>
-                    <div className="space-y-2">
-                      {[
-                        { key: 'syncEmployees' as const, label: 'Sync employees', desc: 'Import employee records from HR provider' },
-                        { key: 'syncDepartments' as const, label: 'Sync departments', desc: 'Import department structure' },
-                        { key: 'syncOnlyActive' as const, label: 'Active employees only', desc: 'Skip inactive/terminated employees' },
-                        { key: 'overwriteManualEdits' as const, label: 'Overwrite manual edits', desc: 'Replace manually edited fields on sync' },
-                      ].map(opt => (
-                        <label key={opt.key} className="flex items-start gap-3 py-1.5 px-2 rounded hover:bg-gray-50 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={syncSettings[opt.key]}
-                            onChange={() => setSyncSettings(prev => prev ? { ...prev, [opt.key]: !prev[opt.key] } : prev)}
-                            className="mt-0.5 rounded"
-                          />
-                          <div>
-                            <p className="text-xs font-medium text-gray-700">{opt.label}</p>
-                            <p className="text-[10px] text-gray-400">{opt.desc}</p>
-                          </div>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Save Button */}
-                  <button onClick={handleSaveSyncSettings} disabled={savingSync}
-                    className="flex items-center gap-1.5 text-xs bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                    {savingSync ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                    Save Sync Settings
-                  </button>
-                </>
-              ) : (
-                <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-blue-500" /></div>
-              )}
-            </div>
-          )}
-
-          {/* ---- IMPORT / EXPORT TAB ---- */}
-          {settingsTab === 'import' && (
-            <div className="space-y-4">
-              {/* CSV Import */}
-              <div className="bg-white border border-gray-200 rounded-xl p-4">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-1.5">
-                  <Upload className="w-4 h-4 text-blue-500" /> Import Employees from CSV
-                </h3>
-
-                {/* Drop Zone */}
-                <div
-                  className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                    dragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                  onDragOver={e => { e.preventDefault(); setDragOver(true) }}
-                  onDragLeave={() => setDragOver(false)}
-                  onDrop={handleFileDrop}
-                >
-                  {importing ? (
-                    <div className="flex flex-col items-center gap-2">
-                      <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-                      <p className="text-xs text-gray-500">Importing...</p>
-                    </div>
-                  ) : (
-                    <>
-                      <Upload className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                      <p className="text-sm text-gray-600">Drag & drop a CSV file here</p>
-                      <p className="text-xs text-gray-400 mt-1">or</p>
-                      <input ref={fileInputRef} type="file" accept=".csv" className="hidden"
-                        onChange={e => { const f = e.target.files?.[0]; if (f) handleCsvImport(f) }} />
-                      <button onClick={() => fileInputRef.current?.click()}
-                        className="mt-2 text-xs bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700">
-                        Browse Files
-                      </button>
-                    </>
-                  )}
-                </div>
-
-                {/* Import Result */}
-                {importResult && (
-                  <div className={`mt-3 p-3 rounded-lg text-xs ${
-                    importResult.failed > 0 ? 'bg-amber-50 border border-amber-200' :
-                    importResult.created > 0 || importResult.updated > 0 ? 'bg-green-50 border border-green-200' :
-                    'bg-red-50 border border-red-200'
-                  }`}>
-                    <p className="font-medium">{importResult.message}</p>
-                    {(importResult.created > 0 || importResult.updated > 0) && (
-                      <div className="flex gap-4 mt-1.5 text-[10px]">
-                        <span className="text-green-700">{importResult.created} created</span>
-                        <span className="text-blue-700">{importResult.updated} updated</span>
-                        {importResult.failed > 0 && <span className="text-red-700">{importResult.failed} failed</span>}
-                      </div>
-                    )}
-                    {importResult.errors.length > 0 && (
-                      <div className="mt-2 space-y-0.5">
-                        {importResult.errors.slice(0, 5).map((err, i) => (
-                          <p key={i} className="text-[10px] text-red-600"><AlertTriangle className="w-3 h-3 inline mr-1" />{err}</p>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* CSV Template & Export */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-white border border-gray-200 rounded-xl p-4">
-                  <h3 className="text-xs font-semibold text-gray-900 mb-2 flex items-center gap-1.5">
-                    <FileText className="w-3.5 h-3.5 text-gray-500" /> CSV Template
-                  </h3>
-                  <p className="text-[10px] text-gray-400 mb-3">Download a sample CSV with the expected column headers</p>
-                  <a href={hrService.downloadCsvTemplate()} download
-                    className="flex items-center gap-1.5 text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg w-fit">
-                    <Download className="w-3 h-3" /> Download Template
-                  </a>
-                </div>
-                <div className="bg-white border border-gray-200 rounded-xl p-4">
-                  <h3 className="text-xs font-semibold text-gray-900 mb-2 flex items-center gap-1.5">
-                    <Download className="w-3.5 h-3.5 text-green-500" /> Export Employees
-                  </h3>
-                  <p className="text-[10px] text-gray-400 mb-3">Download all employee data as CSV</p>
-                  <a href={hrService.getExportCsvUrl()} download
-                    className="flex items-center gap-1.5 text-xs bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1.5 rounded-lg w-fit">
-                    <Download className="w-3 h-3" /> Export All Employees
-                  </a>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ---- FIELD MAPPING TAB ---- */}
-          {settingsTab === 'mapping' && (
-            <div className="space-y-4">
-              {!activeConnId ? (
-                <div className="bg-white border border-dashed border-gray-300 rounded-xl p-8 text-center">
-                  <ArrowRightLeft className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm text-gray-500">Select a connection first</p>
-                </div>
-              ) : (
-                <>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 flex items-center gap-2">
-                    <ArrowRightLeft className="w-4 h-4 text-blue-500" />
-                    <span className="text-xs font-medium text-blue-800">
-                      Field Mapping for: {connections.find(c => c.id === activeConnId)?.connectionName}
-                    </span>
-                  </div>
-
-                  <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                    <div className="px-4 py-2.5 border-b border-gray-100 bg-gray-50">
-                      <div className="grid grid-cols-2 gap-4">
-                        <span className="text-xs font-semibold text-gray-600">Internal Field</span>
-                        <span className="text-xs font-semibold text-gray-600">CSV / Provider Column Label</span>
-                      </div>
-                    </div>
-                    <div className="divide-y divide-gray-100">
-                      {Object.entries(fieldMapping).map(([field, label]) => (
-                        <div key={field} className="grid grid-cols-2 gap-4 px-4 py-2 hover:bg-gray-50">
-                          <div className="text-xs text-gray-700 flex items-center gap-1.5">
-                            <code className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px]">{field}</code>
-                          </div>
-                          <input
-                            type="text"
-                            value={label}
-                            onChange={e => setFieldMapping(prev => ({ ...prev, [field]: e.target.value }))}
-                            className="text-xs border border-gray-200 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <button onClick={handleSaveFieldMapping} disabled={savingMapping}
-                    className="flex items-center gap-1.5 text-xs bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                    {savingMapping ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                    Save Field Mapping
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* ---- SYNC LOGS TAB ---- */}
-          {settingsTab === 'logs' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
-                  <History className="w-4 h-4 text-gray-500" /> Sync History
-                </h2>
-                <button onClick={() => hrService.getSyncLogs({ connectionId: activeConnId || undefined, count: 50 }).then(setSyncLogs).catch(() => {})}
-                  className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
-                  <RefreshCw className="w-3 h-3" /> Refresh
+                <button onClick={handleSaveFieldMapping} disabled={savingMapping}
+                  className="mt-4 flex items-center gap-1.5 text-xs bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50">
+                  {savingMapping ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  Save Mapping
                 </button>
               </div>
+            </div>
+          )}
 
+          {/* ---- SYNC HISTORY VIEW ---- */}
+          {settingsTab === 'logs' && (
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                <h3 className="text-xs font-semibold text-gray-900 flex items-center gap-1.5">
+                  <History className="w-3.5 h-3.5 text-blue-500" /> Sync History
+                </h3>
+              </div>
               {syncLogs.length === 0 ? (
-                <div className="bg-white border border-dashed border-gray-300 rounded-xl p-8 text-center">
+                <div className="p-8 text-center">
                   <History className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm text-gray-500">No sync history yet</p>
-                  <p className="text-xs text-gray-400 mt-1">Import data or configure auto-sync to see history</p>
+                  <p className="text-xs text-gray-500">No sync history yet</p>
                 </div>
               ) : (
-                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>
-                        <th className="text-left px-3 py-2 font-medium text-gray-600">Time</th>
-                        <th className="text-left px-3 py-2 font-medium text-gray-600">Type</th>
-                        <th className="text-left px-3 py-2 font-medium text-gray-600">Status</th>
-                        <th className="text-left px-3 py-2 font-medium text-gray-600">Records</th>
-                        <th className="text-left px-3 py-2 font-medium text-gray-600">Duration</th>
-                        <th className="text-left px-3 py-2 font-medium text-gray-600">Triggered By</th>
-                        <th className="text-left px-3 py-2 font-medium text-gray-600">Error</th>
+                        <th className="text-left px-4 py-2 font-medium text-gray-600">Type</th>
+                        <th className="text-left px-4 py-2 font-medium text-gray-600">Status</th>
+                        <th className="text-left px-4 py-2 font-medium text-gray-600">Records</th>
+                        <th className="text-left px-4 py-2 font-medium text-gray-600">Started</th>
+                        <th className="text-left px-4 py-2 font-medium text-gray-600">Duration</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {syncLogs.map(log => (
                         <tr key={log.id} className="hover:bg-gray-50">
-                          <td className="px-3 py-2 text-gray-700 whitespace-nowrap">{new Date(log.startedAt).toLocaleString()}</td>
-                          <td className="px-3 py-2">
-                            <span className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded text-[10px] font-medium">
-                              {log.syncType}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2">
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                              log.status === 'Success' ? 'bg-green-50 text-green-700' :
-                              log.status === 'Failed' ? 'bg-red-50 text-red-700' :
-                              log.status === 'InProgress' ? 'bg-blue-50 text-blue-700' :
-                              'bg-amber-50 text-amber-700'
+                          <td className="px-4 py-2 text-gray-900">{log.syncType}</td>
+                          <td className="px-4 py-2">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                              log.status === 'Success' ? 'bg-green-100 text-green-700' :
+                              log.status === 'Failed' ? 'bg-red-100 text-red-700' :
+                              'bg-amber-100 text-amber-700'
                             }`}>
                               {log.status}
                             </span>
                           </td>
-                          <td className="px-3 py-2">
-                            <span className="text-gray-600">{log.recordsProcessed}</span>
-                            <span className="text-[10px] text-gray-400 ml-1">
-                              ({log.recordsCreated}+ {log.recordsUpdated}~{log.recordsFailed > 0 ? ` ${log.recordsFailed}!` : ''})
-                            </span>
+                          <td className="px-4 py-2 text-gray-600">
+                            <span className="text-green-600">+{log.recordsCreated}</span>{' / '}
+                            <span className="text-blue-600">~{log.recordsUpdated}</span>
                           </td>
-                          <td className="px-3 py-2 text-gray-500">
-                            {log.duration != null ? `${log.duration.toFixed(1)}s` : '—'}
-                          </td>
-                          <td className="px-3 py-2 text-gray-500">{log.triggeredBy || '—'}</td>
-                          <td className="px-3 py-2 text-red-500 truncate max-w-[200px]" title={log.errorMessage || ''}>
-                            {log.errorMessage || '—'}
-                          </td>
+                          <td className="px-4 py-2 text-gray-500">{new Date(log.startedAt).toLocaleString()}</td>
+                          <td className="px-4 py-2 text-gray-500">{log.duration ? `${log.duration.toFixed(1)}s` : '—'}</td>
                         </tr>
                       ))}
                     </tbody>

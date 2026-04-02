@@ -6,6 +6,8 @@ import {
   ExternalLink, Wifi, WifiOff
 } from 'lucide-react';
 import clsx from 'clsx';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import api from '../services/api';
 import { useAIChatHub, ChatStreamToken, HistoryMessage } from '../hooks/useAIChatHub';
 
@@ -528,7 +530,7 @@ export function AIChatAssistant({ className }: AIChatAssistantProps) {
             
             <div
               className={clsx(
-                'max-w-[80%] px-4 py-2 rounded-2xl',
+                'max-w-[85%] px-4 py-2 rounded-2xl overflow-hidden',
                 message.role === 'user'
                   ? 'bg-blue-600 text-white rounded-br-sm'
                   : message.isError
@@ -536,12 +538,29 @@ export function AIChatAssistant({ className }: AIChatAssistantProps) {
                     : 'bg-gray-100 dark:bg-slate-800 text-gray-800 dark:text-slate-200 rounded-bl-sm'
               )}
             >
-              <p className="text-sm whitespace-pre-wrap">
-                {message.content}
-                {message.isStreaming && message.content && (
-                  <span className="inline-block w-1.5 h-4 ml-0.5 bg-gradient-to-t from-blue-500 to-indigo-500 rounded-sm animate-pulse" />
-                )}
-              </p>
+              {message.role === 'user' ? (
+                <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+              ) : (
+                <div className="text-sm prose prose-sm dark:prose-invert max-w-none break-words
+                  prose-p:my-1 prose-p:leading-relaxed
+                  prose-headings:mt-3 prose-headings:mb-1 prose-headings:font-semibold
+                  prose-h1:text-base prose-h2:text-sm prose-h3:text-sm
+                  prose-ul:my-1 prose-ul:pl-4 prose-ol:my-1 prose-ol:pl-4
+                  prose-li:my-0.5
+                  prose-code:bg-gray-200 dark:prose-code:bg-slate-700 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:before:content-none prose-code:after:content-none
+                  prose-pre:bg-gray-900 dark:prose-pre:bg-slate-950 prose-pre:p-3 prose-pre:rounded-lg prose-pre:overflow-x-auto prose-pre:my-2
+                  prose-table:text-xs prose-th:px-2 prose-th:py-1 prose-td:px-2 prose-td:py-1
+                  prose-a:text-blue-500 hover:prose-a:text-blue-600
+                  prose-blockquote:border-l-2 prose-blockquote:border-blue-400 prose-blockquote:pl-3 prose-blockquote:italic prose-blockquote:my-2
+                ">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {message.content}
+                  </ReactMarkdown>
+                  {message.isStreaming && message.content && (
+                    <span className="inline-block w-1.5 h-4 ml-0.5 bg-gradient-to-t from-blue-500 to-indigo-500 rounded-sm animate-pulse" />
+                  )}
+                </div>
+              )}
               {!message.isStreaming && (
                 <p className={clsx(
                   'text-[10px] mt-1',

@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { AzureAuthProvider } from './context/AzureAuthContext'
+import { PersistentChatProvider } from './context/PersistentChatContext'
 import { ManagerRoute, OrgRoute, FeatureRoute } from './components/guards'
 import { ErrorBoundary, LoadingSpinner } from './components/shared'
 import Layout from './components/Layout'
@@ -41,6 +42,7 @@ const InternalDashboardPage = lazy(() => import('./pages/InternalDashboardPage')
 const ToolsPage = lazy(() => import('./pages/ToolsPage'))
 const HrSetupPage = lazy(() => import('./pages/HrSetupPage'))
 const ProductionCustomersPage = lazy(() => import('./pages/ProductionCustomersPage'))
+const DataFeedPage = lazy(() => import('./pages/DataFeedPage'))
 const ManagerSettingsPage = lazy(() => import('./pages/ManagerSettings'))
 const UserManagement = lazy(() => import('./pages/UserManagement'))
 const TenantAdminPage = lazy(() => import('./pages/TenantAdminPage'))
@@ -97,6 +99,7 @@ function AppRoutes() {
         <Route path="observability" element={<ObservabilityDashboardPage />} />
         <Route path="internal" element={<InternalDashboardPage />} />
         <Route path="tools" element={<ToolsPage />} />
+        <Route path="data-feed" element={<DataFeedPage />} />
         <Route path="hr-setup" element={<HrSetupPage />} />
         <Route path="production-customers" element={<ProductionCustomersPage />} />
         
@@ -119,9 +122,11 @@ function App() {
       <AuthProvider>
         <AzureAuthProvider>
           <BrowserRouter>
-            <Suspense fallback={<LoadingSpinner label="Loading..." />}>
-              <AppRoutes />
-            </Suspense>
+            <PersistentChatProvider>
+              <Suspense fallback={<LoadingSpinner label="Loading..." />}>
+                <AppRoutes />
+              </Suspense>
+            </PersistentChatProvider>
           </BrowserRouter>
         </AzureAuthProvider>
       </AuthProvider>

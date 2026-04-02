@@ -124,6 +124,16 @@ const tools: ToolCard[] = [
     category: 'setup',
   },
   {
+    id: 'data-feed',
+    name: 'AI Data Feed',
+    description: 'Store service docs, DB schemas, and business rules for AI context',
+    icon: Database,
+    path: '/data-feed',
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-50 border-blue-200',
+    category: 'ai',
+  },
+  {
     id: 'production-customers',
     name: 'Production Customers',
     description: 'Region-based customer drill-down with version tracking and DevOps issue integration',

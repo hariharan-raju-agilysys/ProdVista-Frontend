@@ -382,6 +382,7 @@ function LazyWidgetRenderer({ config, summary, expandedWidget, setExpandedWidget
   switch (config.key) {
     case 'branches': return <LazyBranches expanded={expandedWidget === 'branches'} toggle={() => setExpandedWidget(expandedWidget === 'branches' ? null : 'branches')} />;
     case 'birthdays': return <BirthdaysWidget birthdays={summary?.birthdays || []} />;
+    case 'recentActivity': return <RecentActivityWidget data={summary?.devops?.recentActivity} />;
     case 'knowledge': return <LazyKnowledge onRefresh={onRefresh} />;
     case 'builds':    return <TodayBuildsWidget builds={summary?.devops?.todayBuilds?.builds || []} />;
     case 'jenkinsBuilds': return <LazyJenkinsBuilds expanded={expandedWidget === 'jenkinsBuilds'} toggle={() => setExpandedWidget(expandedWidget === 'jenkinsBuilds' ? null : 'jenkinsBuilds')} />;
@@ -953,6 +954,90 @@ function BirthdaysWidget({ birthdays }: { birthdays: BirthdayInfo[] }) {
           </div>
         ))}
       </div>
+    </Widget>
+  );
+}
+
+// ─────────────────────────────────────────
+// Recent Activity Widget (Last 48 hours)
+// ─────────────────────────────────────────
+
+interface RecentActivityData {
+  prsCreated: number;
+  prsCompleted: number;
+  recentPRs: Array<{
+    pullRequestId: number;
+    title: string;
+    status: string;
+    createdBy: string;
+    creationDate: string;
+    closedDate?: string;
+    sourceBranch: string;
+    targetBranch: string;
+    repositoryName: string;
+    url: string;
+  }>;
+}
+
+function RecentActivityWidget({ data }: { data: RecentActivityData | undefined }) {
+  const formatTimeAgo = (date: string) => {
+    const d = new Date(date);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return 'just now';
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}h ago`;
+    const diffDay = Math.floor(diffHr / 24);
+    return `${diffDay}d ago`;
+  };
+
+  return (
+    <Widget title="Recent Activity (48h)" icon="⚡"
+      empty={!data || data.recentPRs.length === 0}
+      emptyText="No recent PR activity in the last 48 hours.">
+      {data && data.recentPRs.length > 0 && (
+        <>
+          <div className="flex gap-2 mb-2 text-[10px]">
+            <span className="px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-medium">
+              {data.prsCreated} PRs created
+            </span>
+            <span className="px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-medium">
+              {data.prsCompleted} PRs completed
+            </span>
+          </div>
+          <div className="space-y-1 max-h-48 overflow-y-auto">
+            {data.recentPRs.map(pr => (
+              <div key={pr.pullRequestId} className="flex items-start justify-between text-xs py-1.5 px-1.5 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50 border-l-2 border-transparent hover:border-purple-400">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
+                      pr.status === 'completed' 
+                        ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                        : 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
+                    }`}>
+                      {pr.status === 'completed' ? '✓ Merged' : '↻ Active'}
+                    </span>
+                    <a href={pr.url} target="_blank" rel="noopener noreferrer"
+                      className="text-blue-600 dark:text-blue-400 hover:underline font-mono">
+                      #{pr.pullRequestId}
+                    </a>
+                  </div>
+                  <p className="text-gray-800 dark:text-gray-200 truncate mt-0.5">{pr.title}</p>
+                  <div className="text-[10px] text-gray-400 mt-0.5">
+                    {pr.createdBy} • {pr.repositoryName} •
+                    <span className="font-mono"> {pr.sourceBranch?.replace('refs/heads/', '')}</span>
+                  </div>
+                </div>
+                <span className="text-[10px] text-gray-400 whitespace-nowrap ml-2">
+                  {formatTimeAgo(pr.closedDate || pr.creationDate)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </Widget>
   );
 }

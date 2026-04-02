@@ -16,6 +16,8 @@ export interface HrConnection {
   lastSyncAt?: string;
   lastSyncStatus?: string;
   cacheUpdatedAt?: string;
+  defaultDepartmentCode?: string;
+  defaultDepartmentName?: string;
   employeeCount: number;
   departmentCount: number;
 }
@@ -117,6 +119,8 @@ export const createConnection = async (dto: {
   clientId?: string;
   apiKey?: string;
   useSso: boolean;
+  defaultDepartmentCode?: string;
+  defaultDepartmentName?: string;
 }) => {
   const { data } = await api.post(`${BASE}/connections`, dto);
   return data;
@@ -129,6 +133,8 @@ export const updateConnection = async (id: string, dto: {
   clientId?: string;
   apiKey?: string;
   useSso: boolean;
+  defaultDepartmentCode?: string;
+  defaultDepartmentName?: string;
 }) => {
   const { data } = await api.put(`${BASE}/connections/${id}`, dto);
   return data;
@@ -136,6 +142,36 @@ export const updateConnection = async (id: string, dto: {
 
 export const deleteConnection = async (id: string) => {
   const { data } = await api.delete(`${BASE}/connections/${id}`);
+  return data;
+};
+
+export interface DepartmentPreview {
+  departmentCode: string;
+  departmentName: string;
+}
+
+export interface TestPreviewResult {
+  success: boolean;
+  message: string;
+  statusCode?: number;
+  providerType: string;
+  authMethod: string;
+  departments?: DepartmentPreview[];
+}
+
+/**
+ * Test connection preview - validates URL and credentials BEFORE saving.
+ * Can also attempt to fetch departments from the provider.
+ */
+export const testConnectionPreview = async (dto: {
+  baseUrl: string;
+  providerType: string;
+  useSso: boolean;
+  clientId?: string;
+  apiKey?: string;
+  fetchDepartments?: boolean;
+}): Promise<TestPreviewResult> => {
+  const { data } = await api.post(`${BASE}/connections/test-preview`, dto);
   return data;
 };
 
@@ -270,8 +306,30 @@ export type FieldMapping = Record<string, string>;
 // Integration API Functions
 // ========================================
 
+export interface SyncResult {
+  success: boolean;
+  message: string;
+  departmentsCreated: number;
+  departmentsUpdated: number;
+  employeesCreated: number;
+  employeesUpdated: number;
+  departmentErrors: string[];
+  employeeErrors: string[];
+  errors: string[];
+}
+
 export const testConnection = async (connectionId: string): Promise<TestConnectionResult> => {
   const { data } = await api.post(`${BASE}/connections/${connectionId}/test`);
+  return data;
+};
+
+/**
+ * Sync employees and departments from the HR provider API.
+ * This calls the provider's API endpoints (e.g., GreytHR /api/v2/employees)
+ * and imports/updates data in ProdVista.
+ */
+export const syncFromProvider = async (connectionId: string): Promise<SyncResult> => {
+  const { data } = await api.post(`${BASE}/connections/${connectionId}/sync`);
   return data;
 };
 

@@ -4,6 +4,19 @@ import api from './api';
 // Types
 // ========================================
 
+export interface RecentPR {
+  pullRequestId: number;
+  title: string;
+  status: string;
+  createdBy: string;
+  creationDate: string;
+  closedDate?: string;
+  sourceBranch: string;
+  targetBranch: string;
+  repositoryName: string;
+  url: string;
+}
+
 export interface DashboardSummary {
   devops: {
     connected: boolean;
@@ -17,6 +30,11 @@ export interface DashboardSummary {
     activePipelines?: number;
     buildSuccessRate?: number;
     avgBuildTimeMinutes?: number;
+    recentActivity?: {
+      prsCreated: number;
+      prsCompleted: number;
+      recentPRs: RecentPR[];
+    };
     todayBuilds?: {
       total: number;
       succeeded: number;
