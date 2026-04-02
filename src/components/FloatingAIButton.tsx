@@ -8,6 +8,12 @@ import {
 import clsx from 'clsx'
 import { usePersistentChat } from '../context/PersistentChatContext'
 
+// Check if chat panel is open (not minimized)
+function useChatPanelOpen() {
+  const { isMinimized } = usePersistentChat()
+  return !isMinimized // Chat panel is visible when not minimized
+}
+
 interface QuickAction {
   id: string
   label: string
@@ -46,6 +52,7 @@ export default function FloatingAIButton({ onOpenCommandPalette }: FloatingAIBut
   const panelRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const { openChat } = usePersistentChat()
+  const chatPanelOpen = useChatPanelOpen()
 
   // Rotate idle messages
   useEffect(() => {
@@ -84,8 +91,11 @@ export default function FloatingAIButton({ onOpenCommandPalette }: FloatingAIBut
     }
   }
 
+  // When chat panel is open, move FAB further right to avoid overlap
+  const fabPosition = chatPanelOpen ? 'right-[420px]' : 'right-6'
+
   return (
-    <div ref={panelRef} className="fixed bottom-6 right-6 z-[90] flex flex-col items-end gap-3">
+    <div ref={panelRef} className={clsx('fixed bottom-6 z-[90] flex flex-col items-end gap-3 transition-all duration-300', fabPosition)}>
       {/* Expanded Panel */}
       {isExpanded && (
         <div className="w-72 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200">

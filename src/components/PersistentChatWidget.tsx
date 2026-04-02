@@ -128,13 +128,13 @@ export default function PersistentChatWidget() {
     }
   };
 
-  // Minimized widget (bottom bar)
+  // Minimized widget (bottom bar) - positioned left of FAB
   if (isMinimized) {
     return (
       <button
         onClick={toggleMinimize}
         className={clsx(
-          'fixed bottom-4 right-4 z-[100] flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg transition-all duration-300',
+          'fixed bottom-6 right-24 z-[100] flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg transition-all duration-300',
           'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500',
           'text-white font-medium text-sm',
           hasUnread && 'animate-bounce'
