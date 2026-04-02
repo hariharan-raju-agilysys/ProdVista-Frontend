@@ -145,16 +145,17 @@ export default function Layout() {
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div 
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden" 
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden transition-opacity duration-300" 
           onClick={() => setSidebarOpen(false)} 
         />
       )}
 
       {/* Sidebar */}
       <aside className={clsx(
-        "fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white transition-transform duration-300 ease-in-out flex flex-col",
+        "fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white flex flex-col",
+        "transition-transform duration-300 ease-out will-change-transform",
         "lg:translate-x-0",
-        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       )}>
         <div className="flex items-center h-16 px-4 border-b border-slate-800 shrink-0">
           <img src="/logo.svg" alt="ProdVista" className="w-10 h-10 mr-3" />
@@ -196,7 +197,7 @@ export default function Layout() {
         </div>
 
         {/* Scrollable nav section */}
-        <nav className="mt-3 px-3 flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+        <nav className="mt-3 px-3 flex-1 overflow-y-auto min-h-0 pb-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent hover:scrollbar-thumb-slate-600">
           {isLoading ? (
             <FunLoader inline className="py-8 justify-center w-full flex" />
           ) : menuItems.length === 0 ? (
@@ -244,8 +245,8 @@ export default function Layout() {
           )}
         </nav>
 
-        {/* Bottom Actions - grouped with collapsible sections */}
-        <div className="shrink-0 px-3 py-2 space-y-1 border-t border-slate-800 max-h-[50vh] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+        {/* Bottom Actions - properly sized with flex */}
+        <div className="shrink-0 px-3 py-2 space-y-1 border-t border-slate-800 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
           
           {/* Overview — prominent standalone link */}
           <NavLink
