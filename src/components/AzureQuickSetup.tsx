@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Cloud, CheckCircle2, AlertTriangle, Loader2, ChevronRight,
   Search, Monitor, Database, Activity, FileText, RefreshCw,
-  Zap, Clock, Play, Eye, Heart, Pin, Save, LogIn, AlertCircle
+  Zap, Clock, Play, Eye, Heart, Pin, Save, AlertCircle, Terminal
 } from 'lucide-react'
 import {
   getResourceGraphSubscriptions,
@@ -17,6 +17,9 @@ import {
   trackWorkspaceUsage,
   refreshAzureAuth,
 } from '../services/api'
+
+// Check if we're in development mode
+const isDev = import.meta.env.DEV;
 
 interface Subscription {
   id: string
@@ -356,70 +359,87 @@ export default function AzureQuickSetup({
           </div>
         </div>
 
+        {/* DEV MODE: Azure CLI Quick Connect Instructions */}
+        {isDev && (
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 text-xs font-medium rounded">DEV ONLY</span>
+            </div>
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <Terminal className="w-5 h-5 text-gray-500" />
+              Quick Connect via Azure CLI
+            </h3>
+            <ol className="space-y-3 text-sm">
+              <li className="flex items-start gap-3">
+                <span className="w-6 h-6 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                <div>
+                  <p className="text-gray-700 dark:text-gray-300">Open a terminal</p>
+                </div>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="w-6 h-6 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 rounded-full flex items-center justify-center text-xs font-bold">2</span>
+                <div>
+                  <p className="text-gray-700 dark:text-gray-300">Run the command:</p>
+                  <code className="block mt-1 px-3 py-2 bg-gray-100 dark:bg-slate-700 rounded-lg font-mono text-sm">az login</code>
+                </div>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="w-6 h-6 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 rounded-full flex items-center justify-center text-xs font-bold">3</span>
+                <div>
+                  <p className="text-gray-700 dark:text-gray-300">Complete browser authentication</p>
+                </div>
+              </li>
+            </ol>
+
+            <button
+              onClick={handleAutoLogin}
+              disabled={refreshing}
+              className="mt-6 w-full py-3 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-400 text-white rounded-xl font-medium flex items-center justify-center gap-2 transition-colors"
+            >
+              {refreshing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Opening browser for login...
+                </>
+              ) : (
+                <>
+                  <Terminal className="w-4 h-4" />
+                  Auto Login via Azure CLI
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* PRODUCTION: Standard SSO Authentication */}
         <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
           <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
             <Zap className="w-5 h-5 text-blue-500" />
-            Quick Connect via Azure CLI
+            {isDev ? 'Or Sign In with Microsoft' : 'Sign In with Microsoft'}
           </h3>
-          <ol className="space-y-3 text-sm">
-            <li className="flex items-start gap-3">
-              <span className="w-6 h-6 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 rounded-full flex items-center justify-center text-xs font-bold">1</span>
-              <div>
-                <p className="text-gray-700 dark:text-gray-300">Open a terminal</p>
-              </div>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="w-6 h-6 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 rounded-full flex items-center justify-center text-xs font-bold">2</span>
-              <div>
-                <p className="text-gray-700 dark:text-gray-300">Run the command:</p>
-                <code className="block mt-1 px-3 py-2 bg-gray-100 dark:bg-slate-700 rounded-lg font-mono text-sm">az login</code>
-              </div>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="w-6 h-6 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 rounded-full flex items-center justify-center text-xs font-bold">3</span>
-              <div>
-                <p className="text-gray-700 dark:text-gray-300">Complete browser authentication</p>
-              </div>
-            </li>
-          </ol>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Use your organization's Microsoft account to access Azure resources.
+          </p>
 
           <button
             onClick={checkAuthStatus}
-            className="mt-6 w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium flex items-center justify-center gap-2 transition-colors"
+            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium flex items-center justify-center gap-2 transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
             Check Connection Status
           </button>
-          
-          <button
-            onClick={handleAutoLogin}
-            disabled={refreshing}
-            className="mt-3 w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white rounded-xl font-medium flex items-center justify-center gap-2 transition-colors"
-          >
-            {refreshing ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Opening browser for login...
-              </>
-            ) : (
-              <>
-                <LogIn className="w-4 h-4" />
-                Auto Login (Opens Browser)
-              </>
-            )}
-          </button>
-          
-          {refreshMessage && (
-            <div className={`mt-3 p-3 rounded-lg text-sm flex items-start gap-2 ${
-              refreshMessage.includes('successful') || refreshMessage.includes('valid')
-                ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800'
-                : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
-            }`}>
-              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-              <span>{refreshMessage}</span>
-            </div>
-          )}
         </div>
+          
+        {refreshMessage && (
+          <div className={`p-3 rounded-lg text-sm flex items-start gap-2 ${
+            refreshMessage.includes('successful') || refreshMessage.includes('valid')
+              ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800'
+              : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+          }`}>
+            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            <span>{refreshMessage}</span>
+          </div>
+        )}
       </motion.div>
     )
   }

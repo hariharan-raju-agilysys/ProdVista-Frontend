@@ -3,8 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Cloud, CheckCircle2, AlertTriangle, Loader2, RefreshCw,
   Activity, Star, StarOff,
-  ChevronDown, ChevronRight, Search, Settings,
-  HardDrive, BarChart3, LogIn,
+  ChevronDown, ChevronRight, Search,
+  HardDrive, BarChart3, Terminal,
   Check
 } from 'lucide-react'
 import {
@@ -17,6 +17,9 @@ import {
   removeFavoriteWorkspace,
   refreshAzureAuth,
 } from '../services/api'
+
+// Check if we're in development mode
+const isDev = import.meta.env.DEV;
 
 // Loading step indicator with "up next" preview
 function LoadingSteps({ steps }: { steps: { label: string; status: 'pending' | 'loading' | 'done' | 'error'; count?: number; icon?: string }[] }) {
@@ -582,8 +585,10 @@ export default function AzureResourceManager() {
           </div>
           <h2 className="text-2xl font-bold text-white mb-3">Connect to Azure</h2>
           <p className="text-gray-400 mb-6">
-            Auto-discover all Azure resources you have access to via Azure CLI or SSO credentials.
-            No manual subscription or tenant IDs required.
+            {isDev 
+              ? 'Auto-discover all Azure resources you have access to via Azure CLI or SSO credentials.'
+              : 'Connect to Azure using your organization\'s Microsoft account.'
+            }
           </p>
 
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 mb-6 text-left">
@@ -596,54 +601,62 @@ export default function AzureResourceManager() {
             </div>
           </div>
 
-          <div className="bg-gray-900 rounded-lg p-6 text-left mb-6">
-            <h3 className="text-white font-medium mb-3 flex items-center gap-2">
-              <Settings className="w-4 h-4" />
-              Quick Connect via Azure CLI
-            </h3>
-            <ol className="space-y-3 text-sm text-gray-300">
-              <li className="flex items-start gap-2">
-                <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs flex-shrink-0">1</span>
-                <span>Open a terminal</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs flex-shrink-0">2</span>
-                <div>
-                  <span>Run: </span>
-                  <code className="bg-gray-800 px-2 py-0.5 rounded font-mono">az login</code>
-                </div>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs flex-shrink-0">3</span>
-                <span>Complete login in browser</span>
-              </li>
-            </ol>
-          </div>
+          {/* DEV MODE: Azure CLI Quick Connect */}
+          {isDev && (
+            <div className="bg-gray-900 rounded-lg p-6 text-left mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 text-xs font-medium rounded">DEV ONLY</span>
+              </div>
+              <h3 className="text-white font-medium mb-3 flex items-center gap-2">
+                <Terminal className="w-4 h-4" />
+                Quick Connect via Azure CLI
+              </h3>
+              <ol className="space-y-3 text-sm text-gray-300">
+                <li className="flex items-start gap-2">
+                  <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs flex-shrink-0">1</span>
+                  <span>Open a terminal</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs flex-shrink-0">2</span>
+                  <div>
+                    <span>Run: </span>
+                    <code className="bg-gray-800 px-2 py-0.5 rounded font-mono">az login</code>
+                  </div>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs flex-shrink-0">3</span>
+                  <span>Complete login in browser</span>
+                </li>
+              </ol>
+            </div>
+          )}
 
           <div className="flex gap-3">
-            <button
-              onClick={handleRefreshAuth}
-              disabled={refreshing}
-              className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-600/50 text-white rounded-lg font-medium flex items-center justify-center gap-2"
-            >
-              {refreshing ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Connecting...
-                </>
-              ) : (
-                <>
-                  <LogIn className="w-4 h-4" />
-                  Auto Login
-                </>
-              )}
-            </button>
+            {isDev && (
+              <button
+                onClick={handleRefreshAuth}
+                disabled={refreshing}
+                className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-700/50 text-white rounded-lg font-medium flex items-center justify-center gap-2"
+              >
+                {refreshing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  <>
+                    <Terminal className="w-4 h-4" />
+                    Auto Login (CLI)
+                  </>
+                )}
+              </button>
+            )}
             <button
               onClick={() => checkAuthAndDiscover(true)}
-              className="px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium flex items-center justify-center gap-2"
+              className={`${isDev ? '' : 'flex-1'} px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium flex items-center justify-center gap-2`}
             >
               <RefreshCw className="w-4 h-4" />
-              Refresh
+              Check Status
             </button>
           </div>
         </div>

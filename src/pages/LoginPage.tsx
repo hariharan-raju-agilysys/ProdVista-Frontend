@@ -4,7 +4,10 @@ import { useMsal } from '@azure/msal-react';
 import { authService, TenantInfo } from '../services/authService';
 import { useAuth } from '../context/AuthContext';
 import { graphScopes, isMsalConfigured } from '../config/msalConfig';
-import { Building2, Loader2, Mail, Lock, Eye, EyeOff, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Building2, Loader2, ArrowLeft, ArrowRight, Terminal } from 'lucide-react';
+
+// Check if we're in development mode
+const isDev = import.meta.env.DEV;
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -18,11 +21,6 @@ export default function LoginPage() {
   const [tenantCode, setTenantCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  // Login form state
-  const [usernameOrEmail, setUsernameOrEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
 
   // Check if already authenticated on mount
   useEffect(() => {
@@ -64,93 +62,65 @@ export default function LoginPage() {
   const handleBackToTenant = () => {
     setStep('tenant');
     setError('');
-    setUsernameOrEmail('');
-    setPassword('');
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-
+  // Microsoft SSO Login (primary method)
+  const handleMicrosoftLogin = async () => {
     if (!tenantInfo) return;
 
-    if (!usernameOrEmail || !password) {
-      setError('Please enter your username/email and password');
+    if (!isMsalConfigured()) {
+      setError('Microsoft SSO is not configured. Please contact your administrator.');
       return;
     }
 
     setLoading(true);
+    setError('');
     try {
-      const response = await authService.login({
-        tenantCode: tenantInfo.code,
-        usernameOrEmail,
-        password,
+      const loginResponse = await msalInstance.loginPopup({
+        ...graphScopes,
+        prompt: 'select_account',
       });
 
-      if (response.success) {
-        if (response.user) {
-          setUserFromLocal(response.user as any);
-        }
-        hasNavigated.current = true;
-        navigate('/');
-      } else {
-        setError(response.message || 'Invalid username or password');
-      }
-    } catch (err: any) {
-      setError(err.message || 'An error occurred. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSSOLogin = async () => {
-    if (!tenantInfo) return;
-
-    if (isMsalConfigured()) {
-      setLoading(true);
-      setError('');
-      try {
-        const loginResponse = await msalInstance.loginPopup({
-          ...graphScopes,
-          prompt: 'select_account',
-        });
-
-        if (loginResponse?.accessToken) {
-          const response = await authService.loginWithMsal(tenantInfo.code, loginResponse.accessToken);
-          if (response.success) {
-            if (response.user) setUserFromLocal(response.user as any);
-            hasNavigated.current = true;
-            navigate('/');
-          } else {
-            setError(response.message || 'Microsoft login failed');
-          }
-        } else {
-          setError('No access token received from Microsoft');
-        }
-      } catch (err: any) {
-        if (err.errorCode !== 'user_cancelled') {
-          setError(err.message || 'Microsoft authentication failed');
-        }
-      } finally {
-        setLoading(false);
-      }
-    } else {
-      setLoading(true);
-      setError('');
-      try {
-        const response = await authService.loginWithAzure(tenantInfo.code);
+      if (loginResponse?.accessToken) {
+        const response = await authService.loginWithMsal(tenantInfo.code, loginResponse.accessToken);
         if (response.success) {
           if (response.user) setUserFromLocal(response.user as any);
           hasNavigated.current = true;
           navigate('/');
         } else {
-          setError(response.message || 'Azure CLI login failed. Run "az login" first.');
+          setError(response.message || 'Microsoft login failed');
         }
-      } catch (err: any) {
-        setError(err.message || 'Azure authentication failed');
-      } finally {
-        setLoading(false);
+      } else {
+        setError('No access token received from Microsoft');
       }
+    } catch (err: any) {
+      if (err.errorCode !== 'user_cancelled') {
+        setError(err.message || 'Microsoft authentication failed');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Azure CLI Login (DEV mode only)
+  const handleAzureCliLogin = async () => {
+    if (!tenantInfo) return;
+
+    setLoading(true);
+    setError('');
+    try {
+      const response = await authService.loginWithAzure(tenantInfo.code);
+      if (response.success) {
+        if (response.user) setUserFromLocal(response.user as any);
+        hasNavigated.current = true;
+        navigate('/');
+      } else {
+        setError(response.message || 'Azure CLI login failed. Run "az login" first.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Azure authentication failed');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -290,7 +260,7 @@ export default function LoginPage() {
             )}
 
             {/* ============================== */}
-            {/* STEP 2: Login Form             */}
+            {/* STEP 2: SSO Login              */}
             {/* ============================== */}
             {step === 'login' && tenantInfo && (
               <>
@@ -327,52 +297,12 @@ export default function LoginPage() {
                   </div>
                 )}
 
-                <form onSubmit={handleLogin} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      <Mail className="w-4 h-4 inline mr-1" />
-                      Username or Email
-                    </label>
-                    <input
-                      type="text"
-                      value={usernameOrEmail}
-                      onChange={(e) => setUsernameOrEmail(e.target.value)}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Enter your username or email"
-                      autoFocus
-                      autoComplete="username"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      <Lock className="w-4 h-4 inline mr-1" />
-                      Password
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
-                        placeholder="Enter your password"
-                        autoComplete="current-password"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                      >
-                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                      </button>
-                    </div>
-                  </div>
-
+                {/* Microsoft SSO Login - Primary Method */}
+                <div className="space-y-4">
                   <button
-                    type="submit"
+                    onClick={handleMicrosoftLogin}
                     disabled={loading}
-                    className="w-full py-3 px-4 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{ backgroundColor: accentColor }}
+                    className="w-full py-3 px-4 bg-[#0078d4] hover:bg-[#106ebe] text-white font-medium rounded-lg transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                   >
                     {loading ? (
                       <>
@@ -380,35 +310,44 @@ export default function LoginPage() {
                         Signing in...
                       </>
                     ) : (
-                      'Sign In'
+                      <>
+                        <svg className="w-5 h-5" viewBox="0 0 21 21" fill="none">
+                          <rect width="10" height="10" fill="#f25022"/>
+                          <rect x="11" width="10" height="10" fill="#7fba00"/>
+                          <rect y="11" width="10" height="10" fill="#00a4ef"/>
+                          <rect x="11" y="11" width="10" height="10" fill="#ffb900"/>
+                        </svg>
+                        Sign in with Microsoft
+                      </>
                     )}
                   </button>
-                </form>
 
-                {/* Divider */}
-                <div className="relative my-6">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-300 dark:border-gray-600" />
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">or</span>
-                  </div>
+                  {/* Azure CLI Login - DEV MODE ONLY */}
+                  {isDev && (
+                    <>
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full border-t border-gray-300 dark:border-gray-600" />
+                        </div>
+                        <div className="relative flex justify-center text-sm">
+                          <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">Development Only</span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={handleAzureCliLogin}
+                        disabled={loading}
+                        className="w-full py-3 px-4 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                      >
+                        <Terminal className="w-5 h-5" />
+                        Sign in with Azure CLI
+                      </button>
+                      <p className="text-xs text-center text-gray-500 dark:text-gray-400">
+                        Run <code className="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded text-xs">az login</code> in terminal first
+                      </p>
+                    </>
+                  )}
                 </div>
-
-                {/* SSO Login */}
-                <button
-                  onClick={handleSSOLogin}
-                  disabled={loading}
-                  className="w-full py-3 px-4 bg-[#0078d4] hover:bg-[#106ebe] text-white font-medium rounded-lg transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-                >
-                  <svg className="w-5 h-5" viewBox="0 0 21 21" fill="none">
-                    <rect width="10" height="10" fill="#f25022"/>
-                    <rect x="11" width="10" height="10" fill="#7fba00"/>
-                    <rect y="11" width="10" height="10" fill="#00a4ef"/>
-                    <rect x="11" y="11" width="10" height="10" fill="#ffb900"/>
-                  </svg>
-                  Sign in with Microsoft
-                </button>
               </>
             )}
           </div>
