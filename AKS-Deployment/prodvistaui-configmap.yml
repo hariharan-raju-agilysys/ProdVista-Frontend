@@ -1,11 +1,8 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: prodvista-frontend-config
-  namespace: prodvista
-  labels:
-    app.kubernetes.io/name: prodvista-frontend
-    app.kubernetes.io/component: frontend
+  name: prodvistaui-configmap
+  namespace: agys-v1 
 data:
   VITE_API_TIMEOUT: "30000"
   VITE_APP_TITLE: "ProdVista Dashboard"
