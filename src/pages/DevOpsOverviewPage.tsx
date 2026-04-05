@@ -100,7 +100,7 @@ function ConfigDialog({ config, onSave, onClose }: {
         </div>
         <div className="flex justify-end gap-3 mt-6">
           <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors">Cancel</button>
-          <button onClick={() => { onSave({ organizationUrl: orgUrl.trim(), projectName: project.trim(), useSprintTracking: useSprint, defaultIterationPath: iterPath.trim() || undefined }); onClose(); }}
+          <button onClick={() => { onSave({ organizationUrl: orgUrl.trim(), projectName: project.trim(), projectNames: [project.trim()], useSprintTracking: useSprint, defaultIterationPath: iterPath.trim() || undefined }); onClose(); }}
             disabled={!orgUrl.trim() || !project.trim()}
             className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors">Save</button>
         </div>

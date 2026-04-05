@@ -6,7 +6,7 @@ import {
   ChevronRight, AlertTriangle,
   Ticket, UserCheck, Heart,
   GitPullRequest, GitCommit, Code2,
-  Layers, Clock, Share2, ExternalLink, Copy, Check, ChevronDown,
+  Layers, Clock, Copy, Check,
 } from 'lucide-react'
 import clsx from 'clsx'
 import * as customerService from '../services/customerService'
@@ -227,9 +227,7 @@ export default function ManagerDashboard() {
           customers={customers}
           summary={summary}
           intSummary={intSummary}
-          prData={prData}
           commitData={commitData}
-          support={support}
         />
       )}
 
@@ -712,15 +710,13 @@ function KpiCard({ icon: Icon, label, value, color, format, onClick, active }: {
 // ─────────────────────────────────────────
 // KPI Detail Panel — expandable data view + share
 // ─────────────────────────────────────────
-function KpiDetailPanel({ kpiKey, onClose, customers, summary, intSummary, prData, commitData, support }: {
+function KpiDetailPanel({ kpiKey, onClose, customers, summary, intSummary, commitData }: {
   kpiKey: string;
   onClose: () => void;
   customers: CustomerDetailDto[];
   summary: CustomerSummaryDto | null;
   intSummary: DashboardSummary | null;
-  prData: PRSummaryResponse | null;
   commitData: CommitStatsResponse | null;
-  support: ProductionSupportResponse | null;
 }) {
   const [copied, setCopied] = useState(false)
   const d = intSummary?.devops

@@ -8,7 +8,7 @@ import {
 import * as hrService from '../services/hrPortalService'
 import type {
   HrConnection, HrDepartment, HrEmployee, HrBirthday, DepartmentSummary, HrStats,
-  HrSyncLog, SyncSettings, FieldMapping, TestConnectionResult, CsvImportResult
+  HrSyncLog, FieldMapping, TestConnectionResult, CsvImportResult
 } from '../services/hrPortalService'
 
 type ViewMode = 'overview' | 'directory' | 'birthdays' | 'department' | 'settings'
@@ -45,17 +45,15 @@ export default function HrPortalPage() {
   const [activeConnId, setActiveConnId] = useState<string>('')
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null)
   const [testing, setTesting] = useState(false)
-  const [syncSettings, setSyncSettings] = useState<SyncSettings | null>(null)
   const [syncLogs, setSyncLogs] = useState<HrSyncLog[]>([])
   const [fieldMapping, setFieldMapping] = useState<FieldMapping>({})
-  const [savingSync, setSavingSync] = useState(false)
   const [savingMapping, setSavingMapping] = useState(false)
   const [importResult, setImportResult] = useState<CsvImportResult | null>(null)
   const [importing, setImporting] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [connectionDepts, setConnectionDepts] = useState<HrDepartment[]>([])
-  const [fetchingDepts, setFetchingDepts] = useState(false)
+  const [, setConnectionDepts] = useState<HrDepartment[]>([])
+  const [, setFetchingDepts] = useState(false)
 
   // Load initial data
   const loadData = useCallback(async () => {
@@ -160,7 +158,6 @@ export default function HrPortalPage() {
   // Load sync settings when connection changes
   useEffect(() => {
     if (!activeConnId) return
-    hrService.getSyncSettings(activeConnId).then(setSyncSettings).catch(() => {})
     hrService.getSyncLogs({ connectionId: activeConnId, count: 20 }).then(setSyncLogs).catch(() => {})
     hrService.getFieldMapping(activeConnId).then(setFieldMapping).catch(() => {})
     // Auto-load departments for active connection
@@ -215,24 +212,6 @@ export default function HrPortalPage() {
       setSyncResult({ success: false, message: errMsg, departmentsCreated: 0, departmentsUpdated: 0, employeesCreated: 0, employeesUpdated: 0, departmentErrors: [], employeeErrors: [], errors: [errMsg] })
     }
     setSyncing(false)
-  }
-
-  const handleSaveSyncSettings = async () => {
-    if (!activeConnId || !syncSettings) return
-    setSavingSync(true)
-    try {
-      await hrService.updateSyncSettings(activeConnId, {
-        autoSyncEnabled: syncSettings.autoSyncEnabled,
-        syncIntervalMinutes: syncSettings.syncIntervalMinutes,
-        syncEmployees: syncSettings.syncEmployees,
-        syncDepartments: syncSettings.syncDepartments,
-        syncOnlyActive: syncSettings.syncOnlyActive,
-        overwriteManualEdits: syncSettings.overwriteManualEdits,
-      })
-      const updated = await hrService.getSyncSettings(activeConnId)
-      setSyncSettings(updated)
-    } catch { /* ignore */ }
-    setSavingSync(false)
   }
 
   const handleSaveFieldMapping = async () => {

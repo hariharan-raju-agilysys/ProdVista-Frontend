@@ -222,7 +222,7 @@ export default function PullRequestsPage() {
 
   const saveConfig = () => {
     if (!configOrgUrl.trim() || !configProject.trim()) return;
-    const c = { organizationUrl: configOrgUrl.trim(), projectName: configProject.trim() };
+    const c = { organizationUrl: configOrgUrl.trim(), projectName: configProject.trim(), projectNames: [configProject.trim()] };
     engineeringService.saveConfig(c);
     setConfig(c);
     setShowConfig(false);

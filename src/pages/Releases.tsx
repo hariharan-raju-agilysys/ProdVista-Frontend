@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Rocket, GitBranch, Tag, Calendar, Settings, Upload, Link2, Database,
   RefreshCw, CheckCircle, XCircle, AlertTriangle, Plus, Trash2,
-  FileSpreadsheet, Cloud, Save, Eye, Search,
+  FileSpreadsheet, Cloud, Save, Search,
   Filter, MoreVertical, PlayCircle, Copy, Check
 } from 'lucide-react'
 import { MetricCard, ProgressBar } from '../components/MetricCard'
