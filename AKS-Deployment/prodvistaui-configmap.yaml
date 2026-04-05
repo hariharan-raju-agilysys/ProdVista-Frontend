@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prodvista-frontend-config
+  namespace: prodvista
+  labels:
+    app.kubernetes.io/name: prodvista-frontend
+    app.kubernetes.io/component: frontend
+data:
+  VITE_API_TIMEOUT: "30000"
+  VITE_APP_TITLE: "ProdVista Dashboard"
+  VITE_AZURE_TENANT_ID: "common"
+  VITE_ENABLE_DEVTOOLS: "false"
+  VITE_REDIRECT_URI: "https://prodvista.example.com"
+  VITE_API_URL: ""
