@@ -15,7 +15,7 @@
 # =============================================================================
 
 # ---- Stage 1: Build --------------------------------------------------------
-FROM node:24-almalinux9 AS build
+FROM node:20-alpine AS build
 
 WORKDIR /app
 
@@ -44,7 +44,7 @@ ENV VITE_API_URL=$VITE_API_URL \
 RUN npm run build
 
 # ---- Stage 2: Serve --------------------------------------------------------
-FROM almalinux:9 AS runtime
+FROM nginx:1.27-alpine AS runtime
 
 RUN dnf install -y nginx && dnf clean all
 
