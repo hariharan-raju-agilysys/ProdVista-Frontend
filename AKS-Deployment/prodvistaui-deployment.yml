@@ -48,14 +48,14 @@ metadata:
   namespace: agys-v1
 spec:
   hosts:
-  - "aks-fiscal-dev.hospitalityrevolution.com"
+  - "aks-v1-dev.hospitalityrevolution.com"
   gateways:
   - agys-v1-gateway
 
   http:
   - match:
     - uri:
-        prefix: /
+        prefix: /login
     headers:
       response:
         add:
