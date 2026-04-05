@@ -46,8 +46,6 @@ RUN npm run build
 # ---- Stage 2: Serve --------------------------------------------------------
 FROM nginx:1.27-alpine AS runtime
 
-RUN dnf install -y nginx && dnf clean all
-
 COPY --from=build /app/dist /usr/share/nginx/html
 
 # SPA fallback + reverse-proxy config
