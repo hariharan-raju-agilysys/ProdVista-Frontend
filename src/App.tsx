@@ -38,6 +38,7 @@ const JenkinsPipelinePage = lazy(() => import('./pages/JenkinsPipelinePage'))
 const JenkinsSetupPage = lazy(() => import('./pages/JenkinsSetupPage'))
 const ObservabilityQueryPage = lazy(() => import('./pages/ObservabilityQueryPage'))
 const ObservabilityDashboardPage = lazy(() => import('./pages/ObservabilityDashboardPage'))
+const AutomationJobsPage = lazy(() => import('./pages/AutomationJobsPage'))
 const InternalDashboardPage = lazy(() => import('./pages/InternalDashboardPage'))
 const ToolsPage = lazy(() => import('./pages/ToolsPage'))
 const HrSetupPage = lazy(() => import('./pages/HrSetupPage'))
@@ -98,6 +99,7 @@ function AppRoutes() {
         <Route path="jenkins-setup" element={<ManagerRoute><JenkinsSetupPage /></ManagerRoute>} />
         <Route path="observability-query" element={<ObservabilityQueryPage />} />
         <Route path="observability" element={<ObservabilityDashboardPage />} />
+        <Route path="automation" element={<ManagerRoute><AutomationJobsPage /></ManagerRoute>} />
         <Route path="internal" element={<InternalDashboardPage />} />
         <Route path="tools" element={<ToolsPage />} />
         <Route path="data-feed" element={<DataFeedPage />} />

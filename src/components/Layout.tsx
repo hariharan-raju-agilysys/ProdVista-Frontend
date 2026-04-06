@@ -54,7 +54,7 @@ import FunLoader from './FunLoader'
 // Icon mapping for dynamic icons
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   LayoutDashboard, Code2, Package, Bug, Server, Users, FileText, Cloud,
-  PanelTop, UserCog, Cog, Shield, Rocket, ShieldCheck, Workflow, UserCheck,
+  PanelTop, UserCog, Cog, Shield, Rocket, ShieldCheck, Workflow, UserCheck, Zap,
 }
 
 function getIcon(iconName?: string): React.ComponentType<{ className?: string }> {
