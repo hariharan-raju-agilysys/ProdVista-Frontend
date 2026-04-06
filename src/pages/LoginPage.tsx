@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
+import { InteractionStatus } from '@azure/msal-browser';
 import { authService, TenantInfo } from '../services/authService';
 import { useAuth } from '../context/AuthContext';
 import { graphScopes, isMsalConfigured } from '../config/msalConfig';
@@ -12,7 +13,7 @@ const isDev = import.meta.env.DEV;
 export default function LoginPage() {
   const navigate = useNavigate();
   const hasNavigated = useRef(false);
-  const { instance: msalInstance } = useMsal();
+  const { instance: msalInstance, inProgress, accounts } = useMsal();
   const { setUserFromLocal } = useAuth();
 
   // Two-step flow: 'tenant' → 'login'
@@ -31,6 +32,41 @@ export default function LoginPage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Handle MSAL redirect return — complete server-side login after Azure AD redirect
+  useEffect(() => {
+    if (hasNavigated.current) return;
+    if (inProgress !== InteractionStatus.None) return;
+
+    const savedTenant = sessionStorage.getItem('msal_pending_tenant');
+    if (!savedTenant || accounts.length === 0) return;
+
+    sessionStorage.removeItem('msal_pending_tenant');
+    setLoading(true);
+
+    msalInstance.acquireTokenSilent({
+      ...graphScopes,
+      account: accounts[0],
+    }).then(async (tokenResponse) => {
+      if (tokenResponse?.accessToken) {
+        const response = await authService.loginWithMsal(savedTenant, tokenResponse.accessToken);
+        if (response.success) {
+          if (response.user) setUserFromLocal(response.user as any);
+          hasNavigated.current = true;
+          navigate('/');
+        } else {
+          setError(response.message || 'Microsoft login failed');
+        }
+      } else {
+        setError('No access token received from Microsoft');
+      }
+    }).catch((err: any) => {
+      setError(err.message || 'Failed to complete Microsoft login');
+    }).finally(() => {
+      setLoading(false);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inProgress, accounts]);
 
   const handleTenantSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,29 +111,21 @@ export default function LoginPage() {
 
     setLoading(true);
     setError('');
+
+    // Store tenant code for post-redirect completion
+    sessionStorage.setItem('msal_pending_tenant', tenantInfo.code);
+
     try {
-      const loginResponse = await msalInstance.loginPopup({
+      await msalInstance.loginRedirect({
         ...graphScopes,
         prompt: 'select_account',
       });
-
-      if (loginResponse?.accessToken) {
-        const response = await authService.loginWithMsal(tenantInfo.code, loginResponse.accessToken);
-        if (response.success) {
-          if (response.user) setUserFromLocal(response.user as any);
-          hasNavigated.current = true;
-          navigate('/');
-        } else {
-          setError(response.message || 'Microsoft login failed');
-        }
-      } else {
-        setError('No access token received from Microsoft');
-      }
+      // Browser navigates away — code below won't execute
     } catch (err: any) {
+      sessionStorage.removeItem('msal_pending_tenant');
       if (err.errorCode !== 'user_cancelled') {
         setError(err.message || 'Microsoft authentication failed');
       }
-    } finally {
       setLoading(false);
     }
   };
