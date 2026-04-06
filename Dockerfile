@@ -20,13 +20,14 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm ci --ignore-scripts
+RUN npm ci
 
 COPY . .
 
 # Build-time env vars — pass via --build-arg or ConfigMap
 ARG VITE_API_URL=""
 ARG VITE_API_BASE_PATH="/prodvista/api"
+ARG VITE_BASE_PATH="/prodvista"
 ARG VITE_API_TIMEOUT="30000"
 ARG VITE_APP_TITLE="ProdVista Dashboard"
 ARG VITE_AZURE_CLIENT_ID=""
@@ -36,6 +37,7 @@ ARG VITE_ENABLE_DEVTOOLS="false"
 
 ENV VITE_API_URL=$VITE_API_URL \
     VITE_API_BASE_PATH=$VITE_API_BASE_PATH \
+    VITE_BASE_PATH=$VITE_BASE_PATH \
     VITE_API_TIMEOUT=$VITE_API_TIMEOUT \
     VITE_APP_TITLE=$VITE_APP_TITLE \
     VITE_AZURE_CLIENT_ID=$VITE_AZURE_CLIENT_ID \
@@ -43,17 +45,20 @@ ENV VITE_API_URL=$VITE_API_URL \
     VITE_REDIRECT_URI=$VITE_REDIRECT_URI \
     VITE_ENABLE_DEVTOOLS=$VITE_ENABLE_DEVTOOLS
 
-RUN npm run build
+RUN node ./node_modules/typescript/bin/tsc -b && node ./node_modules/vite/bin/vite.js build
 
 # ---- Stage 2: Serve --------------------------------------------------------
 FROM nginx:1.27-alpine AS runtime
-
 
 EXPOSE 80
 RUN rm -rf /usr/share/nginx/html/*
 
 COPY ./nginx.conf /etc/nginx/nginx.conf
+COPY ./docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 COPY --from=build /app/dist /usr/share/nginx/html
 
+# Runtime config injection via entrypoint
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["nginx", "-g", "daemon off;"]

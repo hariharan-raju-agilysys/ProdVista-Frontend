@@ -141,7 +141,7 @@ function App() {
     <ErrorBoundary>
       <AuthProvider>
         <AzureAuthProvider>
-          <BrowserRouter>
+          <BrowserRouter basename={import.meta.env.VITE_BASE_PATH || '/'}>
             <AuthModals>
               <PersistentChatProvider>
                 <Suspense fallback={<LoadingSpinner label="Loading..." />}>

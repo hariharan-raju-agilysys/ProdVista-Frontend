@@ -11,3 +11,4 @@ data:
   VITE_REDIRECT_URI: "https://aks-v1-dev.hospitalityrevolution.com"
   VITE_API_URL: ""
   VITE_API_BASE_PATH: "/prodvista/api"
+  VITE_BASE_PATH: "/prodvista"
