@@ -16,8 +16,7 @@ export default function Dashboard() {
   const fetchStats = async () => {
     setLoading(true)
     try {
-      // Fetch PRs - hoursBack=168 for last week
-      const hoursBack = timeFilter === 'week' ? 168 : undefined
+      // Fetch PRs for last week
       const [prResult, commitResult] = await Promise.all([
         getPRSummary(undefined, false), // Get all PRs, API returns myCreatedCount
         getCommitStats(undefined, 7, false) // Get commits from last 7 days

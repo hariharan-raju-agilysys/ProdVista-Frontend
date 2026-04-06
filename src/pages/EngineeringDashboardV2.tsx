@@ -680,10 +680,10 @@ export default function EngineeringDashboardV2() {
           commits={dashboardData.commits.map(c => ({
             commitId: c.commitId,
             shortId: c.shortCommitId,
-            message: c.comment,
+            comment: c.comment,
             authorName: c.authorName,
             authorEmail: '',
-            date: c.authorDate,
+            authorDate: c.authorDate,
             repository: '',
             addedFiles: c.addedFiles,
             editedFiles: c.editedFiles,

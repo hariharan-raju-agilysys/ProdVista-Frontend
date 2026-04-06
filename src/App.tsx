@@ -18,7 +18,6 @@ import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 
 // Everything else: lazy
-const ManagerDashboard = lazy(() => import('./components/ManagerDashboard'))
 const DynamicDashboardPage = lazy(() => import('./pages/DynamicDashboardPage'))
 const DynamicPageRenderer = lazy(() => import('./components/dynamic').then(m => ({ default: m.DynamicPageRenderer })))
 const EngineeringDashboardV2 = lazy(() => import('./pages/EngineeringDashboardV2'))

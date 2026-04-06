@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import {
   Bot, Send, Sparkles, Minimize2, Maximize2,
   User, AlertCircle, Trash2, Wifi, WifiOff,
-  MessageCircle, ChevronUp, ChevronDown
+  ChevronDown
 } from 'lucide-react';
 import clsx from 'clsx';
 import ReactMarkdown from 'react-markdown';
@@ -89,7 +89,7 @@ export default function PersistentChatWidget() {
     isMinimized,
     isExpanded,
     isProcessing,
-    hasUnread,
+    hasUnread: _hasUnread,
     aiSettings,
     signalRConnected,
     sendMessage,

@@ -739,7 +739,7 @@ export default function ManagerDashboard() {
                   <h3 className="text-sm font-bold mb-3">Recent Commits</h3>
                   <div className="space-y-2 max-h-96 overflow-y-auto">
                     {commitData?.recentCommits?.slice(0, 20).map(c => (
-                      <a key={c.commitId} href={c.commitUrl} target="_blank" rel="noopener noreferrer" className="block text-xs p-2 rounded hover:bg-blue-50 border border-gray-100">
+                      <a key={c.commitId} href={c.url} target="_blank" rel="noopener noreferrer" className="block text-xs p-2 rounded hover:bg-blue-50 border border-gray-100">
                         <div className="font-mono text-blue-600">{c.shortCommitId}</div>
                         <div className="text-gray-800 truncate">{c.comment}</div>
                         <div className="text-gray-400">{c.authorName} • {new Date(c.authorDate).toLocaleDateString()}</div>

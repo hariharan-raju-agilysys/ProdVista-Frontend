@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Database, Sparkles, X, ChevronUp,
+  Bot, Database, Sparkles, X,
   Zap, Search, Activity, FileText, Rocket,
-  MessageCircle, Wrench, Shield
+  MessageCircle, Shield
 } from 'lucide-react'
 import clsx from 'clsx'
 import { usePersistentChat } from '../context/PersistentChatContext'
