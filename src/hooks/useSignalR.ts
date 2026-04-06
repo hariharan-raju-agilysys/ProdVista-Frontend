@@ -119,7 +119,7 @@ export function useSignalR(options: UseSignalROptions): UseSignalRResult {
       conn.stop();
       connectionRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps — stable on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hubPath]);
 
   const reconnect = useCallback(async () => {

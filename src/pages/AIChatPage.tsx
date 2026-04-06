@@ -278,7 +278,7 @@ const LINK_REGEX = /\[([^\]]+)\]\(([^)]+)\)/g;
 const RenderContent = memo(function RenderContent({ content }: { content: string }) {
   const parseContent = (text: string) => {
     const parts: React.ReactNode[] = [];
-    let remaining = text;
+    const remaining = text;
     let keyIdx = 0;
 
     // Split on code blocks first

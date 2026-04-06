@@ -969,10 +969,11 @@ const OverviewTab: React.FC<{
   sortField: string; sortDir: string; toggleSort: (f: string) => void;
   onBugClick: (id: number) => void; selectedBugId: number | null;
 }> = ({ kpi, bugs, trendData, agingData, todayActivity, birthdays, bugFilter, setBugFilter, sortField, sortDir, toggleSort, onBugClick, selectedBugId }) => {
-  if (!kpi) return null;
-
   const [expandedPrRepo, setExpandedPrRepo] = useState<string | null>(null);
   const [expandedCommitRepo, setExpandedCommitRepo] = useState<string | null>(null);
+  
+  if (!kpi) return null;
+
   const upcomingBirthdays = birthdays.filter(b => b.daysUntil <= 30);
 
   const pr = todayActivity?.pullRequests;

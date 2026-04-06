@@ -376,7 +376,7 @@ function SettingsTab({ config, onConfigChange, onShowExcelImport }: { config: Az
   const [isSaving, setIsSaving] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
 
-  const handleSave = async () => { setIsSaving(true); try { await apiClient.post('/adapters/azuredevops/configure', config); } catch {} finally { setIsSaving(false); } }
+  const handleSave = async () => { setIsSaving(true); try { await apiClient.post('/adapters/azuredevops/configure', config); } catch { /* ignore */ } finally { setIsSaving(false); } }
   const handleTestConnection = async () => { setIsTesting(true); try { await new Promise(r => setTimeout(r, 2000)); onConfigChange({ ...config, isConnected: true, lastSync: new Date().toISOString() }); } finally { setIsTesting(false); } }
 
   return (

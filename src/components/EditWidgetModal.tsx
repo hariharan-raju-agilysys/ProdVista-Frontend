@@ -562,7 +562,7 @@ export function EditWidgetModal({ widget, onClose, onSaved }: EditWidgetModalPro
     if (testing) return;
     setTesting(true);
     try {
-      let testConfig = { ...dataProviderConfig };
+      const testConfig = { ...dataProviderConfig };
       if (dataProviderType === 'Static') {
         const parsed = JSON.parse(staticJsonText);
         testConfig.staticData = parsed;
@@ -663,7 +663,7 @@ export function EditWidgetModal({ widget, onClose, onSaved }: EditWidgetModalPro
     setSaving(true);
     try {
       // Parse static JSON if using Static provider
-      let finalDataProviderConfig = { ...dataProviderConfig };
+      const finalDataProviderConfig = { ...dataProviderConfig };
       if (dataProviderType === 'Static') {
         try {
           finalDataProviderConfig.staticData = JSON.parse(staticJsonText);
@@ -704,7 +704,7 @@ export function EditWidgetModal({ widget, onClose, onSaved }: EditWidgetModalPro
     setAiSuggestion(null);
     try {
       // Build proper config for test
-      let testConfig = { ...dataProviderConfig };
+      const testConfig = { ...dataProviderConfig };
       if (dataProviderType === 'Static') {
         try {
           const parsed = JSON.parse(staticJsonText);

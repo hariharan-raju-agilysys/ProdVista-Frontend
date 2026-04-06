@@ -79,7 +79,7 @@ function applyDataMapping(data: unknown, mapping?: DataMapping): unknown {
   if (!mapping || !mapping.dataPath) return data;
   
   // Extract data from the specified path
-  let extractedData = getValueAtPath(data, mapping.dataPath);
+  const extractedData = getValueAtPath(data, mapping.dataPath);
   
   // If no field mappings, return extracted data as-is
   if (!mapping.fieldMappings || Object.keys(mapping.fieldMappings).length === 0) {
