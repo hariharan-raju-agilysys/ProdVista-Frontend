@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Database, Sparkles, X, ChevronUp,
+  Bot, Database, Sparkles, X, ChevronUp,
   Zap, Search, Activity, FileText, Rocket,
   MessageCircle, Wrench, Shield
 } from 'lucide-react'
