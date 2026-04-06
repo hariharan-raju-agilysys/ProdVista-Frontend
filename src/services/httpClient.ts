@@ -23,7 +23,7 @@ import { storage } from '../utils/storage';
 // Config
 // ---------------------------------------------------------------------------
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_PATH || '/api';
 const API_TIMEOUT  = Number(import.meta.env.VITE_API_TIMEOUT) || 30_000;
 
 // ---------------------------------------------------------------------------

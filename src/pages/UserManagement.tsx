@@ -46,7 +46,7 @@ const roleConfig = {
   admin: { label: 'Admin', icon: Shield, color: 'yellow', bgColor: 'bg-yellow-500/20', textColor: 'text-yellow-400' },
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || ''
+const API_BASE = import.meta.env.VITE_API_BASE_PATH || '/api'
 
 export function UserManagement() {
   const { user: currentUser } = useAuth()
@@ -79,7 +79,7 @@ export function UserManagement() {
         ...(statusFilter && { isActiveFilter: statusFilter === 'active' ? 'true' : 'false' }),
       })
 
-      const response = await fetch(`${API_BASE}/api/users?${params}`, {
+      const response = await fetch(`${API_BASE}/users?${params}`, {
         headers: { 
           ...authService.getAuthHeaders(),
           'X-User-Id': currentUser.id 
@@ -106,7 +106,7 @@ export function UserManagement() {
     if (!currentUser?.id) return
     
     try {
-      const response = await fetch(`${API_BASE}/api/users/stats`, {
+      const response = await fetch(`${API_BASE}/users/stats`, {
         headers: { 
           ...authService.getAuthHeaders(),
           'X-User-Id': currentUser.id 
@@ -130,7 +130,7 @@ export function UserManagement() {
     if (!currentUser?.id) return
     
     try {
-      const response = await fetch(`${API_BASE}/api/users/role`, {
+      const response = await fetch(`${API_BASE}/users/role`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -171,7 +171,7 @@ export function UserManagement() {
     if (!currentUser?.id) return
     
     try {
-      const response = await fetch(`${API_BASE}/api/users/status`, {
+      const response = await fetch(`${API_BASE}/users/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

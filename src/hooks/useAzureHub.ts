@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as signalR from '@microsoft/signalr';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+const API_BASE_URL = import.meta.env.VITE_BASE_PATH || '';
 
 // Cache key for Azure auth status (shared with AzureAuthContext)
 const AZURE_STATUS_KEY = 'prodvista_azure_status';
