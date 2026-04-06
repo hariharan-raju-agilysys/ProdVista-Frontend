@@ -60,6 +60,7 @@ interface AuthContextType {
   exitOrg: () => void // Exit org completely (clear org code too)
   refreshUser: () => Promise<void>
   setUserFromLocal: (user: User) => void
+  updateOrgInfo: (code: string, info: TenantInfo) => void
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -271,6 +272,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   /**
+   * Update org info in both React state and localStorage
+   */
+  const updateOrgInfo = useCallback((code: string, info: TenantInfo) => {
+    setOrgInfo(code, info)
+    setOrgCode(code)
+    setOrgInfoState(info)
+  }, [])
+
+  /**
    * Refresh user data from backend
    */
   const refreshUser = useCallback(async () => {
@@ -324,7 +334,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     exitOrg,
     refreshUser,
     setUserFromLocal,
-  }), [user, isAuthenticated, isLoading, isManager, isAdmin, isGuest, orgCode, orgInfo, hasOrgAccess, isSessionExpired, isAccessDenied, accessDeniedMessage, clearSessionExpired, clearAccessDenied, login, logout, logoutToOrg, exitOrg, refreshUser, setUserFromLocal]);
+    updateOrgInfo,
+  }), [user, isAuthenticated, isLoading, isManager, isAdmin, isGuest, orgCode, orgInfo, hasOrgAccess, isSessionExpired, isAccessDenied, accessDeniedMessage, clearSessionExpired, clearAccessDenied, login, logout, logoutToOrg, exitOrg, refreshUser, setUserFromLocal, updateOrgInfo]);
 
   return (
     <AuthContext.Provider value={providerValue}>

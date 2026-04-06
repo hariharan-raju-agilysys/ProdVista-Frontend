@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import { InteractionStatus } from '@azure/msal-browser';
 import { authService, TenantInfo } from '../services/authService';
-import { useAuth, setOrgInfo } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { graphScopes, isMsalConfigured } from '../config/msalConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -94,7 +94,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const hasNavigated = useRef(false);
   const { instance: msalInstance, inProgress, accounts } = useMsal();
-  const { setUserFromLocal } = useAuth();
+  const { setUserFromLocal, updateOrgInfo } = useAuth();
 
   const [step, setStep] = useState<'tenant' | 'login'>('tenant');
   const [tenantInfo, setTenantInfo] = useState<TenantInfo | null>(null);
@@ -132,7 +132,7 @@ export default function LoginPage() {
         const response = await authService.loginWithMsal(savedTenant, tokenResponse.accessToken);
         if (response.success) {
           if (response.user) setUserFromLocal(response.user as any);
-          setOrgInfo(savedTenant, { code: savedTenant, name: response.user?.tenantName || savedTenant });
+          updateOrgInfo(savedTenant, { code: savedTenant, name: response.user?.tenantName || savedTenant });
           hasNavigated.current = true;
           navigate('/');
         } else {
@@ -216,7 +216,7 @@ export default function LoginPage() {
       const response = await authService.loginWithAzure(tenantInfo.code);
       if (response.success) {
         if (response.user) setUserFromLocal(response.user as any);
-        setOrgInfo(tenantInfo.code, tenantInfo);
+        updateOrgInfo(tenantInfo.code, tenantInfo);
         hasNavigated.current = true;
         navigate('/');
       } else {
