@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 import api from '../services/api';
+import { useAuth } from './AuthContext';
 import { useAIChatHub, ChatStreamToken, HistoryMessage } from '../hooks/useAIChatHub';
 
 // ============================================
@@ -66,6 +67,7 @@ interface PersistentChatProviderProps {
 
 export function PersistentChatProvider({ children }: PersistentChatProviderProps) {
   // Core state
+  const { isAuthenticated } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isMinimized, setIsMinimized] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -203,8 +205,12 @@ export function PersistentChatProvider({ children }: PersistentChatProviderProps
     },
   });
 
-  // Load AI settings on mount
+  // Load AI settings when authenticated
   useEffect(() => {
+    if (!isAuthenticated) {
+      setAiSettings({ provider: 'Not configured', model: 'Unknown', isConfigured: false });
+      return;
+    }
     const loadAISettings = async () => {
       try {
         const response = await api.get('/ai/settings');
@@ -224,7 +230,7 @@ export function PersistentChatProvider({ children }: PersistentChatProviderProps
       }
     };
     loadAISettings();
-  }, []);
+  }, [isAuthenticated]);
 
   // Send message
   const sendMessage = useCallback(async (content: string) => {

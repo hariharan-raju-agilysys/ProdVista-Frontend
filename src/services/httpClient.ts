@@ -63,8 +63,12 @@ httpClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
     if (error.response?.status === 401) {
+      // Only show session-expired if user was previously logged in
+      const hadToken = storage.get<string>('prodvista_auth_token');
       storage.remove('prodvista_auth_token');
-      window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+      if (hadToken) {
+        window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+      }
     }
     return Promise.reject(error);
   },

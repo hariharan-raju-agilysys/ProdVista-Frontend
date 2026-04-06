@@ -25,9 +25,12 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Clear token and trigger re-login
+      // Only show session-expired if user was previously logged in
+      const hadToken = localStorage.getItem('prodvista_auth_token');
       localStorage.removeItem('prodvista_auth_token');
-      window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+      if (hadToken) {
+        window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+      }
     }
     return Promise.reject(error);
   }

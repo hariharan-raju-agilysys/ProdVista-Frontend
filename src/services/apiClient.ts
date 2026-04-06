@@ -73,9 +73,11 @@ apiClient.interceptors.response.use(
     if (response) {
       switch (response.status) {
         case 401:
-          // Unauthorized - clear token and redirect to login
-          clearAuthToken()
-          window.dispatchEvent(new CustomEvent('auth:unauthorized'))
+          // Only show session-expired if user was previously logged in
+          if (getAuthToken()) {
+            clearAuthToken()
+            window.dispatchEvent(new CustomEvent('auth:unauthorized'))
+          }
           break
         case 403:
           // Forbidden
