@@ -44,7 +44,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: prodvistaui-vs
+  name: prodvista-vs
   namespace: agys-v1
 spec:
   hosts:
@@ -53,8 +53,56 @@ spec:
   - agys-v1-gateway
 
   http:
-  # ProdVista SPA catch-all — all /prodvista/* routes go to frontend nginx
-  # (API calls are handled by prodvista-vs with /prodvista/api/ prefix rewrite)
+  # 1. ProdVista API routes — MUST be before the SPA catch-all
+  - match:
+    - uri:
+        prefix: /prodvista/api/
+    rewrite:
+      uri: /api/
+    headers:
+      request:
+        set:
+          x-forwarded-prefix: "/prodvista"
+    route:
+    - destination:
+        host: prodvista.agys-v1.svc.cluster.local
+        port:
+          number: 5000
+    timeout: 3600s
+
+  # 2. Swagger/API docs
+  - match:
+    - uri:
+        prefix: /prodvistaapi/swagger/
+    headers:
+      request:
+        set:
+          x-forwarded-prefix: "/prodvista"
+    route:
+    - destination:
+        host: prodvista.agys-v1.svc.cluster.local
+        port:
+          number: 5000
+    timeout: 3600s
+
+  # 3. SignalR hubs (WebSocket support, long timeout for persistent connections)
+  - match:
+    - uri:
+        prefix: /prodvista/hubs/
+    rewrite:
+      uri: /hubs/
+    headers:
+      request:
+        set:
+          x-forwarded-prefix: "/prodvista"
+    route:
+    - destination:
+        host: prodvista.agys-v1.svc.cluster.local
+        port:
+          number: 5000
+    timeout: 3600s
+
+  # 4. ProdVista SPA catch-all — MUST be LAST (after API/hubs routes)
   - match:
     - uri:
         exact: /prodvista
@@ -79,7 +127,6 @@ spec:
         remove:
         - x-envoy-peer-metadata
         - x-envoy-peer-metadata-id
-
     route:
     - destination:
         host: prodvistaui.agys-v1.svc.cluster.local
