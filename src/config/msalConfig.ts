@@ -3,7 +3,9 @@ import { Configuration, LogLevel, PopupRequest } from '@azure/msal-browser'
 // Azure AD Configuration - Set these in your environment variables
 const AZURE_CLIENT_ID = import.meta.env.VITE_AZURE_CLIENT_ID || 'your-client-id'
 const AZURE_TENANT_ID = import.meta.env.VITE_AZURE_TENANT_ID || 'common'
-const REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI || window.location.origin
+// Compute redirect URI: use explicit env var, or origin + base path (e.g. /prodvista)
+// This avoids the dangerous sed replacement of window.location.origin in the JS bundle
+const REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI || `${window.location.origin}${import.meta.env.VITE_BASE_PATH || ''}`
 
 /**
  * MSAL Configuration for Azure AD authentication

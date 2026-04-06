@@ -28,11 +28,9 @@ for file in "$JS_DIR"/*.js; do
       echo "[entrypoint] Injected VITE_AZURE_TENANT_ID"
     fi
     
-    # Replace redirect URI if specified
-    if [ -n "$VITE_REDIRECT_URI" ]; then
-      sed -i "s|window\.location\.origin|\"$VITE_REDIRECT_URI\"|g" "$file"
-      echo "[entrypoint] Injected VITE_REDIRECT_URI"
-    fi
+    # NOTE: VITE_REDIRECT_URI is no longer injected via sed.
+    # The redirect URI is computed at runtime from window.location.origin + VITE_BASE_PATH
+    # This avoids corrupting window.location.origin used by MSAL.js and other libraries.
   fi
 done
 
