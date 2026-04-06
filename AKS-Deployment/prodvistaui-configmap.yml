@@ -6,9 +6,10 @@ metadata:
 data:
   VITE_API_TIMEOUT: "30000"
   VITE_APP_TITLE: "ProdVista Dashboard"
-  VITE_AZURE_TENANT_ID: "common"
+  VITE_AZURE_CLIENT_ID: "5320118c-36f8-4b58-8e29-3f95a642b41e"
+  VITE_AZURE_TENANT_ID: "9750a820-9364-4bc3-9990-123c1645274b"
   VITE_ENABLE_DEVTOOLS: "false"
-  VITE_REDIRECT_URI: "https://aks-v1-dev.hospitalityrevolution.com"
+  VITE_REDIRECT_URI: "https://aks-v1-dev.hospitalityrevolution.com/prodvista"
   VITE_API_URL: ""
   VITE_API_BASE_PATH: "/prodvista/api"
   VITE_BASE_PATH: "/prodvista"

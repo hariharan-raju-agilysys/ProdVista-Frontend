@@ -71,8 +71,9 @@ export const graphConfig = {
 
 /**
  * Check if MSAL is configured (Azure AD client ID is set)
+ * Uses the resolved clientId from msalConfig (supports runtime injection via entrypoint)
  */
 export const isMsalConfigured = (): boolean => {
-  const clientId = import.meta.env.VITE_AZURE_CLIENT_ID
+  const clientId = msalConfig.auth.clientId
   return !!clientId && clientId !== 'your-client-id' && clientId.length > 10
 }
