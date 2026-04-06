@@ -45,11 +45,13 @@ RUN npm run build
 
 # ---- Stage 2: Serve --------------------------------------------------------
 FROM nginx:1.27-alpine AS runtime
+
+
 EXPOSE 80
 RUN rm -rf /usr/share/nginx/html/*
 
 COPY ./nginx.conf /etc/nginx/nginx.conf
 
-COPY --from=build /ui/dist/fiscal-management /usr/share/nginx/html/
+COPY --from=build /app/dist /usr/share/nginx/html
 
 CMD ["nginx", "-g", "daemon off;"]
