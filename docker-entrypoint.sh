@@ -22,9 +22,9 @@ for file in "$JS_DIR"/*.js; do
       echo "[entrypoint] Injected VITE_AZURE_CLIENT_ID"
     fi
     
-    # Replace VITE_AZURE_TENANT_ID if not 'common'
-    if [ -n "$VITE_AZURE_TENANT_ID" ] && [ "$VITE_AZURE_TENANT_ID" != "common" ]; then
-      sed -i "s|/common|/$VITE_AZURE_TENANT_ID|g" "$file"
+    # Replace VITE_AZURE_TENANT_ID placeholder
+    if [ -n "$VITE_AZURE_TENANT_ID" ]; then
+      sed -i "s|your-tenant-id|$VITE_AZURE_TENANT_ID|g" "$file"
       echo "[entrypoint] Injected VITE_AZURE_TENANT_ID"
     fi
     
