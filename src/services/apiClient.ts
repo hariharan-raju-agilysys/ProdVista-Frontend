@@ -1,7 +1,9 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios'
 
 // API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+// In dev: '/api' (proxied by Vite to localhost:5555)
+// In prod: '/prodvista/api' (routed by Istio VirtualService with rewrite)
+const API_BASE_URL = import.meta.env.VITE_API_BASE_PATH || '/api'
 const API_TIMEOUT = 30000
 
 // Create axios instance with default config

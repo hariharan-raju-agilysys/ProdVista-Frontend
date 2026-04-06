@@ -1,4 +1,7 @@
-const API_BASE = import.meta.env.VITE_API_URL || '';
+// Use VITE_API_BASE_PATH for API routing (matches api.ts)
+// In dev: '/api' (proxied by Vite to localhost:5555)
+// In prod: '/prodvista/api' (routed by Istio VirtualService with rewrite)
+const API_BASE = import.meta.env.VITE_API_BASE_PATH || '/api';
 
 export interface AuthUser {
   id: string;
@@ -65,7 +68,7 @@ const AUTH_TENANT_KEY = 'prodvista_auth_tenant';
 
 export const authService = {
   async login(request: LoginRequest): Promise<AuthResponse> {
-    const response = await fetch(`${API_BASE}/api/auth/login`, {
+    const response = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request),
@@ -83,7 +86,7 @@ export const authService = {
   },
 
   async register(request: RegisterRequest): Promise<AuthResponse> {
-    const response = await fetch(`${API_BASE}/api/auth/register`, {
+    const response = await fetch(`${API_BASE}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request),
@@ -103,7 +106,7 @@ export const authService = {
   async loginWithAzure(tenantCode: string): Promise<AuthResponse> {
     try {
       // First check if Azure CLI auth is valid
-      const statusResponse = await fetch(`${API_BASE}/api/azure/auth-status`);
+      const statusResponse = await fetch(`${API_BASE}/azure/auth-status`);
       const status = await statusResponse.json();
       
       if (!status.authenticated) {
@@ -114,7 +117,7 @@ export const authService = {
       }
 
       // Use the Azure auth to create a session
-      const response = await fetch(`${API_BASE}/api/auth/azure-login`, {
+      const response = await fetch(`${API_BASE}/auth/azure-login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -142,7 +145,7 @@ export const authService = {
 
   async loginWithMsal(tenantCode: string, accessToken: string): Promise<AuthResponse> {
     try {
-      const response = await fetch(`${API_BASE}/api/auth/msal-login`, {
+      const response = await fetch(`${API_BASE}/auth/msal-login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tenantCode, accessToken }),
@@ -167,7 +170,7 @@ export const authService = {
 
   async getTenants(): Promise<TenantInfo[]> {
     try {
-      const response = await fetch(`${API_BASE}/api/auth/tenants`);
+      const response = await fetch(`${API_BASE}/auth/tenants`);
       return await response.json();
     } catch {
       return [];
@@ -176,7 +179,7 @@ export const authService = {
 
   async validateTenant(code: string): Promise<TenantInfo | null> {
     try {
-      const response = await fetch(`${API_BASE}/api/auth/tenant/${encodeURIComponent(code)}`);
+      const response = await fetch(`${API_BASE}/auth/tenant/${encodeURIComponent(code)}`);
       if (!response.ok) return null;
       return await response.json();
     } catch {
@@ -186,7 +189,7 @@ export const authService = {
 
   async checkUsername(request: UsernameCheckRequest): Promise<UsernameCheckResponse> {
     try {
-      const response = await fetch(`${API_BASE}/api/auth/check-username`, {
+      const response = await fetch(`${API_BASE}/auth/check-username`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request),

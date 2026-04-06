@@ -53,9 +53,28 @@ spec:
   - agys-v1-gateway
 
   http:
+  # ProdVista SPA routes - all go to frontend nginx
   - match:
     - uri:
         prefix: /login
+    - uri:
+        prefix: /dashboard
+    - uri:
+        prefix: /ai-query
+    - uri:
+        prefix: /release-notes
+    - uri:
+        prefix: /command-center
+    - uri:
+        prefix: /azure-setup
+    - uri:
+        prefix: /settings
+    - uri:
+        prefix: /bugs
+    - uri:
+        prefix: /assets
+    - uri:
+        regex: "^/prodvista($|/.*)"
     headers:
       response:
         add:

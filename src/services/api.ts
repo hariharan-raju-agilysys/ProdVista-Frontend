@@ -1,7 +1,11 @@
 import axios from 'axios'
 
+// In dev: '/api' (proxied by Vite to localhost:5555)
+// In prod: '/prodvista/api' (routed by Istio VirtualService with rewrite)
+const API_BASE_PATH = import.meta.env.VITE_API_BASE_PATH || '/api';
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE_PATH,
   headers: {
     'Content-Type': 'application/json',
   },
