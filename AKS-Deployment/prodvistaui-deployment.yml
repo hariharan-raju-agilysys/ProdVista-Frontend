@@ -74,7 +74,27 @@ spec:
     - uri:
         prefix: /assets
     - uri:
-        regex: "^/prodvista($|/.*)"
+        exact: /prodvista
+    - uri:
+        exact: /prodvista/
+    - uri:
+        prefix: /prodvista/dashboard
+    - uri:
+        prefix: /prodvista/login
+    - uri:
+        prefix: /prodvista/ai-query
+    - uri:
+        prefix: /prodvista/release-notes
+    - uri:
+        prefix: /prodvista/command-center
+    - uri:
+        prefix: /prodvista/azure-setup
+    - uri:
+        prefix: /prodvista/settings
+    - uri:
+        prefix: /prodvista/bugs
+    - uri:
+        prefix: /prodvista/assets
     headers:
       response:
         add:
