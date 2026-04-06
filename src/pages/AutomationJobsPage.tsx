@@ -3,15 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Zap, Plus, Play, Pause, Trash2, RefreshCw, Clock, CheckCircle2,
   XCircle, AlertTriangle, Settings2, ChevronDown, ChevronRight,
-  ExternalLink, Loader2, Timer, Activity, BarChart3, Power,
-  Hammer, Globe, Database, FileText, RotateCcw, Send
+  ExternalLink, Loader2, Activity, BarChart3, Power,
+  Hammer, Database, FileText, RotateCcw, Send
 } from 'lucide-react'
 import {
   getDashboard, getJobs, createJob, updateJob, deleteJob,
   toggleJob, triggerJob, getJobRuns, cancelRun,
   type AutomationJobDto, type AutomationJobRunDto, type AutomationDashboardDto,
-  type CreateAutomationJobRequest, type AutomationJobType, type ScheduleType,
-  type AutomationRunStatus,
+  type AutomationJobType, type ScheduleType,
   JOB_TYPE_LABELS, JOB_TYPE_COLORS, SCHEDULE_TYPE_LABELS, RUN_STATUS_COLORS,
 } from '../services/automationJobService'
 
@@ -426,12 +425,6 @@ function JobCard({ job, index, isExpanded, runs, runsLoading, triggering, onTogg
 function RunRow({ run, compact, onCancel }: {
   run: AutomationJobRunDto; compact?: boolean; onCancel?: () => void
 }) {
-  const statusIcon = run.status === 'Completed' ? CheckCircle2
-    : run.status === 'Failed' ? XCircle
-    : run.status === 'Running' ? Loader2
-    : run.status === 'Cancelled' ? XCircle
-    : Clock
-
   return (
     <div className={`flex items-center gap-3 ${compact ? 'py-1.5' : 'px-5 py-3'} text-sm`}>
       <div className={`w-2 h-2 rounded-full flex-shrink-0 ${RUN_STATUS_COLORS[run.status]}`} />
