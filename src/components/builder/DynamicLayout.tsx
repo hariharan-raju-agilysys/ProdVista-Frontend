@@ -90,7 +90,7 @@ export default function DynamicLayout() {
       {/* Sidebar */}
       <aside className="fixed inset-y-0 left-0 w-64 bg-slate-900 text-white flex flex-col">
         <div className="flex items-center h-16 px-4 border-b border-slate-800">
-          <img src="/logo.svg" alt="ProdVista" className="w-10 h-10 mr-3" />
+          <img src={`${import.meta.env.VITE_BASE_PATH || ''}/logo.svg`} alt="ProdVista" className="w-10 h-10 mr-3" />
           <div>
             <h1 className="text-lg font-bold">
               <span className="text-purple-400">Prod</span><span className="text-blue-400">Vista</span>

@@ -158,7 +158,7 @@ export default function Layout() {
         sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       )}>
         <div className="flex items-center h-16 px-4 border-b border-slate-800 shrink-0">
-          <img src="/logo.svg" alt="ProdVista" className="w-10 h-10 mr-3" />
+          <img src={`${import.meta.env.VITE_BASE_PATH || ''}/logo.svg`} alt="ProdVista" className="w-10 h-10 mr-3" />
           <div>
             <h1 className="text-lg font-bold">
               <span className="text-purple-400">Prod</span><span className="text-blue-400">Vista</span>
