@@ -121,7 +121,15 @@ export default function LoginPage() {
     if (inProgress !== InteractionStatus.None) return;
 
     const savedTenant = sessionStorage.getItem('msal_pending_tenant');
-    if (!savedTenant || accounts.length === 0) return;
+    if (!savedTenant || accounts.length === 0) {
+      // MSAL finished but no account — SSO didn't complete; reset to tenant form
+      if (hasPendingMsal) {
+        sessionStorage.removeItem('msal_pending_tenant');
+        setStep('tenant');
+        setLoading(false);
+      }
+      return;
+    }
 
     sessionStorage.removeItem('msal_pending_tenant');
     setLoading(true);
