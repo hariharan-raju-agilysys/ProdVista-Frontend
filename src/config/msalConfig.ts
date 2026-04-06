@@ -77,7 +77,8 @@ export const graphConfig = {
  */
 export const isMsalConfigured = (): boolean => {
   const clientId = msalConfig.auth.clientId
-  // Split placeholder so docker-entrypoint sed doesn't replace this guard check too
-  const placeholder = 'your-' + 'client-id'
-  return !!clientId && clientId !== placeholder && clientId.length > 10
+  // Validate clientId is a real Azure AD GUID — immune to sed placeholder replacement
+  // and esbuild constant folding (unlike string concatenation tricks)
+  const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  return !!clientId && guidPattern.test(clientId)
 }
