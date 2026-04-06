@@ -128,41 +128,9 @@ export default function PersistentChatWidget() {
     }
   };
 
-  // Minimized widget (bottom bar) - positioned left of FAB
+  // Minimized widget - don't render anything, use FloatingAIButton hover flyout instead
   if (isMinimized) {
-    return (
-      <button
-        onClick={toggleMinimize}
-        className={clsx(
-          'fixed bottom-6 right-24 z-[100] flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg transition-all duration-300',
-          'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500',
-          'text-white font-medium text-sm',
-          hasUnread && 'animate-bounce'
-        )}
-      >
-        <div className="relative">
-          <MessageCircle className="w-5 h-5" />
-          {hasUnread && (
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse" />
-          )}
-        </div>
-        <span className="max-w-[150px] truncate">
-          {isProcessing ? (
-            <span className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 animate-pulse" />
-              Processing...
-            </span>
-          ) : hasUnread ? (
-            'New message!'
-          ) : messages.length > 0 ? (
-            'Chat active'
-          ) : (
-            'AI Assistant'
-          )}
-        </span>
-        <ChevronUp className="w-4 h-4" />
-      </button>
-    );
+    return null;
   }
 
   // Expanded chat panel

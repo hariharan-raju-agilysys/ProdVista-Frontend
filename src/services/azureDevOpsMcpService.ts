@@ -274,6 +274,59 @@ export const getPullRequests = async (filter?: PullRequestsFilter): Promise<{
   return response.data;
 };
 
+export interface AllProjectsPullRequestsFilter {
+  status?: string;
+  limitPerProject?: number;
+  createdByEmail?: string;
+}
+
+export interface DevOpsPullRequestWithProject extends DevOpsPullRequest {
+  project: string;
+  createdByEmail?: string;
+}
+
+export interface DevOpsConnectionInfo {
+  connectionId: string;
+  connectionName: string;
+  project: string;
+  success: boolean;
+  prCount: number;
+}
+
+/**
+ * Get pull requests from ALL configured DevOps connections/projects
+ */
+export const getPullRequestsFromAllProjects = async (filter?: AllProjectsPullRequestsFilter): Promise<{
+  success: boolean;
+  totalConnections: number;
+  totalPRs: number;
+  connections: DevOpsConnectionInfo[];
+  pullRequests: DevOpsPullRequestWithProject[];
+  message?: string;
+}> => {
+  const response = await api.get('/mcp/devops/tools/pull-requests/all-projects', { params: filter });
+  return response.data;
+};
+
+/**
+ * Get all configured DevOps connections for the tenant
+ */
+export const getConnections = async (): Promise<{
+  success: boolean;
+  count: number;
+  connections: {
+    id: string;
+    name: string;
+    project: string;
+    organizationUrl: string;
+    isActive: boolean;
+    lastSync?: string;
+  }[];
+}> => {
+  const response = await api.get('/mcp/devops/connections');
+  return response.data;
+};
+
 export interface CommitsFilter {
   repository: string;
   days?: number;

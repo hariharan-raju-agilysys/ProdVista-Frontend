@@ -15,6 +15,7 @@ export interface RecentPR {
   targetBranch: string;
   repositoryName: string;
   url: string;
+  webUrl?: string; // Browser-friendly URL for viewing the PR
 }
 
 export interface DashboardSummary {
@@ -90,11 +91,19 @@ export interface BranchesResponse {
   repositories: { id: string; name: string; defaultBranch: string }[];
 }
 
+export interface PRReviewer {
+  displayName: string;
+  vote: number;
+  imageUrl?: string;
+  isRequired?: boolean;
+}
+
 export interface PRInfo {
   pullRequestId: number;
   title: string;
   status: string;
   createdBy: string;
+  createdByEmail?: string;
   creationDate: string;
   sourceBranch: string;
   targetBranch: string;
@@ -104,27 +113,52 @@ export interface PRInfo {
   commentCount: number;
   reviewerCount: number;
   isApproved: boolean;
+  isMyPR?: boolean;
+  needsMyReview?: boolean;
   url: string;
+  webUrl?: string; // Browser-friendly URL for viewing the PR
+  reviewers?: PRReviewer[]; // Full reviewer details
 }
 
 export interface PRSummaryResponse {
   totalActive: number;
+  totalActiveAll?: number;
   waitingApproval: number;
   approved: number;
   drafts: number;
+  myCreatedCount?: number;
+  toReviewCount?: number;
+  myPrsOnly?: boolean;
+  currentUserEmail?: string;
   prs: PRInfo[];
+}
+
+export interface CommitInfo {
+  shortCommitId: string;
+  commitId?: string;
+  comment: string;
+  authorName: string;
+  authorEmail?: string;
+  authorDate: string;
+  repositoryName: string;
+  url?: string;
+  isMyCommit?: boolean;
 }
 
 export interface CommitStatsResponse {
   totalCommits: number;
+  totalCommitsAll?: number;
+  myCommitsCount?: number;
   totalChanges: number;
   daysBack: number;
   isAllTime: boolean;
+  myCommitsOnly?: boolean;
+  currentUserEmail?: string;
   lastCommitDate: string | null;
   repoCount: number;
-  byAuthor: { author: string; commits: number; changes: number }[];
+  byAuthor: { author: string; commits: number; changes: number; isCurrentUser?: boolean }[];
   byDay: { date: string; commits: number }[];
-  recentCommits: { shortCommitId: string; comment: string; authorName: string; authorDate: string; repositoryName: string }[];
+  recentCommits: CommitInfo[];
 }
 
 export interface BirthdayInfo {
@@ -217,6 +251,15 @@ export interface CustomersOverviewResponse {
   hybrid: { count: number; active: number; customers: CustomerOverviewItem[] };
 }
 
+export interface TodayBuildsResponse {
+  date: string;
+  total: number;
+  succeeded: number;
+  failed: number;
+  inProgress: number;
+  builds: BuildInfo[];
+}
+
 // ========================================
 // API Functions
 // ========================================
@@ -226,6 +269,9 @@ const BASE = '/internal-dashboard';
 export const getSummary = (connectionId?: string) =>
   api.get<DashboardSummary>(`${BASE}/summary${connectionId ? `?connectionId=${connectionId}` : ''}`).then(r => r.data);
 
+export const getTodayBuilds = (connectionId?: string) =>
+  api.get<TodayBuildsResponse>(`${BASE}/today-builds${connectionId ? `?connectionId=${connectionId}` : ''}`).then(r => r.data);
+
 export const getBranches = (connectionId?: string, repositoryId?: string) => {
   const p = new URLSearchParams();
   if (connectionId) p.append('connectionId', connectionId);
@@ -234,13 +280,19 @@ export const getBranches = (connectionId?: string, repositoryId?: string) => {
   return api.get<BranchesResponse>(`${BASE}/branches${qs ? `?${qs}` : ''}`).then(r => r.data);
 };
 
-export const getPRSummary = (connectionId?: string) =>
-  api.get<PRSummaryResponse>(`${BASE}/pr-summary${connectionId ? `?connectionId=${connectionId}` : ''}`).then(r => r.data);
+export const getPRSummary = (connectionId?: string, myPrsOnly?: boolean) => {
+  const p = new URLSearchParams();
+  if (connectionId) p.append('connectionId', connectionId);
+  if (myPrsOnly) p.append('myPrsOnly', 'true');
+  const qs = p.toString();
+  return api.get<PRSummaryResponse>(`${BASE}/pr-summary${qs ? `?${qs}` : ''}`).then(r => r.data);
+};
 
-export const getCommitStats = (connectionId?: string, daysBack = 7) => {
+export const getCommitStats = (connectionId?: string, daysBack = 7, myCommitsOnly?: boolean) => {
   const p = new URLSearchParams();
   if (connectionId) p.append('connectionId', connectionId);
   p.append('daysBack', daysBack.toString());
+  if (myCommitsOnly) p.append('myCommitsOnly', 'true');
   return api.get<CommitStatsResponse>(`${BASE}/commit-stats?${p.toString()}`).then(r => r.data);
 };
 
@@ -307,6 +359,8 @@ export interface WidgetConfig {
   order: number;
   enabled: boolean;
   size: 'normal' | 'large';
+  subtitle?: string;
+  fieldMappings?: Record<string, string>;
 }
 
 export interface MetricConfig {
@@ -385,11 +439,57 @@ export interface JenkinsBuildsResponse {
   error?: string;
 }
 
+export interface JenkinsBuildDetailResponse {
+  buildNumber: number;
+  displayName: string;
+  fullDisplayName?: string;
+  description?: string;
+  result: string | null;
+  building: boolean;
+  timestamp: number;
+  duration: number;
+  durationMinutes: number;
+  estimatedDuration: number;
+  estimatedDurationMinutes: number;
+  url: string;
+  consoleUrl: string;
+  branch?: string;
+  version?: string;
+  causes: Array<{
+    shortDescription?: string;
+    userName?: string;
+    userId?: string;
+  }>;
+  changes: Array<{
+    commitId?: string;
+    fullCommitId?: string;
+    message?: string;
+    author?: string;
+    timestamp: number;
+    affectedPaths?: string[];
+  }>;
+  changesCount: number;
+  artifacts: Array<{
+    fileName?: string;
+    displayPath?: string;
+    relativePath?: string;
+    downloadUrl: string;
+  }>;
+  artifactsCount: number;
+  keepLog: boolean;
+  error?: string;
+}
+
 export const getJenkinsBuilds = (jobFilter?: string) => {
   const params = new URLSearchParams();
   if (jobFilter) params.append('jobFilter', jobFilter);
   const qs = params.toString();
   return api.get<JenkinsBuildsResponse>(`${BASE}/jenkins-builds${qs ? `?${qs}` : ''}`).then(r => r.data);
+};
+
+export const getJenkinsBuildDetail = (jobPath: string, buildNumber: number) => {
+  const params = new URLSearchParams({ jobPath, buildNumber: buildNumber.toString() });
+  return api.get<JenkinsBuildDetailResponse>(`${BASE}/jenkins-build-detail?${params}`).then(r => r.data);
 };
 
 // Helpers

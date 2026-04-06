@@ -1,11 +1,12 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider } from './context/AuthContext'
+import { AuthProvider, useAuth } from './context/AuthContext'
 import { AzureAuthProvider } from './context/AzureAuthContext'
 import { PersistentChatProvider } from './context/PersistentChatContext'
 import { ManagerRoute, OrgRoute, FeatureRoute } from './components/guards'
 import { ErrorBoundary, LoadingSpinner } from './components/shared'
 import Layout from './components/Layout'
+import SessionExpiredModal from './components/SessionExpiredModal'
 
 // ---------------------------------------------------------------------------
 // Lazy-loaded pages — each page is its own chunk, loaded on first navigation.
@@ -47,6 +48,7 @@ const ManagerSettingsPage = lazy(() => import('./pages/ManagerSettings'))
 const UserManagement = lazy(() => import('./pages/UserManagement'))
 const TenantAdminPage = lazy(() => import('./pages/TenantAdminPage'))
 const MenuManagementPage = lazy(() => import('./pages/MenuManagementPage'))
+const AccessDeniedPage = lazy(() => import('./pages/AccessDeniedPage'))
 
 // ---------------------------------------------------------------------------
 // Routes
@@ -68,8 +70,8 @@ function AppRoutes() {
           <Layout />
         </OrgRoute>
       }>
-        {/* Main dashboard */}
-        <Route index element={<ManagerDashboard />} />
+        {/* Main dashboard - uses InternalDashboardPage with admin features hidden */}
+        <Route index element={<InternalDashboardPage isAdminView={false} />} />
         
         {/* Dynamic Dashboard Builder - Manager/Admin only */}
         <Route path="dashboard" element={<ManagerRoute><DynamicDashboardPage /></ManagerRoute>} />
@@ -110,9 +112,28 @@ function AppRoutes() {
         <Route path="users" element={<ManagerRoute><UserManagement /></ManagerRoute>} />
       </Route>
       
+      {/* Access Denied page */}
+      <Route path="/access-denied" element={<AccessDeniedPage />} />
+      
       {/* Catch all */}
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
+  )
+}
+
+/**
+ * Wrapper that shows session expired modal
+ */
+function AuthModals({ children }: { children: React.ReactNode }) {
+  const { isSessionExpired, clearSessionExpired } = useAuth()
+  return (
+    <>
+      {children}
+      <SessionExpiredModal 
+        isOpen={isSessionExpired} 
+        onClose={clearSessionExpired}
+      />
+    </>
   )
 }
 
@@ -122,11 +143,13 @@ function App() {
       <AuthProvider>
         <AzureAuthProvider>
           <BrowserRouter>
-            <PersistentChatProvider>
-              <Suspense fallback={<LoadingSpinner label="Loading..." />}>
-                <AppRoutes />
-              </Suspense>
-            </PersistentChatProvider>
+            <AuthModals>
+              <PersistentChatProvider>
+                <Suspense fallback={<LoadingSpinner label="Loading..." />}>
+                  <AppRoutes />
+                </Suspense>
+              </PersistentChatProvider>
+            </AuthModals>
           </BrowserRouter>
         </AzureAuthProvider>
       </AuthProvider>

@@ -5,13 +5,14 @@ import { ChartCard } from '../components/Charts';
 import { 
   GitPullRequest, GitCommit, Code2, Clock, Settings, RefreshCw, 
   X, Filter, ChevronDown, CheckCircle, XCircle, AlertCircle,
-  GitBranch, Users, Building2, Loader2, ExternalLink
+  GitBranch, Users, Building2, Loader2, ExternalLink, Maximize2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import engineeringService, { 
   EngineeringDashboardData, EngineeringConfig, 
   AzureDevOpsPullRequest, AzureDevOpsBuild 
 } from '../services/engineeringService';
+import { CommitsDetailModal, CommitDetail } from '../components/CommitsDetailModal';
 
 export default function EngineeringDashboardV2() {
   const { isManager } = useAuth();
@@ -35,6 +36,9 @@ export default function EngineeringDashboardV2() {
   // PR Detail popup
   const [selectedPR, setSelectedPR] = useState<AzureDevOpsPullRequest | null>(null);
   const [showPRDetail, setShowPRDetail] = useState(false);
+
+  // Commits Detail Modal
+  const [showCommitsModal, setShowCommitsModal] = useState(false);
 
   // Load saved config on mount
   useEffect(() => {
@@ -532,15 +536,27 @@ export default function EngineeringDashboardV2() {
 
           {/* Recent Commits */}
           <div className="card">
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
-              <GitCommit size={20} />
-              Recent Commits
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                <GitCommit size={20} />
+                Recent Commits
+                <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 rounded-full">
+                  {dashboardData.commits.length}
+                </span>
+              </h3>
+              <button
+                onClick={() => setShowCommitsModal(true)}
+                className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                title="View All Commits"
+              >
+                <Maximize2 className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
             <div className="space-y-2 max-h-80 overflow-y-auto">
               {dashboardData.commits.slice(0, 20).map((commit) => (
-                <div key={commit.commitId} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div key={commit.commitId} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer group">
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400">
                       {commit.comment.split('\n')[0]}
                     </p>
                     <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
@@ -656,6 +672,28 @@ export default function EngineeringDashboardV2() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Commits Detail Modal */}
+      {dashboardData && (
+        <CommitsDetailModal
+          commits={dashboardData.commits.map(c => ({
+            commitId: c.commitId,
+            shortId: c.shortCommitId,
+            message: c.comment,
+            authorName: c.authorName,
+            authorEmail: '',
+            date: c.authorDate,
+            repository: '',
+            addedFiles: c.addedFiles,
+            editedFiles: c.editedFiles,
+            deletedFiles: c.deletedFiles,
+            url: '',
+          } as CommitDetail))}
+          isOpen={showCommitsModal}
+          onClose={() => setShowCommitsModal(false)}
+          title="All Commits"
+        />
       )}
     </div>
   );

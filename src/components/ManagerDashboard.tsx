@@ -23,6 +23,7 @@ import CustomerDetailPopup from './CustomerDetailPopup'
 import WidgetConfigWizard from './widget-wizard/WidgetConfigWizard'
 import MagicalQuoteOverlay, { getRandomQuote, fetchAiQuote } from './MagicalQuoteOverlay'
 import { useAuth } from '../context/AuthContext'
+import { AdvancedPRListModal } from './AdvancedPRListModal'
 
 // Product icon/color map
 const productConfig: Record<string, { color: string; bg: string; border: string }> = {
@@ -69,6 +70,8 @@ export default function ManagerDashboard() {
   const [custOverview, setCustOverview] = useState<CustomersOverviewResponse | null>(null)
   const [showAllPRs, setShowAllPRs] = useState(false)
   const [expandedKpi, setExpandedKpi] = useState<string | null>(null)
+  const [showPRModal, setShowPRModal] = useState(false)
+  const [showCommitModal, setShowCommitModal] = useState(false)
 
   const isManager = authIsManager
 
@@ -393,12 +396,20 @@ export default function ManagerDashboard() {
         </div>
 
         {/* ── Total Commits + LOC ── */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
+        <div className="bg-white rounded-xl border-4 border-green-500 overflow-hidden shadow-xl">
+          <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-blue-100 to-cyan-100">
             <h3 className="text-xs font-semibold text-gray-900 flex items-center gap-1.5">
               <span>📊</span> Commits + LOC ({commitData?.daysBack ?? 30}d)
             </h3>
-            <span className="text-[10px] text-gray-400">{commitData?.totalCommits ?? 0} commits · {commitData?.totalChanges ?? 0} changes</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-gray-400">{commitData?.totalCommits ?? 0} commits · {commitData?.totalChanges ?? 0} changes</span>
+              <button 
+                onClick={() => { alert('Opening Commits Full View!'); setShowCommitModal(true); }}
+                className="text-sm px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold shadow-lg border-4 border-yellow-400 animate-pulse"
+              >
+                📋 FULL VIEW
+              </button>
+            </div>
           </div>
           <div className="p-3">
             {commitData?.byAuthor && commitData.byAuthor.length > 0 ? (
@@ -421,18 +432,26 @@ export default function ManagerDashboard() {
         </div>
 
         {/* ── Pull Requests ── */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
+        <div className="bg-white rounded-xl border-4 border-red-500 overflow-hidden shadow-xl">
+          <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-purple-100 to-indigo-100">
             <h3 className="text-xs font-semibold text-gray-900 flex items-center gap-1.5">
               <span>🔃</span> Pull Requests
             </h3>
-            {prData && (
-              <div className="flex items-center gap-2 text-[10px]">
-                <span className="text-purple-600 font-medium">{prData.totalActive} active</span>
-                <span className="text-red-600 font-medium">{prData.waitingApproval} waiting</span>
-                <span className="text-green-600 font-medium">{prData.approved} approved</span>
-              </div>
-            )}
+            <div className="flex items-center gap-3">
+              {prData && (
+                <div className="flex items-center gap-2 text-[10px]">
+                  <span className="text-purple-600 font-medium">{prData.totalActive} active</span>
+                  <span className="text-red-600 font-medium">{prData.waitingApproval} waiting</span>
+                  <span className="text-green-600 font-medium">{prData.approved} approved</span>
+                </div>
+              )}
+              <button 
+                onClick={() => { alert('Opening PR Full View!'); setShowPRModal(true); }}
+                className="text-sm px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold shadow-lg border-4 border-yellow-400 animate-pulse"
+              >
+                📋 FULL VIEW
+              </button>
+            </div>
           </div>
           <div className="p-3 max-h-52 overflow-y-auto">
             {!prData || prData.prs.length === 0 ? (
@@ -665,6 +684,73 @@ export default function ManagerDashboard() {
           onClose={() => setShowWidgetWizard(false)}
           onSaved={() => setShowWidgetWizard(false)}
         />
+      )}
+
+      {/* Full View Modals */}
+      <AdvancedPRListModal
+        prs={prData?.prs?.map(pr => ({
+          pullRequestId: pr.pullRequestId,
+          title: pr.title,
+          description: '',
+          createdBy: pr.createdBy,
+          creationDate: pr.creationDate,
+          sourceBranch: pr.sourceBranch,
+          targetBranch: pr.targetBranch,
+          repositoryName: pr.repositoryName,
+          url: pr.url,
+          webUrl: pr.webUrl,
+          isApproved: pr.isApproved,
+          isDraft: pr.isDraft,
+          status: pr.status || 'active',
+          reviewers: pr.reviewers?.map(r => ({ displayName: r.displayName, vote: r.vote })) || [],
+          mergeStatus: undefined,
+        })) || []}
+        isOpen={showPRModal}
+        onClose={() => setShowPRModal(false)}
+        title="All Pull Requests - Full View"
+      />
+
+      {/* Commit Full View Modal */}
+      {showCommitModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowCommitModal(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-100 to-cyan-100">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">All Commits - Full View</h2>
+                <p className="text-xs text-gray-500">{commitData?.totalCommits} commits • {commitData?.totalChanges} changes • {commitData?.byAuthor?.length} authors</p>
+              </div>
+              <button onClick={() => setShowCommitModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[70vh]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-bold mb-3">Top Contributors</h3>
+                  {commitData?.byAuthor?.slice(0, 15).map(a => (
+                    <div key={a.author} className="flex items-center gap-2 mb-2">
+                      <span className="w-32 text-xs truncate">{a.author}</span>
+                      <div className="flex-1 bg-gray-200 rounded-full h-3">
+                        <div className="bg-blue-500 h-3 rounded-full" style={{ width: `${Math.min((a.commits / (commitData.byAuthor[0]?.commits || 1)) * 100, 100)}%` }} />
+                      </div>
+                      <span className="text-xs font-mono w-12 text-right">{a.commits}</span>
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold mb-3">Recent Commits</h3>
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {commitData?.recentCommits?.slice(0, 20).map(c => (
+                      <a key={c.commitId} href={c.commitUrl} target="_blank" rel="noopener noreferrer" className="block text-xs p-2 rounded hover:bg-blue-50 border border-gray-100">
+                        <div className="font-mono text-blue-600">{c.shortCommitId}</div>
+                        <div className="text-gray-800 truncate">{c.comment}</div>
+                        <div className="text-gray-400">{c.authorName} • {new Date(c.authorDate).toLocaleDateString()}</div>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

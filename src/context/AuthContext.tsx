@@ -48,6 +48,12 @@ interface AuthContextType {
   orgCode: string | null
   orgInfo: TenantInfo | null
   hasOrgAccess: boolean // True if either authenticated or has org code
+  // Session state
+  isSessionExpired: boolean
+  isAccessDenied: boolean
+  accessDeniedMessage: string | null
+  clearSessionExpired: () => void
+  clearAccessDenied: () => void
   login: (email: string, displayName: string) => Promise<LoginResponse>
   logout: () => void
   logoutToOrg: () => void // Logout but keep org code (stay as guest)
@@ -96,6 +102,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [orgCode, setOrgCode] = useState<string | null>(getStoredOrgCode)
   const [orgInfo, setOrgInfoState] = useState<TenantInfo | null>(getStoredOrgInfo)
+  // Session state
+  const [isSessionExpired, setIsSessionExpired] = useState(false)
+  const [isAccessDenied, setIsAccessDenied] = useState(false)
+  const [accessDeniedMessage, setAccessDeniedMessage] = useState<string | null>(null)
 
   const isAuthenticated = !!user
   const userRole = user?.role?.toLowerCase()
@@ -136,7 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Listen for auth:unauthorized events (API returns 401)
   useEffect(() => {
     const handleUnauthorized = () => {
-      console.warn('Session expired - logging out')
+      console.warn('Session expired - showing modal')
       // Clear user state but keep org info so they can log back in
       setUser(null)
       localStorage.removeItem(AUTH_STORAGE_KEY)
@@ -146,13 +156,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sessionStorage.clear()
       authApi.clearToken()
       authService.logout()
-      // Show alert to user
-      alert('Your session has expired. Please log in again.')
-      // Redirect to login
-      window.location.href = '/login'
+      // Show session expired modal (no jarring redirect)
+      setIsSessionExpired(true)
     }
+    
+    const handleForbidden = (event: CustomEvent) => {
+      console.warn('Access denied - showing message')
+      setAccessDeniedMessage(event.detail?.message || 'You do not have permission to access this resource.')
+      setIsAccessDenied(true)
+    }
+    
     window.addEventListener('auth:unauthorized', handleUnauthorized)
-    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized)
+    window.addEventListener('auth:forbidden', handleForbidden as EventListener)
+    return () => {
+      window.removeEventListener('auth:unauthorized', handleUnauthorized)
+      window.removeEventListener('auth:forbidden', handleForbidden as EventListener)
+    }
   }, [])
 
   /**
@@ -268,6 +287,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user])
 
+  /**
+   * Clear session expired state (called when user clicks "Log In Again")
+   */
+  const clearSessionExpired = useCallback(() => {
+    setIsSessionExpired(false)
+  }, [])
+
+  /**
+   * Clear access denied state
+   */
+  const clearAccessDenied = useCallback(() => {
+    setIsAccessDenied(false)
+    setAccessDeniedMessage(null)
+  }, [])
+
   const providerValue = useMemo(() => ({
     user,
     isAuthenticated,
@@ -278,13 +312,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     orgCode,
     orgInfo,
     hasOrgAccess,
+    // Session state
+    isSessionExpired,
+    isAccessDenied,
+    accessDeniedMessage,
+    clearSessionExpired,
+    clearAccessDenied,
     login,
     logout,
     logoutToOrg,
     exitOrg,
     refreshUser,
     setUserFromLocal,
-  }), [user, isAuthenticated, isLoading, isManager, isAdmin, isGuest, orgCode, orgInfo, hasOrgAccess, login, logout, logoutToOrg, exitOrg, refreshUser, setUserFromLocal]);
+  }), [user, isAuthenticated, isLoading, isManager, isAdmin, isGuest, orgCode, orgInfo, hasOrgAccess, isSessionExpired, isAccessDenied, accessDeniedMessage, clearSessionExpired, clearAccessDenied, login, logout, logoutToOrg, exitOrg, refreshUser, setUserFromLocal]);
 
   return (
     <AuthContext.Provider value={providerValue}>
