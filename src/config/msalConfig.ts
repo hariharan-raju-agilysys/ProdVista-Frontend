@@ -77,5 +77,7 @@ export const graphConfig = {
  */
 export const isMsalConfigured = (): boolean => {
   const clientId = msalConfig.auth.clientId
-  return !!clientId && clientId !== 'your-client-id' && clientId.length > 10
+  // Split placeholder so docker-entrypoint sed doesn't replace this guard check too
+  const placeholder = 'your-' + 'client-id'
+  return !!clientId && clientId !== placeholder && clientId.length > 10
 }
