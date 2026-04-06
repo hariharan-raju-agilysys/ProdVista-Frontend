@@ -96,10 +96,12 @@ export default function LoginPage() {
   const { instance: msalInstance, inProgress, accounts } = useMsal();
   const { setUserFromLocal, updateOrgInfo } = useAuth();
 
-  const [step, setStep] = useState<'tenant' | 'login'>('tenant');
+  // If returning from MSAL redirect, skip tenant form and show loading
+  const hasPendingMsal = !!sessionStorage.getItem('msal_pending_tenant');
+  const [step, setStep] = useState<'tenant' | 'login'>(hasPendingMsal ? 'login' : 'tenant');
   const [tenantInfo, setTenantInfo] = useState<TenantInfo | null>(null);
   const [tenantCode, setTenantCode] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(hasPendingMsal);
   const [error, setError] = useState('');
   const [focusedInput, setFocusedInput] = useState(false);
 
@@ -192,6 +194,8 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     sessionStorage.setItem('msal_pending_tenant', tenantInfo.code);
+    // Persist org info BEFORE redirect so OrgRoute passes on page reload
+    updateOrgInfo(tenantInfo.code, tenantInfo);
 
     try {
       await msalInstance.loginRedirect({
