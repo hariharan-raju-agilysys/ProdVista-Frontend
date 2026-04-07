@@ -40,6 +40,7 @@ const ObservabilityQueryPage = lazy(() => import('./pages/ObservabilityQueryPage
 const ObservabilityDashboardPage = lazy(() => import('./pages/ObservabilityDashboardPage'))
 const AutomationJobsPage = lazy(() => import('./pages/AutomationJobsPage'))
 const InternalDashboardPage = lazy(() => import('./pages/InternalDashboardPage'))
+const McpToolsPage = lazy(() => import('./pages/McpToolsPage'))
 const ToolsPage = lazy(() => import('./pages/ToolsPage'))
 const HrSetupPage = lazy(() => import('./pages/HrSetupPage'))
 const ProductionCustomersPage = lazy(() => import('./pages/ProductionCustomersPage'))
@@ -100,6 +101,7 @@ function AppRoutes() {
         <Route path="observability-query" element={<ObservabilityQueryPage />} />
         <Route path="observability" element={<ObservabilityDashboardPage />} />
         <Route path="automation" element={<ManagerRoute><AutomationJobsPage /></ManagerRoute>} />
+        <Route path="mcp-tools" element={<McpToolsPage />} />
         <Route path="internal" element={<InternalDashboardPage />} />
         <Route path="tools" element={<ToolsPage />} />
         <Route path="data-feed" element={<DataFeedPage />} />
