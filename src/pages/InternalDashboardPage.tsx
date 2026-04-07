@@ -1038,7 +1038,7 @@ function CommitListModal({ data, isOpen, onClose, onViewCommitDetail }: {
             <div className="p-3">
               <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2">Top Contributors</h3>
               <div className="space-y-1">
-                {data?.byAuthor.slice(0, 20).map(a => (
+                {data?.byAuthor?.slice(0, 20).map(a => (
                   <button
                     key={a.author}
                     onClick={() => setAuthorFilter(authorFilter === a.author ? null : a.author)}
@@ -2221,11 +2221,11 @@ function CommitStatsWidget({ data, onViewAll }: { data: CommitStatsResponse | nu
         )}
         
         {/* Top Contributors */}
-        {data.byAuthor.length > 0 && (
+        {data.byAuthor?.length > 0 && (
           <div className="mb-3">
             <p className="text-[10px] font-medium text-gray-500 uppercase mb-2">Top Contributors</p>
             <div className="space-y-1.5">
-              {data.byAuthor.slice(0, 6).map((a, i) => (
+              {data.byAuthor?.slice(0, 6).map((a, i) => (
                 <div key={a.author} className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
                   <span className="text-[10px] text-gray-400 w-4">{i + 1}.</span>
                   <span className={`w-24 text-xs truncate ${a.isCurrentUser ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-200'}`}>
@@ -2243,11 +2243,11 @@ function CommitStatsWidget({ data, onViewAll }: { data: CommitStatsResponse | nu
         )}
         
         {/* Recent Commits */}
-        {data.recentCommits.length > 0 && (
+        {data.recentCommits?.length > 0 && (
           <div className="border-t border-gray-100 dark:border-gray-700 pt-2">
             <p className="text-[10px] font-medium text-gray-500 uppercase mb-2">Recent Commits</p>
             <div className="space-y-1 max-h-28 overflow-y-auto">
-              {data.recentCommits.slice(0, 4).map(c => (
+              {data.recentCommits?.slice(0, 4).map(c => (
                 <a 
                   key={c.shortCommitId} 
                   href={c.url || '#'} 
