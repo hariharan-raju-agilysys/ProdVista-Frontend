@@ -1242,7 +1242,7 @@ function AddConnectionModal({
           }))
           setOrganizations(orgs)
           if (orgs.length === 0) {
-            setDiscoveryError('No organizations found. Make sure you are logged in with Azure CLI (az login).')
+            setDiscoveryError('No organizations found. Make sure you are signed in with Azure SSO.')
           }
         } else {
           setDiscoveryError(result.message || 'Failed to discover organizations.')
@@ -1253,7 +1253,7 @@ function AddConnectionModal({
         const orgs = await releaseNotesService.discoverOrganizations()
         setOrganizations(orgs)
         if (orgs.length === 0) {
-          setDiscoveryError('No organizations found. Make sure you are logged in with Azure CLI (az login).')
+          setDiscoveryError('No organizations found. Make sure you are signed in with Azure SSO.')
         }
       }
     } catch (err: any) {

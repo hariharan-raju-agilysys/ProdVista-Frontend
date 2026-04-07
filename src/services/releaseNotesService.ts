@@ -196,21 +196,21 @@ export interface FetchWorkItemsRequest {
 
 // Service class
 class ReleaseNotesService {
-  // Azure DevOps Discovery (using Azure CLI credentials)
+  // Azure DevOps Discovery (using SSO via X-Azure-Token header)
   async discoverOrganizations(): Promise<AzureDevOpsOrganization[]> {
-    const response = await api.get<AzureDevOpsOrganization[]>('/release-notes/devops/discover/organizations')
-    return response.data
+    const response = await api.get<{ organizations: AzureDevOpsOrganization[]; authMethod: string }>('/devops/discover/organizations')
+    return response.data.organizations
   }
 
   async discoverProjects(organizationUrl: string): Promise<AzureDevOpsProject[]> {
-    const response = await api.get<AzureDevOpsProject[]>('/release-notes/devops/discover/projects', {
+    const response = await api.get<AzureDevOpsProject[]>('/devops/discover/projects', {
       params: { organizationUrl }
     })
     return response.data
   }
 
   async testDiscoveredConnection(organizationUrl: string, projectName: string): Promise<{ success: boolean; message: string }> {
-    const response = await api.post<{ success: boolean; message: string }>('/release-notes/devops/discover/test', {
+    const response = await api.post<{ success: boolean; message: string }>('/devops/discover/test', {
       organizationUrl,
       projectName
     })

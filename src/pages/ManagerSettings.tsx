@@ -473,7 +473,7 @@ export function ManagerSettingsPage() {
                             Discover
                           </button>
                         </div>
-                        <p className="text-xs text-gray-500 mt-1">Uses Azure CLI credentials to auto-discover organizations</p>
+                        <p className="text-xs text-gray-500 mt-1">Uses your Azure SSO credentials to auto-discover organizations</p>
                       </div>
 
                       <div>
