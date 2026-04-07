@@ -429,7 +429,11 @@ export function useAzureHub(options: UseAzureHubOptions = {}) {
     const connection = new signalR.HubConnectionBuilder()
       .withUrl(`${API_BASE_URL}/hubs/azure`, {
         accessTokenFactory: () => token,
-        transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling
+        transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling,
+        headers: (() => {
+          const azureToken = localStorage.getItem('prodvista_azure_token');
+          return azureToken ? { 'X-Azure-Token': azureToken } : {};
+        })(),
       })
       .withAutomaticReconnect({
         nextRetryDelayInMilliseconds: (retryContext) => {
