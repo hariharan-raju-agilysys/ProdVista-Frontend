@@ -27,6 +27,7 @@ const DynamicPageRenderer = lazy(() => import('./components/dynamic').then(m => 
 const EngineeringDashboardV2 = lazy(() => import('./pages/EngineeringDashboardV2'))
 const PullRequestsPage = lazy(() => import('./pages/PullRequestsPage'))
 const DevOpsOverviewPage = lazy(() => import('./pages/DevOpsOverviewPage'))
+const DeveloperToolkitPage = lazy(() => import('./pages/DeveloperToolkitPage'))
 const EngineeringCommandCenter = lazy(() => import('./pages/EngineeringCommandCenter'))
 const ReleaseManagement = lazy(() => import('./pages/ReleaseManagement'))
 const QualityDashboardV2 = lazy(() => import('./pages/QualityDashboardV2'))
@@ -89,6 +90,8 @@ function AppRoutes() {
         <Route path="engineering" element={<EngineeringDashboardV2 />} />
         <Route path="pull-requests" element={<PullRequestsPage />} />
         <Route path="devops-overview" element={<DevOpsOverviewPage />} />
+        <Route path="developer-toolkit" element={<DeveloperToolkitPage />} />
+        <Route path="devops" element={<DevOpsOverviewPage />} />
         <Route path="command-center" element={<EngineeringCommandCenter />} />
         <Route path="releases" element={<ReleaseManagement />} />
         <Route path="quality" element={<QualityDashboardV2 />} />

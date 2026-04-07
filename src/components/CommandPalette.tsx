@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import {
   Search, X, ArrowRight, LayoutDashboard, Code2, Package, Server, Users,
   Settings, FileText, Cloud, Workflow, Bot, Database, Activity, Zap, Shield,
-  Rocket, BarChart3, Eye, Terminal, Sparkles, Clock, Command,
+  Rocket, BarChart3, Eye, Terminal, Sparkles, Clock, Command, Wrench,
+  GitPullRequest, Lock, UserCog, Palette, Bell, Key,
   type LucideIcon,
 } from 'lucide-react'
 import clsx from 'clsx'
+import { useAuth } from '../context/AuthContext'
 
 // All navigable pages
 interface CommandItem {
@@ -15,9 +17,10 @@ interface CommandItem {
   description: string
   icon: LucideIcon
   path: string
-  category: 'navigation' | 'ai' | 'tools' | 'admin'
+  category: 'navigation' | 'ai' | 'tools' | 'admin' | 'developer'
   keywords: string[]
   shortcut?: string
+  requiredRole?: 'manager' | 'admin' // Only show to users with this role
 }
 
 const allCommands: CommandItem[] = [
@@ -29,6 +32,10 @@ const allCommands: CommandItem[] = [
   { id: 'production', label: 'Production', description: 'Production monitoring', icon: Server, path: '/production', category: 'navigation', keywords: ['prod', 'live', 'monitor'] },
   { id: 'customers', label: 'Customers', description: 'Customer analytics', icon: Users, path: '/customers', category: 'navigation', keywords: ['client', 'user', 'crm'] },
   { id: 'logs', label: 'Logs', description: 'System logs explorer', icon: Terminal, path: '/logs', category: 'navigation', keywords: ['log', 'trace', 'debug'] },
+
+  // Developer Tools (NEW CATEGORY)
+  { id: 'developer-toolkit', label: 'Developer Toolkit', description: 'Your personal dev dashboard: PRs, commits, work items', icon: Wrench, path: '/developer-toolkit', category: 'developer', keywords: ['dev', 'my', 'work', 'pr', 'commit', 'personal'], shortcut: 'Ctrl+Shift+D' },
+  { id: 'devops-overview', label: 'DevOps Overview', description: 'Azure DevOps work items & PRs', icon: GitPullRequest, path: '/devops', category: 'developer', keywords: ['devops', 'azure', 'work', 'item', 'pr'] },
 
   // AI Tools  
   { id: 'ai-chat', label: 'AI Assistant', description: 'Chat with AI assistant', icon: Bot, path: '/ai-chat', category: 'ai', keywords: ['chat', 'ask', 'help', 'gpt'], shortcut: 'Ctrl+Shift+A' },
@@ -45,21 +52,28 @@ const allCommands: CommandItem[] = [
   { id: 'internal', label: 'Internal Dashboard', description: 'System internals & API catalog', icon: Rocket, path: '/internal', category: 'tools', keywords: ['api', 'system', 'health'] },
   { id: 'hr-setup', label: 'HR Integration', description: 'Configure HR provider connections', icon: Users, path: '/hr-setup', category: 'tools', keywords: ['hr', 'employee', 'birthday', 'greythr', 'setup'] },
 
-  // Admin
+  // Admin (Basic)
   { id: 'dashboard-builder', label: 'Dashboard Builder', description: 'Create custom dashboards', icon: BarChart3, path: '/dashboard', category: 'admin', keywords: ['widget', 'layout', 'custom'] },
   { id: 'settings', label: 'Settings', description: 'Application settings', icon: Settings, path: '/settings', category: 'admin', keywords: ['config', 'preferences'] },
-  { id: 'users', label: 'User Management', description: 'Manage users & roles', icon: Users, path: '/users', category: 'admin', keywords: ['role', 'permission', 'access'] },
-  { id: 'menu-management', label: 'Menu Management', description: 'Customize navigation menu', icon: Settings, path: '/menu-management', category: 'admin', keywords: ['nav', 'sidebar', 'menu'] },
+
+  // Admin (Manager/Admin Only)
+  { id: 'users', label: 'User Management', description: 'Manage users, roles & permissions', icon: UserCog, path: '/users', category: 'admin', keywords: ['user', 'role', 'permission', 'access'], requiredRole: 'manager' },
+  { id: 'menu-management', label: 'Menu Management', description: 'Customize navigation menu', icon: Palette, path: '/menu-management', category: 'admin', keywords: ['nav', 'sidebar', 'menu'], requiredRole: 'admin' },
+  { id: 'tenant-settings', label: 'Tenant Settings', description: 'Organization-wide settings', icon: Settings, path: '/tenant-settings', category: 'admin', keywords: ['org', 'tenant', 'organization'], requiredRole: 'admin' },
+  { id: 'api-keys', label: 'API Keys', description: 'Manage API keys & integrations', icon: Key, path: '/api-keys', category: 'admin', keywords: ['api', 'key', 'token', 'integration'], requiredRole: 'admin' },
+  { id: 'audit-logs', label: 'Audit Logs', description: 'View system audit logs', icon: FileText, path: '/audit', category: 'admin', keywords: ['audit', 'log', 'history', 'activity'], requiredRole: 'manager' },
+  { id: 'notifications', label: 'Notification Settings', description: 'Configure alerts & notifications', icon: Bell, path: '/notifications', category: 'admin', keywords: ['alert', 'notify', 'email'], requiredRole: 'manager' },
 ]
 
 const categoryLabels: Record<string, string> = {
+  developer: '👨‍💻 Developer Tools',
   navigation: '📊 Pages',
   ai: '🤖 AI Tools',
   tools: '🔧 Tools & Utilities',
   admin: '⚙️ Administration',
 }
 
-const categoryOrder = ['ai', 'navigation', 'tools', 'admin']
+const categoryOrder = ['developer', 'ai', 'navigation', 'tools', 'admin']
 
 interface CommandPaletteProps {
   isOpen: boolean
@@ -73,6 +87,17 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
+  const { isManager, isAdmin } = useAuth()
+
+  // Filter commands based on user role
+  const availableCommands = useMemo(() => {
+    return allCommands.filter(cmd => {
+      if (!cmd.requiredRole) return true
+      if (cmd.requiredRole === 'admin') return isAdmin
+      if (cmd.requiredRole === 'manager') return isManager || isAdmin
+      return true
+    })
+  }, [isManager, isAdmin])
 
   // Load recents from localStorage
   useEffect(() => {
@@ -96,13 +121,13 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     if (!query.trim()) {
       // Show recents first, then all
       const recentItems = recentCommands
-        .map(id => allCommands.find(c => c.id === id))
+        .map(id => availableCommands.find(c => c.id === id))
         .filter(Boolean) as CommandItem[]
-      const others = allCommands.filter(c => !recentCommands.includes(c.id))
+      const others = availableCommands.filter(c => !recentCommands.includes(c.id))
       return [...recentItems, ...others]
     }
     const q = query.toLowerCase()
-    return allCommands
+    return availableCommands
       .filter(cmd =>
         cmd.label.toLowerCase().includes(q) ||
         cmd.description.toLowerCase().includes(q) ||
@@ -114,7 +139,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
         const bMatch = b.label.toLowerCase().startsWith(q) ? 0 : 1
         return aMatch - bMatch
       })
-  }, [query, recentCommands])
+  }, [query, recentCommands, availableCommands])
 
   // Group filtered by category
   const grouped = useMemo(() => {
@@ -225,6 +250,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                   const idx = itemCounter
                   const Icon = cmd.icon
                   const isRecent = !query && recentCommands.includes(cmd.id) && recentCommands.indexOf(cmd.id) < 3
+                  const isRestricted = !!cmd.requiredRole
                   return (
                     <button
                       key={cmd.id}
@@ -238,6 +264,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                     >
                       <div className={clsx(
                         'w-9 h-9 rounded-xl flex items-center justify-center shrink-0',
+                        cmd.category === 'developer' ? 'bg-gradient-to-br from-emerald-500 to-teal-500 text-white' :
                         cmd.category === 'ai' ? 'bg-gradient-to-br from-purple-500 to-pink-500 text-white' :
                         cmd.category === 'tools' ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white' :
                         cmd.category === 'admin' ? 'bg-gradient-to-br from-amber-500 to-orange-500 text-white' :
@@ -250,6 +277,12 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                           <span className={clsx('text-sm font-medium', selectedIndex === idx ? 'text-blue-700' : 'text-gray-800')}>
                             {cmd.label}
                           </span>
+                          {isRestricted && (
+                            <span className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] bg-red-100 text-red-600 rounded font-medium">
+                              <Lock className="w-2.5 h-2.5" />
+                              {cmd.requiredRole === 'admin' ? 'Admin' : 'Manager'}
+                            </span>
+                          )}
                           {isRecent && (
                             <span className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] bg-amber-100 text-amber-600 rounded font-medium">
                               <Clock className="w-2.5 h-2.5" />

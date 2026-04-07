@@ -39,6 +39,11 @@ api.interceptors.request.use((config) => {
   if (devopsToken) {
     config.headers['X-DevOps-Token'] = devopsToken;
   }
+  // Include session ID for server-side token caching
+  const sessionId = sessionStorage.getItem('pv_session_id');
+  if (sessionId) {
+    config.headers['X-Session-Id'] = sessionId;
+  }
   return config;
 });
 

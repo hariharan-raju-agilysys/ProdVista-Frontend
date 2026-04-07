@@ -221,27 +221,34 @@ export default function Layout() {
               )}
             </div>
           ) : (
-            menuItems.map((item) => {
-              const Icon = getIcon(item.icon)
-              return (
-                <NavLink
-                  key={item.id}
-                  to={item.href}
-                  onClick={() => setSidebarOpen(false)}
-                  className={({ isActive }) =>
-                    clsx(
-                      'flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 transition-colors',
-                      isActive
-                        ? 'bg-primary-600 text-white'
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                    )
-                  }
-                >
-                  <Icon className="w-5 h-5" />
-                  {item.name}
-                </NavLink>
-              )
-            })
+            (() => {
+              // Show only these items in this specific order
+              const visibleItems = ['Overview', 'Quality', 'Customers']
+              return menuItems
+                .filter((item) => visibleItems.includes(item.name))
+                .sort((a, b) => visibleItems.indexOf(a.name) - visibleItems.indexOf(b.name))
+                .map((item) => {
+                  const Icon = getIcon(item.icon)
+                  return (
+                    <NavLink
+                      key={item.id}
+                      to={item.href}
+                      onClick={() => setSidebarOpen(false)}
+                      className={({ isActive }) =>
+                        clsx(
+                          'flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 transition-colors',
+                          isActive
+                            ? 'bg-primary-600 text-white'
+                            : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                        )
+                      }
+                    >
+                      <Icon className="w-5 h-5" />
+                      {item.name}
+                    </NavLink>
+                  )
+                })
+            })()
           )}
         </nav>
 
