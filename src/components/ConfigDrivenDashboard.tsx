@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Responsive, WidthProvider, Layout } from 'react-grid-layout';
 import { Sparkles, RefreshCw, Wand2, Send, MessageSquare } from 'lucide-react';
 import clsx from 'clsx';
+import { API_BASE_PATH } from '../services/api';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import {
@@ -111,7 +112,7 @@ export function ConfigDrivenDashboard({ pageSlug, initialConfig, onApplied }: Co
           const token = localStorage.getItem('prodvista_auth_token') || '';
           const connId = w.data.renderConfig.connectionId as string;
           const endpoint = w.data.renderConfig.jenkinsEndpoint as string || 'stats';
-          const resp = await fetch(`/api/jenkins/connections/${connId}/${endpoint}`, {
+          const resp = await fetch(`${API_BASE_PATH}/jenkins/connections/${connId}/${endpoint}`, {
             headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
           });
           if (resp.ok) {

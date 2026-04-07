@@ -6,6 +6,7 @@ import {
   CheckCircle, AlertCircle, FileUp, Copy, Eye
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { API_BASE_PATH } from '../services/api'
 import clsx from 'clsx'
 import releaseNotesService, {
   type ReleaseNoteTemplate,
@@ -165,7 +166,7 @@ function UserReleaseView({
     setIsGenerating(true)
     try {
       // Call API to generate DOCX with the data
-      const response = await fetch(`/api/release-notes/generate`, {
+      const response = await fetch(`${API_BASE_PATH}/release-notes/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -419,7 +420,7 @@ function TableDataEntry({
     setIsFetching(true)
     try {
       // This would call the API to fetch work items
-      const response = await fetch(`/api/release-notes/connections/${selectedConnectionId}/workitems?table=${tableName}`, {
+      const response = await fetch(`${API_BASE_PATH}/release-notes/connections/${selectedConnectionId}/workitems?table=${tableName}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }

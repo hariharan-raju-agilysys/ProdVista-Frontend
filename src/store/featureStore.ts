@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { API_BASE_PATH } from '../services/api'
 
 export interface FeatureFlags {
   enableAI: boolean
@@ -32,7 +33,7 @@ export const useFeatureStore = create<FeatureState>((set, get) => ({
     if (get().isLoaded || get().isLoading) return
     set({ isLoading: true })
     try {
-      const res = await fetch('/api/auth/features')
+      const res = await fetch(`${API_BASE_PATH}/auth/features`)
       if (res.ok) {
         const data = await res.json()
         set({

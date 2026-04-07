@@ -5,6 +5,7 @@ import {
   Search, Monitor, Database, Activity, FileText, RefreshCw,
   Zap, Clock, Play, Eye, Heart, Pin, Save, AlertCircle, Terminal
 } from 'lucide-react'
+import { API_BASE_PATH } from '../services/api'
 import {
   getResourceGraphSubscriptions,
   getResourceGraphWorkspaces,
@@ -129,7 +130,7 @@ export default function AzureQuickSetup({
   const checkAuthStatus = async () => {
     setLoading(true)
     try {
-      const response = await fetch('/api/azure/auth-status')
+      const response = await fetch(`${API_BASE_PATH}/azure/auth-status`)
       const status = await response.json()
       setAuthStatus(status)
       

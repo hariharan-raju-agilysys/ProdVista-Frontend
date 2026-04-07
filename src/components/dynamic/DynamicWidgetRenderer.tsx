@@ -1,4 +1,5 @@
 import { useMemo, useEffect, useState, useCallback, useRef } from 'react'
+import { API_BASE_PATH } from '../../services/api'
 import { Line, Bar, Doughnut, Pie } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -150,7 +151,7 @@ async function fetchWidgetData(widget: WidgetData): Promise<unknown> {
       }
       
       // Use scoped query endpoint for better performance
-      const response = await fetch('/api/scopedquery/execute', {
+      const response = await fetch(`${API_BASE_PATH}/scopedquery/execute`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -176,7 +177,7 @@ async function fetchWidgetData(widget: WidgetData): Promise<unknown> {
   // For Azure Metrics and Database providers, use the widget fetch endpoint
   if (['AzureMetrics', 'DatabaseQuery'].includes(dataProviderType)) {
     try {
-      const response = await fetch(`/api/dynamicdashboard/widgets/${widget.id}/fetch`, {
+      const response = await fetch(`${API_BASE_PATH}/dynamicdashboard/widgets/${widget.id}/fetch`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -204,7 +205,7 @@ async function fetchWidgetData(widget: WidgetData): Promise<unknown> {
       const token = localStorage.getItem('prodvista_auth_token') || ''
       const endpoint = dataProviderConfig?.jenkinsEndpoint as string || 'stats'
 
-      const response = await fetch(`/api/jenkins/connections/${connectionId}/${endpoint}`, {
+      const response = await fetch(`${API_BASE_PATH}/jenkins/connections/${connectionId}/${endpoint}`, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`

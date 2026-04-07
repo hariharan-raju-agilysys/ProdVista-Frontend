@@ -7,6 +7,7 @@ import {
   HardDrive, BarChart3, Terminal,
   Check
 } from 'lucide-react'
+import { API_BASE_PATH } from '../services/api'
 import {
   getResourceGraphSubscriptions,
   getResourceGraphMonitoring,
@@ -258,7 +259,7 @@ export default function AzureResourceManager() {
     
     try {
       // Check auth status
-      const response = await fetch('/api/azure/auth-status')
+      const response = await fetch(`${API_BASE_PATH}/azure/auth-status`)
       const status = await response.json()
       setAuthStatus(status)
       discoveryCache.authStatus = status

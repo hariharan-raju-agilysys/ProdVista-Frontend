@@ -6,6 +6,7 @@ import {
   Server, Tag, Clock, Sparkles, ListTree, Search
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { API_BASE_PATH } from '../services/api'
 import clsx from 'clsx'
 import useAzureHub from '../hooks/useAzureHub'
 import releaseNotesService, {
@@ -169,7 +170,7 @@ function ReleaseNotesListTab({ releaseNotes, onRefresh: _onRefresh }: { releaseN
   const handleDownload = async (note: ReleaseNote) => {
     try {
       // Trigger download via API
-      const response = await fetch(`/api/release-notes/${note.id}/download`, {
+      const response = await fetch(`${API_BASE_PATH}/release-notes/${note.id}/download`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }

@@ -1,3 +1,5 @@
+import { API_BASE_PATH } from './api'
+
 /**
  * Azure Authentication Service
  * Handles global Azure authentication at the application level
@@ -129,7 +131,7 @@ class AzureAuthService {
   async loginInteractive(): Promise<AzureAuthState> {
     try {
       // Call backend to initiate OAuth flow
-      const response = await fetch('/api/azure/login', {
+      const response = await fetch(`${API_BASE_PATH}/azure/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       })
@@ -216,7 +218,7 @@ class AzureAuthService {
 
     // Register/update user in backend database
     try {
-      const loginResponse = await fetch('/api/users/login', {
+      const loginResponse = await fetch(`${API_BASE_PATH}/users/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
