@@ -21,10 +21,6 @@ import {
 // Import shared UI components
 import {
   InteractiveStatCard,
-  TabPanel,
-  type Tab,
-  EmptyState,
-  LoadingSpinner,
 } from '@components/shared/ui';
 
 // =====================================================
@@ -33,8 +29,11 @@ import {
 
 type TabId = 'overview' | 'work' | 'prs' | 'commits' | 'builds';
 
-interface DeveloperTab extends Tab {
+interface LocalTab {
   id: TabId;
+  label: string;
+  icon: React.ReactNode;
+  badge?: number;
 }
 
 // =====================================================
@@ -408,7 +407,7 @@ export default function DeveloperToolkitPage() {
   }, [dashboard, prSearch]);
 
   // Tabs
-  const tabs: Tab[] = useMemo(() => [
+  const tabs: LocalTab[] = useMemo(() => [
     { id: 'overview', label: 'Overview', icon: <Activity className="w-4 h-4" /> },
     { id: 'work', label: 'My Work', icon: <FileText className="w-4 h-4" />, badge: dashboard?.stats?.openWorkItems },
     { id: 'prs', label: 'Pull Requests', icon: <GitPullRequest className="w-4 h-4" />, badge: (dashboard?.stats?.activePullRequests || 0) + (dashboard?.stats?.pendingReviews || 0) },
@@ -489,7 +488,7 @@ export default function DeveloperToolkitPage() {
           >
             {tab.icon}
             {tab.label}
-            {tab.badge !== undefined && tab.badge > 0 && (
+            {tab.badge !== undefined && Number(tab.badge) > 0 && (
               <span className={clsx(
                 'px-1.5 py-0.5 text-xs rounded-full font-medium',
                 activeTab === tab.id ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400' : 'bg-gray-200 dark:bg-slate-600 text-gray-600 dark:text-gray-300'
@@ -506,19 +505,19 @@ export default function DeveloperToolkitPage() {
         <div className="space-y-6">
           {/* Stats Grid */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <StatCard label="Open Work Items" value={dashboard.stats?.openWorkItems || 0} icon={<FileText className="w-5 h-5 text-blue-600" />}
+            <InteractiveStatCard label="Open Work Items" value={dashboard.stats?.openWorkItems || 0} icon={<FileText className="w-5 h-5 text-blue-600" />}
               color="bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-100"
               onClick={() => setActiveTab('work')} />
-            <StatCard label="Active PRs" value={dashboard.stats?.activePullRequests || 0} icon={<GitPullRequest className="w-5 h-5 text-green-600" />}
+            <InteractiveStatCard label="Active PRs" value={dashboard.stats?.activePullRequests || 0} icon={<GitPullRequest className="w-5 h-5 text-green-600" />}
               color="bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-900 dark:text-green-100"
               onClick={() => { setActiveTab('prs'); setPrFilter('mine'); }} />
-            <StatCard label="Pending Reviews" value={dashboard.stats?.pendingReviews || 0} icon={<Eye className="w-5 h-5 text-orange-600" />}
+            <InteractiveStatCard label="Pending Reviews" value={dashboard.stats?.pendingReviews || 0} icon={<Eye className="w-5 h-5 text-orange-600" />}
               color="bg-orange-50 dark:bg-orange-900/30 border-orange-200 dark:border-orange-800 text-orange-900 dark:text-orange-100"
               onClick={() => { setActiveTab('prs'); setPrFilter('review'); }} />
-            <StatCard label="Commits (Week)" value={dashboard.stats?.commitsThisWeek || 0} icon={<GitCommit className="w-5 h-5 text-purple-600" />}
+            <InteractiveStatCard label="Commits (Week)" value={dashboard.stats?.commitsThisWeek || 0} icon={<GitCommit className="w-5 h-5 text-purple-600" />}
               color="bg-purple-50 dark:bg-purple-900/30 border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-100"
               onClick={() => setActiveTab('commits')} />
-            <StatCard label="Builds Today" value={dashboard.stats?.buildsToday || 0} icon={<Package className="w-5 h-5 text-pink-600" />}
+            <InteractiveStatCard label="Builds Today" value={dashboard.stats?.buildsToday || 0} icon={<Package className="w-5 h-5 text-pink-600" />}
               color="bg-pink-50 dark:bg-pink-900/30 border-pink-200 dark:border-pink-800 text-pink-900 dark:text-pink-100"
               onClick={() => setActiveTab('builds')} />
           </div>
