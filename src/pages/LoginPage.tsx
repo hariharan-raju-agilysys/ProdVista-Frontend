@@ -8,7 +8,7 @@ import { graphScopes, isMsalConfigured } from '../config/msalConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Building2, Loader2, ArrowLeft, ArrowRight, Terminal, Shield,
-  BarChart3, Zap, Globe, ChevronRight, Sparkles, Lock,
+  BarChart3, Zap, Globe, ChevronRight, Sparkles, Lock, Info,
 } from 'lucide-react';
 
 const isDev = import.meta.env.DEV;
@@ -448,18 +448,18 @@ export default function LoginPage() {
                       )}
                     </AnimatePresence>
 
-                    <form onSubmit={handleTenantSubmit} className="space-y-5">
+                    <form onSubmit={handleTenantSubmit} className="space-y-6">
                       <div>
                         <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2.5">
                           Organization Code
                         </label>
-                        <div className={`relative rounded-xl transition-all duration-300 ${
+                        <div className={`relative flex items-center rounded-xl transition-all duration-300 bg-white/[0.04] ${
                           focusedInput
                             ? 'ring-2 ring-blue-500/50 shadow-lg shadow-blue-500/10'
-                            : 'ring-1 ring-white/[0.08]'
+                            : 'ring-1 ring-white/[0.08] hover:ring-white/[0.14]'
                         }`}>
-                          <div className="absolute left-4 top-1/2 -translate-y-1/2">
-                            <Building2 className={`w-4.5 h-4.5 transition-colors duration-300 ${
+                          <div className="pl-4 flex items-center pointer-events-none">
+                            <Building2 className={`w-[18px] h-[18px] transition-colors duration-300 ${
                               focusedInput ? 'text-blue-400' : 'text-slate-500'
                             }`} />
                           </div>
@@ -469,13 +469,14 @@ export default function LoginPage() {
                             onChange={(e) => setTenantCode(e.target.value)}
                             onFocus={() => setFocusedInput(true)}
                             onBlur={() => setFocusedInput(false)}
-                            className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-white/[0.04] text-white placeholder-slate-500 text-sm focus:outline-none border-0"
+                            className="w-full pl-3 pr-4 py-3.5 bg-transparent text-white placeholder-slate-500 text-sm focus:outline-none border-0 rounded-xl"
                             placeholder="e.g. versa"
                             autoFocus
                             autoComplete="organization"
                           />
                         </div>
-                        <p className="mt-2 text-xs text-slate-500">
+                        <p className="mt-2.5 text-xs text-slate-500 flex items-center gap-1.5">
+                          <Info className="w-3 h-3 text-slate-600" />
                           The unique identifier provided by your admin
                         </p>
                       </div>
