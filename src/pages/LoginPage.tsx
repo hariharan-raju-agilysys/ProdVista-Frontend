@@ -11,6 +11,7 @@ import {
   BarChart3, Zap, Globe, ChevronRight, Sparkles, Lock, Info,
 } from 'lucide-react';
 
+const basePath = import.meta.env.VITE_BASE_PATH || '';
 const isDev = import.meta.env.DEV;
 
 /* ------------------------------------------------------------------ */
@@ -296,9 +297,7 @@ export default function LoginPage() {
             transition={{ duration: 0.6 }}
             className="flex items-center gap-3"
           >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
-              <BarChart3 className="w-5 h-5 text-white" />
-            </div>
+            <img src={`${basePath}/favicon.svg`} alt="ProdVista" className="w-10 h-10 rounded-xl shadow-lg shadow-indigo-500/25" />
             <span className="text-lg font-bold text-white tracking-tight">ProdVista</span>
           </motion.div>
 
@@ -381,9 +380,8 @@ export default function LoginPage() {
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25"
             >
-              <BarChart3 className="w-6 h-6 text-white" />
+              <img src={`${basePath}/favicon.svg`} alt="ProdVista" className="w-11 h-11 rounded-xl shadow-lg shadow-indigo-500/25" />
             </motion.div>
             <span className="text-xl font-bold text-white tracking-tight">ProdVista</span>
           </div>

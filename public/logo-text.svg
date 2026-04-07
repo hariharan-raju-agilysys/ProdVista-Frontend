@@ -1,19 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 48" fill="none">
   <defs>
     <linearGradient id="iconGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#7C3AED"/>
+      <stop offset="0%" style="stop-color:#6366F1"/>
+      <stop offset="50%" style="stop-color:#7C3AED"/>
       <stop offset="100%" style="stop-color:#3B82F6"/>
     </linearGradient>
   </defs>
-  
   <!-- Icon -->
   <rect x="2" y="4" width="40" height="40" rx="10" fill="url(#iconGrad)"/>
-  <rect x="8" y="24" width="6" height="14" rx="2" fill="#10B981"/>
-  <rect x="16" y="16" width="6" height="22" rx="2" fill="white" fill-opacity="0.9"/>
-  <rect x="24" y="20" width="6" height="18" rx="2" fill="#F59E0B"/>
-  <rect x="32" y="12" width="6" height="26" rx="2" fill="white"/>
-  <path d="M9 20 L19 12 L27 16 L37 8" stroke="white" stroke-width="2" stroke-linecap="round" fill="none"/>
-  
+  <rect x="2" y="4" width="40" height="40" rx="10" fill="white" fill-opacity="0.06"/>
+  <!-- P letterform -->
+  <path d="M12 36V12h10c2.8 0 5 .7 6.5 2.2 1.5 1.5 2.3 3.3 2.3 5.5 0 2.3-.8 4.2-2.3 5.7-1.5 1.4-3.7 2.2-6.5 2.2h-5v8.4H12z" fill="white"/>
+  <path d="M17 16.5v6.5h3.5c1.2 0 2.2-.3 2.8-1 .6-.6 1-1.4 1-2.3 0-.8-.4-1.6-1-2.2-.6-.6-1.6-1-2.8-1H17z" fill="url(#iconGrad)"/>
+  <rect x="12" y="37.5" width="18" height="2" rx="1" fill="#38BDF8" opacity=".7"/>
   <!-- Text -->
   <text x="52" y="32" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="24" font-weight="700" fill="white">
     <tspan fill="#7C3AED">Prod</tspan><tspan fill="#3B82F6">Vista</tspan>
