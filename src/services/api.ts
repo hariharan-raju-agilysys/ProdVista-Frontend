@@ -34,6 +34,11 @@ api.interceptors.request.use((config) => {
   if (azureToken) {
     config.headers['X-Azure-Token'] = azureToken;
   }
+  // Include Azure DevOps token for DevOps org/project discovery
+  const devopsToken = localStorage.getItem('prodvista_devops_token');
+  if (devopsToken) {
+    config.headers['X-DevOps-Token'] = devopsToken;
+  }
   return config;
 });
 
@@ -55,6 +60,8 @@ api.interceptors.response.use(
             if (newToken) originalRequest.headers.Authorization = `Bearer ${newToken}`;
             const newAzureToken = localStorage.getItem('prodvista_azure_token');
             if (newAzureToken) originalRequest.headers['X-Azure-Token'] = newAzureToken;
+            const newDevopsToken = localStorage.getItem('prodvista_devops_token');
+            if (newDevopsToken) originalRequest.headers['X-DevOps-Token'] = newDevopsToken;
             return api(originalRequest);
           }
         } catch {

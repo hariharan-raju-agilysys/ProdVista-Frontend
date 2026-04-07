@@ -4,7 +4,7 @@ import { useMsal } from '@azure/msal-react';
 import { InteractionStatus, InteractionRequiredAuthError } from '@azure/msal-browser';
 import { authService, TenantInfo } from '../services/authService';
 import { useAuth } from '../context/AuthContext';
-import { graphScopes, isMsalConfigured } from '../config/msalConfig';
+import { graphScopes, armScopes, devopsScopes, isMsalConfigured } from '../config/msalConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Building2, Loader2, ArrowLeft, ArrowRight, Terminal, Shield,
@@ -161,13 +161,13 @@ export default function LoginPage() {
             let armTokenResponse;
             try {
               armTokenResponse = await msalInstance.acquireTokenSilent({
-                scopes: ['https://management.azure.com/.default'],
+                ...armScopes,
                 account: accounts[0],
               });
             } catch (silentErr) {
               if (silentErr instanceof InteractionRequiredAuthError) {
                 armTokenResponse = await msalInstance.acquireTokenPopup({
-                  scopes: ['https://management.azure.com/.default'],
+                  ...armScopes,
                   account: accounts[0],
                 });
               }
@@ -178,6 +178,30 @@ export default function LoginPage() {
           } catch {
             // ARM token is optional — resource discovery will use server credentials as fallback
             console.warn('Could not acquire Azure Management token (optional for resource discovery)');
+          }
+
+          // Acquire Azure DevOps token for DevOps organization/project discovery
+          try {
+            let devopsTokenResponse;
+            try {
+              devopsTokenResponse = await msalInstance.acquireTokenSilent({
+                ...devopsScopes,
+                account: accounts[0],
+              });
+            } catch (silentErr) {
+              if (silentErr instanceof InteractionRequiredAuthError) {
+                devopsTokenResponse = await msalInstance.acquireTokenPopup({
+                  ...devopsScopes,
+                  account: accounts[0],
+                });
+              }
+            }
+            if (devopsTokenResponse?.accessToken) {
+              localStorage.setItem('prodvista_devops_token', devopsTokenResponse.accessToken);
+            }
+          } catch {
+            // DevOps token is optional — server will fall back to PAT/MI
+            console.warn('Could not acquire Azure DevOps token (optional for DevOps discovery)');
           }
 
           hasNavigated.current = true;

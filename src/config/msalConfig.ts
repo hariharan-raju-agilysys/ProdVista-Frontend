@@ -71,6 +71,22 @@ export const graphConfig = {
 }
 
 /**
+ * Azure Resource Manager (ARM) scopes for resource discovery
+ */
+export const armScopes = {
+  scopes: ['https://management.azure.com/.default'],
+}
+
+/**
+ * Azure DevOps scopes — 499b84ac… is the well-known Microsoft-published
+ * Application ID for Azure DevOps (not a secret).
+ * See: https://learn.microsoft.com/en-us/azure/devops/integrate/get-started/authentication/oauth?view=azure-devops#scopes
+ */
+export const devopsScopes = {
+  scopes: ['499b84ac-1321-427f-aa17-267ca6975798/user_impersonation'],
+}
+
+/**
  * Check if MSAL is configured (Azure AD client ID is set)
  * Uses the resolved clientId from msalConfig (supports runtime injection via entrypoint)
  */

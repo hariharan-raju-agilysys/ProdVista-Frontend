@@ -10,7 +10,7 @@ import { ErrorBoundary, LoadingSpinner } from './components/shared'
 import Layout from './components/Layout'
 import SessionExpiredModal from './components/SessionExpiredModal'
 import { registerTokenRefresh } from './services/api'
-import { graphScopes } from './config/msalConfig'
+import { graphScopes, armScopes, devopsScopes } from './config/msalConfig'
 
 // ---------------------------------------------------------------------------
 // Lazy-loaded pages — each page is its own chunk, loaded on first navigation.
@@ -160,12 +160,12 @@ function MsalTokenRefreshRegistrar({ children }: { children: React.ReactNode }) 
         let armResponse;
         try {
           armResponse = await instance.acquireTokenSilent({
-            scopes: ['https://management.azure.com/.default'], account, forceRefresh: true
+            ...armScopes, account, forceRefresh: true
           });
         } catch (armSilentErr) {
           if (armSilentErr instanceof InteractionRequiredAuthError) {
             armResponse = await instance.acquireTokenPopup({
-              scopes: ['https://management.azure.com/.default'], account
+              ...armScopes, account
             });
           }
         }
@@ -174,6 +174,27 @@ function MsalTokenRefreshRegistrar({ children }: { children: React.ReactNode }) 
         }
       } catch {
         // ARM token is optional
+      }
+
+      // Refresh Azure DevOps token too
+      try {
+        let devopsResponse;
+        try {
+          devopsResponse = await instance.acquireTokenSilent({
+            ...devopsScopes, account, forceRefresh: true
+          });
+        } catch (devopsSilentErr) {
+          if (devopsSilentErr instanceof InteractionRequiredAuthError) {
+            devopsResponse = await instance.acquireTokenPopup({
+              ...devopsScopes, account
+            });
+          }
+        }
+        if (devopsResponse?.accessToken) {
+          localStorage.setItem('prodvista_devops_token', devopsResponse.accessToken);
+        }
+      } catch {
+        // DevOps token is optional
       }
 
       return true;
