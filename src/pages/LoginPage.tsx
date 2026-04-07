@@ -143,6 +143,21 @@ export default function LoginPage() {
         if (response.success) {
           if (response.user) setUserFromLocal(response.user as any);
           updateOrgInfo(savedTenant, { code: savedTenant, name: response.user?.tenantName || savedTenant });
+
+          // Also acquire Azure Management (ARM) token for resource discovery
+          try {
+            const armTokenResponse = await msalInstance.acquireTokenSilent({
+              scopes: ['https://management.azure.com/.default'],
+              account: accounts[0],
+            });
+            if (armTokenResponse?.accessToken) {
+              localStorage.setItem('prodvista_azure_token', armTokenResponse.accessToken);
+            }
+          } catch {
+            // ARM token is optional — resource discovery will use server credentials as fallback
+            console.warn('Could not acquire Azure Management token (optional for resource discovery)');
+          }
+
           hasNavigated.current = true;
           navigate('/');
         } else {

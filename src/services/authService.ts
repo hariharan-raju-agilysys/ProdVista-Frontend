@@ -226,6 +226,7 @@ export const authService = {
     localStorage.removeItem(AUTH_TOKEN_KEY);
     localStorage.removeItem(AUTH_USER_KEY);
     localStorage.removeItem(AUTH_TENANT_KEY);
+    localStorage.removeItem('prodvista_azure_token');
   },
 
   getAuthHeaders(): Record<string, string> {

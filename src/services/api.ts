@@ -17,6 +17,11 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  // Include Azure AD management token for resource discovery (from SSO login)
+  const azureToken = localStorage.getItem('prodvista_azure_token');
+  if (azureToken) {
+    config.headers['X-Azure-Token'] = azureToken;
+  }
   return config;
 });
 
