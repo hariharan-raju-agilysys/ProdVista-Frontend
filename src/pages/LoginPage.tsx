@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
-import { InteractionStatus } from '@azure/msal-browser';
+import { InteractionStatus, InteractionRequiredAuthError } from '@azure/msal-browser';
 import { authService, TenantInfo } from '../services/authService';
 import { useAuth } from '../context/AuthContext';
 import { graphScopes, isMsalConfigured } from '../config/msalConfig';
@@ -135,10 +135,21 @@ export default function LoginPage() {
     sessionStorage.removeItem('msal_pending_tenant');
     setLoading(true);
 
-    msalInstance.acquireTokenSilent({
-      ...graphScopes,
-      account: accounts[0],
-    }).then(async (tokenResponse) => {
+    // Helper: acquire token with silent-first, popup-fallback on expiry (AADSTS70043)
+    const acquireGraphToken = async () => {
+      try {
+        return await msalInstance.acquireTokenSilent({ ...graphScopes, account: accounts[0] });
+      } catch (silentErr) {
+        if (silentErr instanceof InteractionRequiredAuthError) {
+          // Refresh token expired (e.g. conditional access 2-hour sign-in frequency)
+          console.warn('Silent token acquisition failed, falling back to popup:', silentErr.errorCode);
+          return await msalInstance.acquireTokenPopup({ ...graphScopes, account: accounts[0] });
+        }
+        throw silentErr;
+      }
+    };
+
+    acquireGraphToken().then(async (tokenResponse) => {
       if (tokenResponse?.accessToken) {
         const response = await authService.loginWithMsal(savedTenant, tokenResponse.accessToken);
         if (response.success) {
@@ -147,10 +158,20 @@ export default function LoginPage() {
 
           // Also acquire Azure Management (ARM) token for resource discovery
           try {
-            const armTokenResponse = await msalInstance.acquireTokenSilent({
-              scopes: ['https://management.azure.com/.default'],
-              account: accounts[0],
-            });
+            let armTokenResponse;
+            try {
+              armTokenResponse = await msalInstance.acquireTokenSilent({
+                scopes: ['https://management.azure.com/.default'],
+                account: accounts[0],
+              });
+            } catch (silentErr) {
+              if (silentErr instanceof InteractionRequiredAuthError) {
+                armTokenResponse = await msalInstance.acquireTokenPopup({
+                  scopes: ['https://management.azure.com/.default'],
+                  account: accounts[0],
+                });
+              }
+            }
             if (armTokenResponse?.accessToken) {
               localStorage.setItem('prodvista_azure_token', armTokenResponse.accessToken);
             }

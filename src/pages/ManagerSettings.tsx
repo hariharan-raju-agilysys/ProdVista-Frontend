@@ -575,7 +575,7 @@ export function ManagerSettingsPage() {
                     <ul className="text-sm text-gray-400 space-y-2">
                       <li className="flex items-start gap-2">
                         <span className="text-blue-400 mt-0.5">1.</span>
-                        Click "Discover" to find organizations via your Azure CLI session
+                        Click "Discover" to find organizations via your Azure SSO session
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="text-blue-400 mt-0.5">2.</span>

@@ -11,6 +11,18 @@ const api = axios.create({
   },
 })
 
+// Token refresh callback - registered by MSAL-aware layer (AuthContext/App)
+let _tokenRefreshFn: (() => Promise<boolean>) | null = null;
+let _isRefreshing = false;
+
+/**
+ * Register a callback that attempts to refresh expired tokens via MSAL.
+ * Should return true if refresh succeeded (tokens updated in localStorage).
+ */
+export function registerTokenRefresh(fn: (() => Promise<boolean>) | null) {
+  _tokenRefreshFn = fn;
+}
+
 // Add auth token interceptor
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('prodvista_auth_token');
@@ -25,12 +37,34 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Add response interceptor for 401 handling
+// Add response interceptor for 401 handling with token refresh attempt
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Only show session-expired if user was previously logged in
+  async (error) => {
+    const originalRequest = error.config;
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      // Try refreshing tokens via MSAL before giving up
+      if (_tokenRefreshFn && !_isRefreshing) {
+        originalRequest._retry = true;
+        _isRefreshing = true;
+        try {
+          const refreshed = await _tokenRefreshFn();
+          if (refreshed) {
+            // Update headers with fresh tokens and retry
+            const newToken = localStorage.getItem('prodvista_auth_token');
+            if (newToken) originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            const newAzureToken = localStorage.getItem('prodvista_azure_token');
+            if (newAzureToken) originalRequest.headers['X-Azure-Token'] = newAzureToken;
+            return api(originalRequest);
+          }
+        } catch {
+          // Refresh failed — fall through to session expired
+        } finally {
+          _isRefreshing = false;
+        }
+      }
+
+      // Refresh not available or failed — session expired
       const hadToken = localStorage.getItem('prodvista_auth_token');
       localStorage.removeItem('prodvista_auth_token');
       if (hadToken) {

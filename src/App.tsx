@@ -1,5 +1,7 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect, useCallback } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { useMsal } from '@azure/msal-react'
+import { InteractionRequiredAuthError } from '@azure/msal-browser'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { AzureAuthProvider } from './context/AzureAuthContext'
 import { PersistentChatProvider } from './context/PersistentChatContext'
@@ -7,6 +9,8 @@ import { ManagerRoute, OrgRoute, FeatureRoute } from './components/guards'
 import { ErrorBoundary, LoadingSpinner } from './components/shared'
 import Layout from './components/Layout'
 import SessionExpiredModal from './components/SessionExpiredModal'
+import { registerTokenRefresh } from './services/api'
+import { graphScopes } from './config/msalConfig'
 
 // ---------------------------------------------------------------------------
 // Lazy-loaded pages — each page is its own chunk, loaded on first navigation.
@@ -125,6 +129,68 @@ function AppRoutes() {
 }
 
 /**
+ * Registers MSAL token refresh callback with the axios interceptor.
+ * On 401, the interceptor will call MSAL to silently refresh tokens
+ * before falling back to session-expired modal.
+ */
+function MsalTokenRefreshRegistrar({ children }: { children: React.ReactNode }) {
+  const { instance, accounts } = useMsal();
+
+  const refreshTokens = useCallback(async (): Promise<boolean> => {
+    const account = accounts[0] || instance.getActiveAccount();
+    if (!account) return false;
+
+    try {
+      // Try silent refresh first; fall back to popup on interaction-required (AADSTS70043)
+      let tokenResponse;
+      try {
+        tokenResponse = await instance.acquireTokenSilent({ ...graphScopes, account, forceRefresh: true });
+      } catch (silentErr) {
+        if (silentErr instanceof InteractionRequiredAuthError) {
+          tokenResponse = await instance.acquireTokenPopup({ ...graphScopes, account });
+        } else {
+          throw silentErr;
+        }
+      }
+
+      if (!tokenResponse?.accessToken) return false;
+
+      // Refresh Azure Management (ARM) token too
+      try {
+        let armResponse;
+        try {
+          armResponse = await instance.acquireTokenSilent({
+            scopes: ['https://management.azure.com/.default'], account, forceRefresh: true
+          });
+        } catch (armSilentErr) {
+          if (armSilentErr instanceof InteractionRequiredAuthError) {
+            armResponse = await instance.acquireTokenPopup({
+              scopes: ['https://management.azure.com/.default'], account
+            });
+          }
+        }
+        if (armResponse?.accessToken) {
+          localStorage.setItem('prodvista_azure_token', armResponse.accessToken);
+        }
+      } catch {
+        // ARM token is optional
+      }
+
+      return true;
+    } catch {
+      return false;
+    }
+  }, [instance, accounts]);
+
+  useEffect(() => {
+    registerTokenRefresh(refreshTokens);
+    return () => registerTokenRefresh(null);
+  }, [refreshTokens]);
+
+  return <>{children}</>;
+}
+
+/**
  * Wrapper that shows session expired modal
  */
 function AuthModals({ children }: { children: React.ReactNode }) {
@@ -145,15 +211,17 @@ function App() {
     <ErrorBoundary>
       <AuthProvider>
         <AzureAuthProvider>
-          <BrowserRouter basename={import.meta.env.VITE_BASE_PATH || '/'}>
-            <AuthModals>
-              <PersistentChatProvider>
-                <Suspense fallback={<LoadingSpinner label="Loading..." />}>
-                  <AppRoutes />
-                </Suspense>
-              </PersistentChatProvider>
-            </AuthModals>
-          </BrowserRouter>
+          <MsalTokenRefreshRegistrar>
+            <BrowserRouter basename={import.meta.env.VITE_BASE_PATH || '/'}>
+              <AuthModals>
+                <PersistentChatProvider>
+                  <Suspense fallback={<LoadingSpinner label="Loading..." />}>
+                    <AppRoutes />
+                  </Suspense>
+                </PersistentChatProvider>
+              </AuthModals>
+            </BrowserRouter>
+          </MsalTokenRefreshRegistrar>
         </AzureAuthProvider>
       </AuthProvider>
     </ErrorBoundary>
