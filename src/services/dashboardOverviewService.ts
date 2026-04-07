@@ -1,7 +1,8 @@
 import axios from 'axios';
+import { API_BASE_PATH } from './api';
 
 const api = axios.create({
-  baseURL: '/api/dashboard-overview',
+  baseURL: `${API_BASE_PATH}/dashboard-overview`,
   headers: { 'Content-Type': 'application/json' },
 });
 

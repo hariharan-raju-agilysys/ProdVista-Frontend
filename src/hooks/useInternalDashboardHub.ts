@@ -3,7 +3,7 @@ import { HubConnection, HubConnectionBuilder, LogLevel, HubConnectionState } fro
 import { authService } from '../services/authService';
 import type { DashboardSummary } from '../services/internalDashboardService';
 
-const API_BASE_URL = import.meta.env.VITE_BASE_PATH || '';
+const API_BASE_URL = (import.meta.env.VITE_BASE_PATH || '').replace(/\/$/, '');
 
 export type SummarySection = 'db' | 'devops' | 'jenkins';
 

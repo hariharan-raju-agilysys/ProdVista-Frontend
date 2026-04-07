@@ -8,7 +8,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import * as signalR from '@microsoft/signalr'
 
-const API_BASE_URL = import.meta.env.VITE_BASE_PATH || ''
+const API_BASE_URL = (import.meta.env.VITE_BASE_PATH || '').replace(/\/$/, '')
 
 // Types
 export interface ProviderInfo {

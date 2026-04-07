@@ -25,7 +25,7 @@ import {
 } from '@microsoft/signalr';
 import { authService } from '../services/authService';
 
-const API_BASE_URL = import.meta.env.VITE_BASE_PATH || '';
+const API_BASE_URL = (import.meta.env.VITE_BASE_PATH || '').replace(/\/$/, '');
 
 export interface UseSignalROptions {
   /** Hub path, e.g. '/hubs/widget' */

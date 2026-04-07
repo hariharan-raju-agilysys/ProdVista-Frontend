@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { HubConnection, HubConnectionBuilder, LogLevel, HubConnectionState } from '@microsoft/signalr';
 import { authService } from '../services/authService';
 
-const API_BASE_URL = import.meta.env.VITE_BASE_PATH || '';
+const API_BASE_URL = (import.meta.env.VITE_BASE_PATH || '').replace(/\/$/, '');
 
 export interface ChatMessage {
   message: string;
