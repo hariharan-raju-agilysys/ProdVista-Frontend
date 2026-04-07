@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Send, Sparkles, Bot, User, AlertCircle, Trash2,
   ExternalLink, Wifi, WifiOff, Zap, Settings,
@@ -1468,6 +1468,7 @@ function EmptyState({
  */
 export default function AIChatPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -1594,13 +1595,13 @@ export default function AIChatPage() {
     const matches = content.matchAll(regex);
     for (const match of matches) {
       const path = match[1];
-      if (path) {
-        setTimeout(() => navigate(path), 500);
+      if (path && path !== location.pathname) {
+        setTimeout(() => navigate(path), 800);
         return path;
       }
     }
     return null;
-  }, [navigate]);
+  }, [navigate, location.pathname]);
   
   const cleanActionTags = (content: string): string => {
     let cleaned = content;
