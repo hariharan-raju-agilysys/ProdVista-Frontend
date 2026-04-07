@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Play, Loader2, AlertCircle, Copy, Check, Clock, X,
-  ChevronDown, ChevronRight, Table, Download,
+  Play, Loader2, Copy, Check, X,
+  ChevronRight, Table, Download,
   Search, RefreshCw, Wrench, Database, Globe, GitBranch,
-  Activity, Shield, Terminal, Code, Settings, History,
+  Terminal, Code, History,
   ArrowLeft, Maximize2, Minimize2, Info, Zap, Layers,
   CheckCircle2, XCircle, BarChart3
 } from 'lucide-react'
@@ -604,7 +604,6 @@ function HistoryPanel({ onSelect }: { onSelect: (toolName: string) => void }) {
   return (
     <div className="space-y-2 p-4">
       {history.map(h => {
-        const meta = CATEGORY_META[h.toolIcon] || CATEGORY_META.Utility
         return (
           <button
             key={h.id}

@@ -426,15 +426,17 @@ export function useAzureHub(options: UseAzureHubOptions = {}) {
       return null;
     }
 
-    const connection = new signalR.HubConnectionBuilder()
-      .withUrl(`${API_BASE_URL}/hubs/azure`, {
+    const azureToken = localStorage.getItem('prodvista_azure_token');
+    const httpOptions: signalR.IHttpConnectionOptions = {
         accessTokenFactory: () => token,
         transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling,
-        headers: (() => {
-          const azureToken = localStorage.getItem('prodvista_azure_token');
-          return azureToken ? { 'X-Azure-Token': azureToken } : {};
-        })(),
-      })
+    };
+    if (azureToken) {
+        httpOptions.headers = { 'X-Azure-Token': azureToken };
+    }
+
+    const connection = new signalR.HubConnectionBuilder()
+      .withUrl(`${API_BASE_URL}/hubs/azure`, httpOptions)
       .withAutomaticReconnect({
         nextRetryDelayInMilliseconds: (retryContext) => {
           // Exponential backoff: 0, 2, 4, 8, 16, 30, 30, 30...
