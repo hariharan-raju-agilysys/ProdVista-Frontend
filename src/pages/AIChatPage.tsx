@@ -1790,8 +1790,8 @@ export default function AIChatPage() {
 
     // Check Azure setup
     try {
-      const azureRes = await api.get('/azure/status');
-      setToolStatus(prev => ({ ...prev, azure: !!azureRes.data?.isConfigured }));
+      const azureRes = await api.get('/azure/auth-status');
+      setToolStatus(prev => ({ ...prev, azure: !!azureRes.data?.authenticated }));
     } catch {
       // If endpoint doesn't exist, check if azure settings exist
       setToolStatus(prev => ({ ...prev, azure: true })); // assume available if no error endpoint
