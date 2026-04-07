@@ -808,9 +808,9 @@ function MetricDetailModal({
               
               {/* PR List */}
               <div className="space-y-2">
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Pull Requests ({prData.prs.length})</h3>
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Pull Requests ({prData.prs?.length ?? 0})</h3>
                 <div className="max-h-96 overflow-y-auto space-y-1">
-                  {prData.prs.slice(0, 50).map(pr => (
+                  {prData.prs?.slice(0, 50).map(pr => (
                     <div 
                       key={pr.pullRequestId} 
                       className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
@@ -1787,13 +1787,13 @@ function BranchesWidget({ data, expanded, toggle }: { data: BranchesResponse | n
   const maxShow = expanded ? 100 : 8;
   return (
     <Widget title={`Branches — ${data.repository}`} icon="🔀"
-      actions={data.branches.length > 8 && (
+      actions={data.branches?.length > 8 && (
         <button onClick={toggle} className="text-[10px] text-blue-500 hover:underline">
           {expanded ? 'Less' : `+${data.branches.length - 8} more`}
         </button>
       )}>
       <div className="space-y-0.5 max-h-64 overflow-y-auto">
-        {data.branches.slice(0, maxShow).map(b => (
+        {data.branches?.slice(0, maxShow).map(b => (
           <div key={b.name} className="flex items-center justify-between text-xs py-1 px-1.5 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50">
             <span className={`font-mono ${b.name === data.defaultBranch ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-200'}`}>
               {b.name === data.defaultBranch && '★ '}{b.name}
@@ -1802,9 +1802,9 @@ function BranchesWidget({ data, expanded, toggle }: { data: BranchesResponse | n
           </div>
         ))}
       </div>
-      {data.repositories.length > 1 && (
+      {data.repositories?.length > 1 && (
         <p className="text-[10px] text-gray-400 mt-2 border-t border-gray-100 dark:border-gray-700 pt-2">
-          {data.repositories.length} repositories: {data.repositories.map(r => r.name).join(', ')}
+          {data.repositories.length} repositories: {data.repositories?.map(r => r.name).join(', ')}
         </p>
       )}
     </Widget>
@@ -2030,7 +2030,7 @@ function PRWidget({ data, expanded, toggle, onViewAll }: { data: PRSummaryRespon
       empty emptyText="No DevOps connection"><></></Widget>
   );
 
-  const waiting = data.prs.filter(pr => !pr.isApproved && !pr.isDraft);
+  const waiting = data.prs?.filter(pr => !pr.isApproved && !pr.isDraft) ?? [];
   const maxShow = expanded ? 50 : 5;
 
   return (
@@ -2363,9 +2363,9 @@ function RecentActivityWidget({ data }: { data: RecentActivityData | undefined }
 
   return (
     <Widget title="Recent Activity (48h)" icon="⚡"
-      empty={!data || data.recentPRs.length === 0}
+      empty={!data || !data.recentPRs?.length}
       emptyText="No recent PR activity in the last 48 hours.">
-      {data && data.recentPRs.length > 0 && (
+      {data && data.recentPRs?.length > 0 && (
         <>
           <div className="flex gap-2 mb-2 text-[10px]">
             <span className="px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-medium">
@@ -2376,7 +2376,7 @@ function RecentActivityWidget({ data }: { data: RecentActivityData | undefined }
             </span>
           </div>
           <div className="space-y-1 max-h-48 overflow-y-auto">
-            {data.recentPRs.map(pr => (
+            {data.recentPRs?.map(pr => (
               <div key={pr.pullRequestId} className="flex items-start justify-between text-xs py-1.5 px-1.5 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50 border-l-2 border-transparent hover:border-purple-400" title={`${pr.createdBy || 'Unknown'}\n${pr.title}\n${pr.sourceBranch} → ${pr.targetBranch}`}>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
@@ -2520,7 +2520,7 @@ function SupportWidget({ data, onRefresh }: { data: ProductionSupportResponse | 
             )}
           </div>
           <div className="max-h-40 overflow-y-auto space-y-0.5">
-            {data.entries.slice(0, 10).map(e => (
+            {data.entries?.slice(0, 10).map(e => (
               <div key={e.id} className="flex items-center justify-between text-[11px] py-1 px-1.5 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50">
                 <div className="min-w-0 flex-1">
                   <span className={`inline-block px-1 py-0 rounded text-[9px] mr-1 ${getSeverityColor(e.severity)}`}>{e.severity}</span>
