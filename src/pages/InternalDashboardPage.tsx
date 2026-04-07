@@ -1593,10 +1593,44 @@ function LazyPRs({ expanded, toggle, onViewAll }: { expanded: boolean; toggle: (
 
 function LazyJenkinsBuilds({ expanded, toggle, onBuildClick }: { expanded: boolean; toggle: () => void; onBuildClick?: (jobPath: string, buildNumber: number) => void }) {
   const fetcher = useCallback(() => getJenkinsBuilds(), []);
-  const { ref, data, loading, reload } = useLazyWidget(fetcher);
+  const { ref, data, loading, error, reload, retryAfter } = useLazyWidget(fetcher);
+  const [cooldownLeft, setCooldownLeft] = useState(0);
+
+  // Countdown timer for retry cooldown
+  useEffect(() => {
+    if (!retryAfter) { setCooldownLeft(0); return; }
+    const tick = () => {
+      const left = Math.max(0, Math.ceil((retryAfter - Date.now()) / 1000));
+      setCooldownLeft(left);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [retryAfter]);
+
   return (
     <div ref={ref}>
       {loading ? <WidgetSkeleton title="Jenkins Builds" icon="🔧" /> :
+        error && !data ? (
+          <Widget title="Jenkins Builds" icon="🔧" empty emptyText={
+            cooldownLeft > 0
+              ? `Connection failed. Retrying in ${cooldownLeft}s...`
+              : `Connection failed: ${error}`
+          }>
+            <div className="flex justify-center pt-2">
+              <button
+                onClick={reload}
+                disabled={cooldownLeft > 0}
+                className={`px-3 py-1 text-xs rounded-lg transition-colors ${cooldownLeft > 0
+                  ? 'bg-zinc-700 text-zinc-500 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
+                }`}
+              >
+                {cooldownLeft > 0 ? `Retry in ${cooldownLeft}s` : 'Retry Now'}
+              </button>
+            </div>
+          </Widget>
+        ) :
         <JenkinsBuildsWidget data={data} expanded={expanded} toggle={toggle} onRefresh={reload} onBuildClick={onBuildClick} />}
     </div>
   );
