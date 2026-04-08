@@ -2361,7 +2361,7 @@ function BirthdaysWidget({ birthdays }: { birthdays: BirthdayInfo[] }) {
 }
 
 // ─────────────────────────────────────────
-// Recent Activity Widget (Last 48 hours)
+// Recent Activity Widget (Last 7 days)
 // ─────────────────────────────────────────
 
 interface RecentActivityData {
@@ -2372,12 +2372,14 @@ interface RecentActivityData {
     title: string;
     status: string;
     createdBy: string;
+    createdByEmail?: string;
     creationDate: string;
     closedDate?: string;
     sourceBranch: string;
     targetBranch: string;
     repositoryName: string;
-    url: string;
+    url?: string;
+    webUrl?: string;
   }>;
 }
 
@@ -2396,9 +2398,9 @@ function RecentActivityWidget({ data }: { data: RecentActivityData | undefined }
   };
 
   return (
-    <Widget title="Recent Activity (48h)" icon="⚡"
+    <Widget title="Recent Activity (7d)" icon="⚡"
       empty={!data || !data.recentPRs?.length}
-      emptyText="No recent PR activity in the last 48 hours.">
+      emptyText="No recent PR activity in the last 7 days.">
       {data && data.recentPRs?.length > 0 && (
         <>
           <div className="flex gap-2 mb-2 text-[10px]">

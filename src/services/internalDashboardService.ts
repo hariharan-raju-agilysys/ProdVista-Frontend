@@ -1,4 +1,5 @@
 import api from './api';
+import { DashboardConstants } from '../constants/appConstants';
 
 // ========================================
 // Types
@@ -9,6 +10,7 @@ export interface RecentPR {
   title: string;
   status: string;
   createdBy: string;
+  createdByEmail?: string;
   creationDate: string;
   closedDate?: string;
   sourceBranch: string;
@@ -280,10 +282,11 @@ export const getBranches = (connectionId?: string, repositoryId?: string) => {
   return api.get<BranchesResponse>(`${BASE}/branches${qs ? `?${qs}` : ''}`).then(r => r.data);
 };
 
-export const getPRSummary = (connectionId?: string, myPrsOnly?: boolean) => {
+export const getPRSummary = (connectionId?: string, myPrsOnly?: boolean, hoursBack: number = DashboardConstants.PR_HOURS_BACK) => {
   const p = new URLSearchParams();
   if (connectionId) p.append('connectionId', connectionId);
   if (myPrsOnly) p.append('myPrsOnly', 'true');
+  p.append('hoursBack', hoursBack.toString());
   const qs = p.toString();
   return api.get<PRSummaryResponse>(`${BASE}/pr-summary${qs ? `?${qs}` : ''}`).then(r => r.data);
 };
