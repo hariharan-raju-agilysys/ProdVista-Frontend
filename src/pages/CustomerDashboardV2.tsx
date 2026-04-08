@@ -1,32 +1,26 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   getCustomerSummary,
   getCustomers,
-  getOnboardingCustomers,
   getFilterOptions,
   updateCustomer,
-  downloadTemplate,
-  uploadCustomerExcel,
   CustomerDetailDto,
   CustomerSummaryDto,
-  OnboardingCustomerDto,
   CustomerFilterDto,
   FilterOptions,
-  UploadResult,
   getStatusColor,
   getPriorityColor,
   getHealthScoreColor,
   getDeploymentTypeIcon,
   formatDate,
   formatRelativeTime,
-  getOnboardingStageInfo
 } from '../services/customerService';
 
 // ============================================================================
 // Tab Type
 // ============================================================================
-type TabType = 'all' | 'onboarding' | 'analytics';
+type TabType = 'all' | 'analytics';
 
 // ============================================================================
 // Main Component
@@ -38,7 +32,6 @@ const CustomerDashboardV2: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('all');
   const [summary, setSummary] = useState<CustomerSummaryDto | null>(null);
   const [customers, setCustomers] = useState<CustomerDetailDto[]>([]);
-  const [onboardingCustomers, setOnboardingCustomers] = useState<OnboardingCustomerDto[]>([]);
   const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null);
   const [filters, setFilters] = useState<CustomerFilterDto>({});
   const [loading, setLoading] = useState(true);
@@ -46,15 +39,11 @@ const CustomerDashboardV2: React.FC = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerDetailDto | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Edit & Upload state
+  // Edit state
   const [editMode, setEditMode] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Partial<CustomerDetailDto> | null>(null);
   const [saving, setSaving] = useState(false);
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load data on mount
   useEffect(() => {
@@ -80,15 +69,13 @@ const CustomerDashboardV2: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const [summaryData, customersData, onboardingData, filterData] = await Promise.all([
+      const [summaryData, customersData, filterData] = await Promise.all([
         getCustomerSummary(),
         getCustomers(),
-        getOnboardingCustomers(),
         getFilterOptions()
       ]);
       setSummary(summaryData);
       setCustomers(customersData);
-      setOnboardingCustomers(onboardingData);
       setFilterOptions(filterData);
     } catch (err: any) {
       setError(err.message || 'Failed to load customer data');
@@ -148,39 +135,6 @@ const CustomerDashboardV2: React.FC = () => {
 
   const handleFieldChange = (field: string, value: any) => {
     setEditingCustomer(prev => prev ? { ...prev, [field]: value } : null);
-  };
-
-  const handleDownloadTemplate = async () => {
-    try {
-      await downloadTemplate();
-      setSuccessMessage('Template downloaded');
-    } catch (err: any) {
-      setError('Failed to download template');
-    }
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    setUploadResult(null);
-    try {
-      const result = await uploadCustomerExcel(file);
-      setUploadResult(result);
-      if (result.success) {
-        await loadData();
-        setSuccessMessage(result.message);
-      }
-    } catch (err: any) {
-      setUploadResult({
-        success: false,
-        message: err.response?.data?.message || 'Upload failed',
-        created: 0, updated: 0, totalRows: 0, batchId: ''
-      });
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
   };
 
   // ============================================================================
@@ -443,109 +397,6 @@ const CustomerDashboardV2: React.FC = () => {
             No customers found matching your filters
           </div>
         )}
-      </div>
-    );
-  };
-
-  const renderOnboardingPipeline = () => {
-    const stages = ['Discovery', 'Contract', 'Setup', 'DataMigration', 'Training', 'GoLive'];
-
-    return (
-      <div className="space-y-6">
-        {/* Pipeline Summary */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Onboarding Pipeline</h3>
-          <div className="flex items-center justify-between gap-2">
-            {stages.map((stage, idx) => {
-              const stageInfo = getOnboardingStageInfo(stage);
-              const count = onboardingCustomers.filter(c => c.stage === stage).length;
-              return (
-                <React.Fragment key={stage}>
-                  <div className="flex flex-col items-center flex-1">
-                    <div className={`w-12 h-12 rounded-full ${stageInfo.color} flex items-center justify-center text-white font-bold text-lg`}>
-                      {count}
-                    </div>
-                    <span className="text-xs text-gray-600 dark:text-gray-400 mt-2 text-center">{stageInfo.label}</span>
-                  </div>
-                  {idx < stages.length - 1 && (
-                    <div className="flex-shrink-0 w-8 h-0.5 bg-gray-300 dark:bg-gray-600"></div>
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Onboarding Customers List */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Active Onboarding ({onboardingCustomers.length})
-            </h3>
-          </div>
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {onboardingCustomers.map((customer) => {
-              const stageInfo = getOnboardingStageInfo(customer.stage);
-              return (
-                <div key={customer.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <h4 className="font-medium text-gray-900 dark:text-white">{customer.customerName}</h4>
-                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${stageInfo.color} text-white`}>
-                          {stageInfo.label}
-                        </span>
-                        {customer.isDelayed && (
-                          <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-                            Delayed
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-1 text-sm text-gray-500 flex items-center gap-4">
-                        <span>{customer.customerId}</span>
-                        <span>•</span>
-                        <span>{customer.region}</span>
-                        <span>•</span>
-                        <span>Manager: {customer.assignedManager}</span>
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {customer.products.map((product, idx) => (
-                          <span key={idx} className="px-2 py-0.5 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded">
-                            {product}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="text-right ml-4">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        Target: {formatDate(customer.targetGoLiveDate)}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        Started: {formatDate(customer.startDate)}
-                      </div>
-                    </div>
-                  </div>
-                  {/* Progress Bar */}
-                  <div className="mt-3">
-                    <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                      <span>Progress</span>
-                      <span>{customer.progressPercent}%</span>
-                    </div>
-                    <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full ${customer.isDelayed ? 'bg-red-500' : 'bg-green-500'} transition-all duration-300`}
-                        style={{ width: `${customer.progressPercent}%` }}
-                      ></div>
-                    </div>
-                    {customer.notes && (
-                      <p className="mt-2 text-xs text-gray-500 italic">{customer.notes}</p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
       </div>
     );
   };
@@ -888,83 +739,6 @@ const CustomerDashboardV2: React.FC = () => {
     );
   };
 
-  // Upload Modal
-  const renderUploadModal = () => {
-    if (!showUploadModal) return null;
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Upload Customer Data</h2>
-            <button onClick={() => { setShowUploadModal(false); setUploadResult(null); }} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-              <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            {/* Download Template */}
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-              <p className="text-sm text-blue-800 dark:text-blue-200 mb-2">
-                Download the Excel template first, fill in customer data, then upload.
-              </p>
-              <button
-                onClick={handleDownloadTemplate}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                Download Template
-              </button>
-            </div>
-
-            {/* File Upload */}
-            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx,.xls"
-                onChange={handleFileUpload}
-                className="hidden"
-                id="excel-upload"
-              />
-              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
-              <label htmlFor="excel-upload" className="mt-2 block cursor-pointer">
-                <span className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium">Choose an Excel file</span>
-                <span className="text-sm text-gray-500"> or drag and drop</span>
-              </label>
-              <p className="text-xs text-gray-400 mt-1">.xlsx or .xls, max 10MB</p>
-            </div>
-
-            {uploading && (
-              <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
-                <span className="text-sm text-gray-700 dark:text-gray-300">Processing upload...</span>
-              </div>
-            )}
-
-            {uploadResult && (
-              <div className={`p-4 rounded-lg ${uploadResult.success ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'}`}>
-                <p className={`text-sm font-medium ${uploadResult.success ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'}`}>
-                  {uploadResult.message}
-                </p>
-                {uploadResult.success && (
-                  <div className="mt-2 text-xs text-green-700 dark:text-green-300 space-y-1">
-                    <p>Created: {uploadResult.created} | Updated: {uploadResult.updated} | Total Rows: {uploadResult.totalRows}</p>
-                  </div>
-                )}
-                {uploadResult.errors && uploadResult.errors.length > 0 && (
-                  <div className="mt-2 text-xs text-red-700 dark:text-red-300">
-                    {uploadResult.errors.slice(0, 5).map((e, i) => <p key={i}>{e}</p>)}
-                    {uploadResult.errors.length > 5 && <p>...and {uploadResult.errors.length - 5} more errors</p>}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   // ============================================================================
   // Main Render
   // ============================================================================
@@ -1005,24 +779,6 @@ const CustomerDashboardV2: React.FC = () => {
           <p className="text-sm text-gray-500 dark:text-gray-400">Manage and monitor all customers</p>
         </div>
         <div className="flex items-center gap-2">
-          {isManager && (
-            <>
-              <button
-                onClick={() => setShowUploadModal(true)}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-2 text-sm"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
-                Upload Excel
-              </button>
-              <button
-                onClick={handleDownloadTemplate}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center gap-2 text-sm"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                Template
-              </button>
-            </>
-          )}
           <button
             onClick={loadData}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2"
@@ -1043,7 +799,6 @@ const CustomerDashboardV2: React.FC = () => {
         <nav className="-mb-px flex space-x-8">
           {[
             { id: 'all', label: 'All Customers', count: customers.length },
-            { id: 'onboarding', label: 'Onboarding', count: onboardingCustomers.length },
             { id: 'analytics', label: 'Analytics', count: null }
           ].map((tab) => (
             <button
@@ -1077,14 +832,10 @@ const CustomerDashboardV2: React.FC = () => {
           {renderCustomerTable()}
         </>
       )}
-      {activeTab === 'onboarding' && renderOnboardingPipeline()}
       {activeTab === 'analytics' && renderAnalytics()}
 
       {/* Customer Detail Modal */}
       {renderCustomerDetailModal()}
-
-      {/* Upload Modal */}
-      {renderUploadModal()}
     </div>
   );
 };

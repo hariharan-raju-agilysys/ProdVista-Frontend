@@ -146,6 +146,11 @@ export interface CommitInfo {
   repositoryName: string;
   url?: string;
   isMyCommit?: boolean;
+  changeCounts?: {
+    add: number;
+    edit: number;
+    delete: number;
+  };
 }
 
 export interface CommitStatsResponse {

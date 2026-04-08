@@ -78,9 +78,14 @@ export interface AzureDevOpsCommit {
   committerEmail: string;
   comitterDate: string;
   url: string;
-  addedFiles: number;
-  editedFiles: number;
-  deletedFiles: number;
+  changeCounts: number;
+  changeCountsAdd: number;
+  changeCountsEdit: number;
+  changeCountsDelete: number;
+  // Legacy aliases (kept for backward compat)
+  addedFiles?: number;
+  editedFiles?: number;
+  deletedFiles?: number;
 }
 
 export interface EngineeringDashboardStats {

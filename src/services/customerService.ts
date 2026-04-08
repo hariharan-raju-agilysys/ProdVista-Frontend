@@ -13,8 +13,10 @@ export interface CustomerDetailDto {
   id: string;
   customerId: string;
   customerName: string;
+  customerNameAlias: string;
   tenantId: string;
   propertyId: string;
+  propertyName: string;
   subProperties: SubPropertyDto[];
   region: string;
   status: string;
@@ -66,21 +68,6 @@ export interface CustomerFilterDto {
   searchTerm?: string;
 }
 
-export interface OnboardingCustomerDto {
-  id: string;
-  customerId: string;
-  customerName: string;
-  stage: string;
-  progressPercent: number;
-  startDate: string;
-  targetGoLiveDate: string;
-  assignedManager: string;
-  products: string[];
-  region: string;
-  isDelayed: boolean;
-  notes: string;
-}
-
 export interface FilterOptions {
   statuses: string[];
   priorities: string[];
@@ -128,14 +115,6 @@ export const getCustomer = async (customerId: string): Promise<CustomerDetailDto
 };
 
 /**
- * Get customers currently in onboarding
- */
-export const getOnboardingCustomers = async (): Promise<OnboardingCustomerDto[]> => {
-  const response = await api.get<OnboardingCustomerDto[]>('/customers/onboarding');
-  return response.data;
-};
-
-/**
  * Get available filter options
  */
 export const getFilterOptions = async (): Promise<FilterOptions> => {
@@ -157,72 +136,6 @@ export const checkCanEdit = async (): Promise<{ canEdit: boolean; role: string }
 export const updateCustomer = async (id: string, data: Partial<CustomerDetailDto>): Promise<CustomerDetailDto> => {
   const response = await api.put<CustomerDetailDto>(`/customers/${id}`, data);
   return response.data;
-};
-
-/**
- * Download Excel template for bulk customer upload
- */
-export const downloadTemplate = async (): Promise<void> => {
-  const response = await api.get('/customers/template', { responseType: 'blob' });
-  const blob = new Blob([response.data], {
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-  });
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = 'customer_template.xlsx';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.URL.revokeObjectURL(url);
-};
-
-export interface UploadResult {
-  success: boolean;
-  message: string;
-  created: number;
-  updated: number;
-  totalRows: number;
-  errors?: string[];
-  batchId: string;
-}
-
-/**
- * Upload Excel file with customer data (manager/admin only)
- */
-export const uploadCustomerExcel = async (file: File): Promise<UploadResult> => {
-  const formData = new FormData();
-  formData.append('file', file);
-  const response = await api.post<UploadResult>('/customers/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  });
-  return response.data;
-};
-
-/**
- * Seed realistic customer data for the current tenant
- */
-export const seedCustomerData = async (): Promise<{ success: boolean; message: string; count: number }> => {
-  const response = await api.post('/customers/seed');
-  return response.data;
-};
-
-/**
- * Export all customers as Excel with product tabs
- */
-export const exportCustomerExcel = async (): Promise<void> => {
-  const response = await api.get('/customers/export-excel', { responseType: 'blob' });
-  const blob = new Blob([response.data], {
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-  });
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `Customer_List_${new Date().toISOString().slice(0, 10)}.xlsx`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.URL.revokeObjectURL(url);
 };
 
 // ============================================================================
@@ -290,16 +203,4 @@ export const formatRelativeTime = (dateString: string): string => {
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 30) return `${diffDays}d ago`;
   return formatDate(dateString);
-};
-
-export const getOnboardingStageInfo = (stage: string): { label: string; color: string; order: number } => {
-  const stages: Record<string, { label: string; color: string; order: number }> = {
-    'Discovery': { label: 'Discovery', color: 'bg-purple-500', order: 1 },
-    'Contract': { label: 'Contract', color: 'bg-blue-500', order: 2 },
-    'Setup': { label: 'Setup', color: 'bg-cyan-500', order: 3 },
-    'DataMigration': { label: 'Data Migration', color: 'bg-yellow-500', order: 4 },
-    'Training': { label: 'Training', color: 'bg-orange-500', order: 5 },
-    'GoLive': { label: 'Go Live', color: 'bg-green-500', order: 6 }
-  };
-  return stages[stage] || { label: stage, color: 'bg-gray-500', order: 0 };
 };

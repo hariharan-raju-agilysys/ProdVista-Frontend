@@ -915,6 +915,13 @@ function MetricDetailModal({
                     >
                       <span className="font-mono text-xs text-blue-600 dark:text-blue-400 shrink-0">{c.shortCommitId}</span>
                       <span className="text-xs text-gray-800 dark:text-gray-200 flex-1 truncate">{c.comment}</span>
+                      {c.changeCounts && (
+                        <span className="text-[10px] shrink-0 flex items-center gap-1">
+                          <span className="text-green-600">+{c.changeCounts.add}</span>
+                          <span className="text-blue-600">~{c.changeCounts.edit}</span>
+                          <span className="text-red-600">-{c.changeCounts.delete}</span>
+                        </span>
+                      )}
                       <span className="text-[10px] text-gray-500 shrink-0">{c.authorName?.split(' ')[0]}</span>
                       <span className="text-[10px] text-gray-400 shrink-0">{new Date(c.authorDate).toLocaleDateString()}</span>
                     </div>
@@ -1128,6 +1135,13 @@ function CommitListModal({ data, isOpen, onClose, onViewCommitDetail }: {
                           {c.authorDate && (
                             <span>{new Date(c.authorDate).toLocaleString()}</span>
                           )}
+                          {c.changeCounts && (
+                            <span className="flex items-center gap-1.5">
+                              <span className="text-green-600">+{c.changeCounts.add}</span>
+                              <span className="text-blue-600">~{c.changeCounts.edit}</span>
+                              <span className="text-red-600">-{c.changeCounts.delete}</span>
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="shrink-0 flex items-center gap-1">
@@ -1330,6 +1344,30 @@ function CommitDetailPopup({ commit, onClose }: { commit: CommitInfo; onClose: (
             {commit.authorEmail && <p className="text-xs text-gray-400">{commit.authorEmail}</p>}
             <p className="text-xs text-gray-400 mt-1">{new Date(commit.authorDate).toLocaleString()}</p>
           </div>
+
+          {/* Change Counts */}
+          {commit.changeCounts && (
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
+              <p className="text-xs text-gray-500 mb-2">Changes</p>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                  <span className="text-sm font-medium text-green-600 dark:text-green-400">+{commit.changeCounts.add}</span>
+                  <span className="text-xs text-gray-400">added</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                  <span className="text-sm font-medium text-blue-600 dark:text-blue-400">~{commit.changeCounts.edit}</span>
+                  <span className="text-xs text-gray-400">modified</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                  <span className="text-sm font-medium text-red-600 dark:text-red-400">-{commit.changeCounts.delete}</span>
+                  <span className="text-xs text-gray-400">deleted</span>
+                </div>
+              </div>
+            </div>
+          )}
           
           {/* Actions */}
           <div className="flex gap-2 pt-2">
@@ -1343,9 +1381,6 @@ function CommitDetailPopup({ commit, onClose }: { commit: CommitInfo; onClose: (
                 Open in Azure DevOps
               </a>
             )}
-            <button className="flex-1 text-sm px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
-              🤖 Analyze with AI
-            </button>
           </div>
         </div>
       </div>
@@ -2316,6 +2351,13 @@ function CommitStatsWidget({ data, onViewAll }: { data: CommitStatsResponse | nu
                 >
                   <span className="font-mono text-blue-600 dark:text-blue-400 shrink-0 group-hover:underline bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded">{c.shortCommitId}</span>
                   <span className="text-gray-800 dark:text-gray-200 truncate flex-1">{c.comment}</span>
+                  {c.changeCounts && (
+                    <span className="text-[9px] shrink-0 flex items-center gap-1">
+                      <span className="text-green-600">+{c.changeCounts.add}</span>
+                      <span className="text-blue-600">~{c.changeCounts.edit}</span>
+                      <span className="text-red-600">-{c.changeCounts.delete}</span>
+                    </span>
+                  )}
                   <span className="text-gray-400 shrink-0">{c.authorName?.split(' ')[0]}</span>
                 </a>
               ))}

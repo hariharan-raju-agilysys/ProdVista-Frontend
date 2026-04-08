@@ -566,9 +566,9 @@ export default function EngineeringDashboardV2() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 text-xs">
-                    <span className="text-green-500">+{commit.addedFiles}</span>
-                    <span className="text-blue-500">~{commit.editedFiles}</span>
-                    <span className="text-red-500">-{commit.deletedFiles}</span>
+                    <span className="text-green-500">+{commit.changeCountsAdd || commit.addedFiles || 0}</span>
+                    <span className="text-blue-500">~{commit.changeCountsEdit || commit.editedFiles || 0}</span>
+                    <span className="text-red-500">-{commit.changeCountsDelete || commit.deletedFiles || 0}</span>
                   </div>
                 </div>
               ))}
@@ -682,13 +682,15 @@ export default function EngineeringDashboardV2() {
             shortId: c.shortCommitId,
             comment: c.comment,
             authorName: c.authorName,
-            authorEmail: '',
+            authorEmail: c.authorEmail || '',
             authorDate: c.authorDate,
             repository: '',
-            addedFiles: c.addedFiles,
-            editedFiles: c.editedFiles,
-            deletedFiles: c.deletedFiles,
-            url: '',
+            url: c.url || '',
+            changeCounts: {
+              add: c.changeCountsAdd || c.addedFiles || 0,
+              edit: c.changeCountsEdit || c.editedFiles || 0,
+              delete: c.changeCountsDelete || c.deletedFiles || 0,
+            },
           } as CommitDetail))}
           isOpen={showCommitsModal}
           onClose={() => setShowCommitsModal(false)}

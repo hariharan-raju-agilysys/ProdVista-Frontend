@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
-  RefreshCw, Download, Database, X, Wand2,
+  RefreshCw, X, Wand2,
   Building2, Cloud, HardDrive, Server, Users,
   Headphones, Activity, Search,
   ChevronRight, AlertTriangle,
@@ -24,6 +24,7 @@ import WidgetConfigWizard from './widget-wizard/WidgetConfigWizard'
 import MagicalQuoteOverlay, { getRandomQuote, fetchAiQuote } from './MagicalQuoteOverlay'
 import { useAuth } from '../context/AuthContext'
 import { AdvancedPRListModal } from './AdvancedPRListModal'
+import { CommitsDetailModal, CommitDetail } from './CommitsDetailModal'
 
 // Product icon/color map
 const productConfig: Record<string, { color: string; bg: string; border: string }> = {
@@ -39,7 +40,6 @@ export default function ManagerDashboard() {
   const [customers, setCustomers] = useState<CustomerDetailDto[]>([])
   const [summary, setSummary] = useState<CustomerSummaryDto | null>(null)
   const [loading, setLoading] = useState(true)
-  const [seeding, setSeeding] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerDetailDto | null>(null)
   const [activeProductTab, setActiveProductTab] = useState<string>('all')
@@ -108,18 +108,6 @@ export default function ManagerDashboard() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  const handleSeed = async () => {
-    try {
-      setSeeding(true)
-      await customerService.seedCustomerData()
-      await fetchData()
-    } catch (err: any) {
-      setError(err?.response?.data?.message || 'Seed failed')
-    } finally {
-      setSeeding(false)
-    }
-  }
-
   const allProducts = Array.from(new Set(customers.flatMap(c => c.products || []))).sort()
 
   const filteredCustomers = customers.filter(c => {
@@ -185,15 +173,6 @@ export default function ManagerDashboard() {
               <button onClick={() => setShowWidgetWizard(true)}
                 className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-500 hover:to-purple-500 text-sm shadow-lg shadow-blue-500/20">
                 <Wand2 className="w-4 h-4" /> Widget Wizard
-              </button>
-              <button onClick={() => customerService.exportCustomerExcel()}
-                className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-sm text-gray-700">
-                <Download className="w-4 h-4" /> Export
-              </button>
-              <button onClick={handleSeed} disabled={seeding}
-                className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm">
-                <Database className={clsx('w-4 h-4', seeding && 'animate-spin')} />
-                {seeding ? 'Seeding...' : 'Seed'}
               </button>
             </>
           )}
@@ -396,7 +375,7 @@ export default function ManagerDashboard() {
         </div>
 
         {/* ── Total Commits + LOC ── */}
-        <div className="bg-white rounded-xl border-4 border-green-500 overflow-hidden shadow-xl">
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
           <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-blue-100 to-cyan-100">
             <h3 className="text-xs font-semibold text-gray-900 flex items-center gap-1.5">
               <span>📊</span> Commits + LOC ({commitData?.daysBack ?? 30}d)
@@ -404,10 +383,10 @@ export default function ManagerDashboard() {
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-gray-400">{commitData?.totalCommits ?? 0} commits · {commitData?.totalChanges ?? 0} changes</span>
               <button 
-                onClick={() => { alert('Opening Commits Full View!'); setShowCommitModal(true); }}
-                className="text-sm px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold shadow-lg border-4 border-yellow-400 animate-pulse"
+                onClick={() => setShowCommitModal(true)}
+                className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
               >
-                📋 FULL VIEW
+                View All
               </button>
             </div>
           </div>
@@ -446,10 +425,10 @@ export default function ManagerDashboard() {
                 </div>
               )}
               <button 
-                onClick={() => { alert('Opening PR Full View!'); setShowPRModal(true); }}
-                className="text-sm px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold shadow-lg border-4 border-yellow-400 animate-pulse"
+                onClick={() => setShowPRModal(true)}
+                className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
               >
-                📋 FULL VIEW
+                View All
               </button>
             </div>
           </div>
@@ -657,12 +636,7 @@ export default function ManagerDashboard() {
             <div className="text-center py-16 text-gray-400">
               <Building2 className="w-12 h-12 mx-auto mb-3 opacity-40" />
               <p className="text-lg font-medium">No customers found</p>
-              <p className="text-sm mt-1">{customers.length === 0 ? 'Seed data to get started' : 'Try a different filter or search'}</p>
-              {customers.length === 0 && isManager && (
-                <button onClick={handleSeed} className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
-                  <Database className="w-4 h-4 inline mr-2" /> Seed Customer Data
-                </button>
-              )}
+              <p className="text-sm mt-1">{customers.length === 0 ? 'No customer data available' : 'Try a different filter or search'}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -711,47 +685,26 @@ export default function ManagerDashboard() {
       />
 
       {/* Commit Full View Modal */}
-      {showCommitModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowCommitModal(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-100 to-cyan-100">
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">All Commits - Full View</h2>
-                <p className="text-xs text-gray-500">{commitData?.totalCommits} commits • {commitData?.totalChanges} changes • {commitData?.byAuthor?.length} authors</p>
-              </div>
-              <button onClick={() => setShowCommitModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
-            </div>
-            <div className="p-6 overflow-y-auto max-h-[70vh]">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h3 className="text-sm font-bold mb-3">Top Contributors</h3>
-                  {commitData?.byAuthor?.slice(0, 15).map(a => (
-                    <div key={a.author} className="flex items-center gap-2 mb-2">
-                      <span className="w-32 text-xs truncate">{a.author}</span>
-                      <div className="flex-1 bg-gray-200 rounded-full h-3">
-                        <div className="bg-blue-500 h-3 rounded-full" style={{ width: `${Math.min((a.commits / (commitData.byAuthor[0]?.commits || 1)) * 100, 100)}%` }} />
-                      </div>
-                      <span className="text-xs font-mono w-12 text-right">{a.commits}</span>
-                    </div>
-                  ))}
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold mb-3">Recent Commits</h3>
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {commitData?.recentCommits?.slice(0, 20).map(c => (
-                      <a key={c.commitId} href={c.url} target="_blank" rel="noopener noreferrer" className="block text-xs p-2 rounded hover:bg-blue-50 border border-gray-100">
-                        <div className="font-mono text-blue-600">{c.shortCommitId}</div>
-                        <div className="text-gray-800 truncate">{c.comment}</div>
-                        <div className="text-gray-400">{c.authorName} • {new Date(c.authorDate).toLocaleDateString()}</div>
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <CommitsDetailModal
+        commits={(commitData?.recentCommits || []).map(c => ({
+          commitId: c.commitId || c.shortCommitId,
+          shortId: c.shortCommitId,
+          comment: c.comment,
+          authorName: c.authorName,
+          authorEmail: c.authorEmail,
+          authorDate: c.authorDate,
+          repository: c.repositoryName,
+          url: c.url || '',
+          changeCounts: c.changeCounts ? {
+            add: c.changeCounts.add || 0,
+            edit: c.changeCounts.edit || 0,
+            delete: c.changeCounts.delete || 0,
+          } : undefined,
+        } as CommitDetail))}
+        isOpen={showCommitModal}
+        onClose={() => setShowCommitModal(false)}
+        title="All Commits - Full View"
+      />
     </div>
   )
 }
