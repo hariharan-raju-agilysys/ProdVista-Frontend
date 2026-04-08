@@ -1258,18 +1258,25 @@ const OverviewTab: React.FC<{
                   <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">No bugs opened or closed in the last {trendData.length} days</p>
                 </div>
               ) : (
-              <><div className="h-36 flex items-end gap-[2px]">
-                {trendData.map((p, i) => {
-                  const maxVal = Math.max(...trendData.map(d => Math.max(d.opened, d.closed, 1)));
-                  return (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-[1px] group cursor-pointer" title={`${formatDate(p.date)}: +${p.opened} opened / -${p.closed} closed`}>
-                      <div className="w-full flex flex-col-reverse gap-[1px]">
-                        <div className="bg-emerald-400 dark:bg-emerald-500 rounded-t-sm group-hover:bg-emerald-500 dark:group-hover:bg-emerald-400 transition-colors" style={{ height: `${(p.closed / maxVal) * 120}px` }} />
-                        <div className="bg-red-400 dark:bg-red-500 rounded-t-sm group-hover:bg-red-500 dark:group-hover:bg-red-400 transition-colors" style={{ height: `${(p.opened / maxVal) * 120}px` }} />
+              <><div className="h-36 flex items-end gap-[2px] overflow-hidden">
+                {(() => {
+                  const maxVal = Math.max(...trendData.map(d => d.opened + d.closed), 1);
+                  const chartH = 132; // px available for bars
+                  return trendData.map((p, i) => {
+                    const openedH = (p.opened / maxVal) * chartH;
+                    const closedH = (p.closed / maxVal) * chartH;
+                    return (
+                      <div key={i} className="flex-1 flex flex-col justify-end items-stretch group cursor-pointer h-full" title={`${formatDate(p.date)}: +${p.opened} opened / -${p.closed} closed`}>
+                        {p.opened > 0 && (
+                          <div className={`bg-red-400 dark:bg-red-500 group-hover:bg-red-500 dark:group-hover:bg-red-400 transition-colors ${p.closed === 0 ? 'rounded-b-sm' : ''} rounded-t-sm`} style={{ height: `${openedH}px` }} />
+                        )}
+                        {p.closed > 0 && (
+                          <div className={`bg-emerald-400 dark:bg-emerald-500 group-hover:bg-emerald-500 dark:group-hover:bg-emerald-400 transition-colors rounded-b-sm ${p.opened === 0 ? 'rounded-t-sm' : ''}`} style={{ height: `${closedH}px` }} />
+                        )}
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
               </div>
               <div className="flex items-center gap-5 mt-3 text-xs text-slate-500 dark:text-slate-400">
                 <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-red-400 dark:bg-red-500 rounded-sm" /> Opened</span>
