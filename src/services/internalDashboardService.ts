@@ -404,6 +404,114 @@ export const parseMetrics = (json: string): MetricConfig[] => {
 };
 
 // ========================================
+// Direct Azure DevOps PR Fetch (uses user's MSAL token)
+// Bypasses backend — useful when server has no PAT/MI access
+// ========================================
+
+const DEVOPS_ORG = 'AGYS-VisualOne';
+const DEVOPS_PROJECTS = ['PMS', 'Visual One'];
+
+function getDevOpsToken(): string | null {
+  return localStorage.getItem('prodvista_devops_token');
+}
+
+interface DevOpsRawPR {
+  pullRequestId: number;
+  title: string;
+  status: string;
+  createdBy: { displayName: string; uniqueName: string };
+  creationDate: string;
+  closedDate?: string;
+  sourceRefName: string;
+  targetRefName: string;
+  repository: { name: string; webUrl?: string };
+  isDraft: boolean;
+  reviewers?: { displayName: string; vote: number; isRequired?: boolean; imageUrl?: string }[];
+  url: string;
+}
+
+/**
+ * Fetch PRs directly from Azure DevOps using the user's MSAL token.
+ * Returns data in the same PRSummaryResponse shape the backend uses.
+ */
+export async function fetchPRsDirectFromDevOps(): Promise<PRSummaryResponse | null> {
+  const token = getDevOpsToken();
+  if (!token) return null;
+
+  const allPrs: PRInfo[] = [];
+
+  for (const project of DEVOPS_PROJECTS) {
+    try {
+      const res = await fetch(
+        `https://dev.azure.com/${encodeURIComponent(DEVOPS_ORG)}/${encodeURIComponent(project)}/_apis/git/pullrequests?searchCriteria.status=active&$top=50&api-version=7.1`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!res.ok) continue;
+      const json = await res.json();
+      const prs: DevOpsRawPR[] = json.value || [];
+      for (const pr of prs) {
+        const repoWebUrl = pr.repository?.webUrl || `https://dev.azure.com/${DEVOPS_ORG}/${encodeURIComponent(project)}/_git/${encodeURIComponent(pr.repository.name)}`;
+        allPrs.push({
+          pullRequestId: pr.pullRequestId,
+          title: pr.title,
+          status: pr.status,
+          createdBy: pr.createdBy?.displayName || 'Unknown',
+          createdByEmail: pr.createdBy?.uniqueName,
+          creationDate: pr.creationDate,
+          sourceBranch: pr.sourceRefName?.replace('refs/heads/', '') || '',
+          targetBranch: pr.targetRefName?.replace('refs/heads/', '') || '',
+          repositoryName: pr.repository?.name || project,
+          isDraft: pr.isDraft || false,
+          commitCount: 0,
+          commentCount: 0,
+          reviewerCount: pr.reviewers?.length || 0,
+          isApproved: pr.reviewers?.some(r => r.vote === 10) || false,
+          url: pr.url,
+          webUrl: `${repoWebUrl}/pullrequest/${pr.pullRequestId}`,
+          reviewers: pr.reviewers?.map(r => ({
+            displayName: r.displayName,
+            vote: r.vote,
+            isRequired: r.isRequired,
+            imageUrl: r.imageUrl,
+          })),
+        });
+      }
+    } catch (err) {
+      console.warn(`[DirectDevOps] Failed to fetch PRs for ${project}:`, err);
+    }
+  }
+
+  if (allPrs.length === 0) return null;
+
+  return {
+    totalActive: allPrs.length,
+    waitingApproval: allPrs.filter(p => !p.isApproved && !p.isDraft).length,
+    approved: allPrs.filter(p => p.isApproved).length,
+    drafts: allPrs.filter(p => p.isDraft).length,
+    prs: allPrs.sort((a, b) => new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()),
+  };
+}
+
+/**
+ * Smart PR fetch: tries backend first, falls back to direct DevOps API call.
+ */
+export async function getPRSummaryWithFallback(connectionId?: string, myPrsOnly?: boolean, hoursBack: number = DashboardConstants.PR_HOURS_BACK): Promise<PRSummaryResponse> {
+  try {
+    const backend = await getPRSummary(connectionId, myPrsOnly, hoursBack);
+    if (backend && backend.totalActive > 0) return backend;
+    // Backend returned 0 PRs — try direct
+    const direct = await fetchPRsDirectFromDevOps();
+    if (direct) return direct;
+    return backend; // Return the original (empty) if direct also fails
+  } catch {
+    // Backend failed entirely — try direct
+    const direct = await fetchPRsDirectFromDevOps();
+    if (direct) return direct;
+    return { totalActive: 0, waitingApproval: 0, approved: 0, drafts: 0, prs: [] };
+  }
+}
+
+// ========================================
 // Jenkins Builds
 // ========================================
 

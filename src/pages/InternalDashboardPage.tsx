@@ -4,7 +4,7 @@ import { useLazyWidget } from '../hooks/useLazyWidget';
 import { usePersistentChat } from '../context/PersistentChatContext';
 import { useInternalDashboardHub } from '../hooks/useInternalDashboardHub';
 import {
-  getSummary, getBranches, getPRSummary, getCommitStats, getTodayBuilds,
+  getSummary, getBranches, getPRSummaryWithFallback, getCommitStats, getTodayBuilds,
   getKnowledgeShares, getProductionSupport, getApiCatalog,
   getCustomersOverview, addKnowledgeShare, addApiCatalogEntry,
   uploadFile, downloadTemplate, removeKnowledgeShare, removeApiCatalogEntry,
@@ -176,7 +176,7 @@ export default function InternalDashboardPage({ isAdminView = true }: InternalDa
   const loadRealTimeStats = useCallback(async () => {
     try {
       const [prData, commitData, buildsData] = await Promise.all([
-        getPRSummary().catch(() => null),
+        getPRSummaryWithFallback().catch(() => null),
         getCommitStats(undefined, daysFilter).catch(() => null),
         getTodayBuilds().catch(() => null)
       ]);
@@ -259,7 +259,7 @@ export default function InternalDashboardPage({ isAdminView = true }: InternalDa
     if (!prModalData) {
       setPrModalLoading(true);
       try {
-        const data = await getPRSummary();
+        const data = await getPRSummaryWithFallback();
         setPrModalData(data);
       } catch (err) {
         console.error('[openPRModal] Failed to fetch PRs:', err);
@@ -272,7 +272,7 @@ export default function InternalDashboardPage({ isAdminView = true }: InternalDa
   const refreshPRModal = useCallback(async () => {
     setPrModalLoading(true);
     try {
-      const data = await getPRSummary();
+      const data = await getPRSummaryWithFallback();
       setPrModalData(data);
     } catch (err) {
       console.error('[refreshPRModal] Failed to refresh PRs:', err);
@@ -1581,7 +1581,7 @@ function LazyBranches({ expanded, toggle }: { expanded: boolean; toggle: () => v
 }
 
 function LazyPRs({ expanded, toggle, onViewAll }: { expanded: boolean; toggle: () => void; onViewAll?: () => void }) {
-  const fetcher = useCallback(() => getPRSummary(), []);
+  const fetcher = useCallback(() => getPRSummaryWithFallback(), []);
   const { ref, data, loading } = useLazyWidget(fetcher);
   return (
     <div ref={ref}>
