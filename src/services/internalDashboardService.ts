@@ -130,7 +130,7 @@ export interface PRSummaryResponse {
   drafts: number;
   myCreatedCount?: number;
   toReviewCount?: number;
-  myPrsOnly?: boolean;
+  scope?: string;
   currentUserEmail?: string;
   prs: PRInfo[];
 }
@@ -282,10 +282,10 @@ export const getBranches = (connectionId?: string, repositoryId?: string) => {
   return api.get<BranchesResponse>(`${BASE}/branches${qs ? `?${qs}` : ''}`).then(r => r.data);
 };
 
-export const getPRSummary = (connectionId?: string, myPrsOnly?: boolean, hoursBack: number = DashboardConstants.PR_HOURS_BACK) => {
+export const getPRSummary = (connectionId?: string, scope: 'all' | 'mine' = 'all', hoursBack: number = DashboardConstants.PR_HOURS_BACK) => {
   const p = new URLSearchParams();
   if (connectionId) p.append('connectionId', connectionId);
-  if (myPrsOnly) p.append('myPrsOnly', 'true');
+  p.append('scope', scope);
   p.append('hoursBack', hoursBack.toString());
   const qs = p.toString();
   return api.get<PRSummaryResponse>(`${BASE}/pr-summary${qs ? `?${qs}` : ''}`).then(r => r.data);
@@ -495,9 +495,9 @@ export async function fetchPRsDirectFromDevOps(): Promise<PRSummaryResponse | nu
 /**
  * Smart PR fetch: tries backend first, falls back to direct DevOps API call.
  */
-export async function getPRSummaryWithFallback(connectionId?: string, myPrsOnly?: boolean, hoursBack: number = DashboardConstants.PR_HOURS_BACK): Promise<PRSummaryResponse> {
+export async function getPRSummaryWithFallback(connectionId?: string, scope: 'all' | 'mine' = 'all', hoursBack: number = DashboardConstants.PR_HOURS_BACK): Promise<PRSummaryResponse> {
   try {
-    const backend = await getPRSummary(connectionId, myPrsOnly, hoursBack);
+    const backend = await getPRSummary(connectionId, scope, hoursBack);
     if (backend && backend.totalActive > 0) return backend;
     // Backend returned 0 PRs — try direct
     const direct = await fetchPRsDirectFromDevOps();

@@ -18,7 +18,7 @@ export default function Dashboard() {
     try {
       // Fetch PRs for last week
       const [prResult, commitResult] = await Promise.all([
-        getPRSummary(undefined, false), // Get all PRs, API returns myCreatedCount
+        getPRSummary(undefined, 'all'), // Get all PRs, API returns myCreatedCount
         getCommitStats(undefined, 7, false) // Get commits from last 7 days
       ])
       
