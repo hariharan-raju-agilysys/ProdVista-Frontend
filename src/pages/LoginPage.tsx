@@ -179,7 +179,7 @@ export default function LoginPage() {
           } catch { /* optional */ }
 
           hasNavigated.current = true;
-          navigate('/');
+          navigate('/', { replace: true });
         } else {
           setError(response.message || 'Microsoft login failed');
           setPhase('tenant');
@@ -231,9 +231,14 @@ export default function LoginPage() {
             } catch { /* optional */ }
 
             hasNavigated.current = true;
-            navigate('/');
+            navigate('/', { replace: true });
             return;
           }
+          // Backend rejected the token — show error, don't redirect
+          sessionStorage.removeItem('msal_pending_tenant');
+          setError(response.message || 'Login failed. Please try again.');
+          setPhase('tenant');
+          return;
         }
       } catch {
         // Silent failed — fall through to redirect
@@ -292,7 +297,7 @@ export default function LoginPage() {
         if (response.user) setUserFromLocal(response.user as any);
         updateOrgInfo(info.code, info);
         hasNavigated.current = true;
-        navigate('/');
+        navigate('/', { replace: true });
       } else {
         setError(response.message || 'Azure CLI login failed. Run "az login" first.');
       }
