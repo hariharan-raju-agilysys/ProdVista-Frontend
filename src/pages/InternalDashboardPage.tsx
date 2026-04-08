@@ -1857,7 +1857,7 @@ function TodayBuildsWidget({ builds }: { builds: BuildInfo[] }) {
           <div key={b.id} className="flex items-center justify-between text-xs py-1 px-1.5 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50">
             <div className="flex items-center gap-1.5 min-w-0">
               <span>{b.result === 'succeeded' ? '✅' : b.result === 'failed' ? '❌' : '⏳'}</span>
-              <a href={b.url} target="_blank" rel="noopener noreferrer"
+              <a href={b.webUrl || b.url} target="_blank" rel="noopener noreferrer"
                 className="text-blue-600 dark:text-blue-400 hover:underline truncate font-medium">
                 {b.buildNumber}
               </a>

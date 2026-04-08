@@ -81,6 +81,7 @@ export interface BuildInfo {
   finishTime: string;
   durationMinutes: number;
   url: string;
+  webUrl?: string;
 }
 
 export interface BranchInfo { name: string; objectId: string; }
