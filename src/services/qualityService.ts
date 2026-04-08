@@ -775,6 +775,8 @@ export interface TodayCommit {
 
 export interface TodayActivity {
   date: string;
+  scope?: string;
+  currentUserEmail?: string;
   pullRequests: {
     activeTotal: number;
     completedToday: number;
@@ -801,10 +803,11 @@ export interface TodayActivity {
   };
 }
 
-export const getTodayActivity = async (connectionId?: string, repositoryIds?: string[]): Promise<TodayActivity> => {
+export const getTodayActivity = async (connectionId?: string, repositoryIds?: string[], scope?: 'mine' | 'all'): Promise<TodayActivity> => {
   const params = new URLSearchParams();
   if (connectionId) params.append('connectionId', connectionId);
   if (repositoryIds && repositoryIds.length > 0) params.append('repositoryIds', repositoryIds.join(','));
+  if (scope) params.append('scope', scope);
   const qs = params.toString();
   const response = await api.get<TodayActivity>(qs ? `/quality/today-activity?${qs}` : '/quality/today-activity');
   return response.data;

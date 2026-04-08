@@ -63,6 +63,7 @@ const QualityDashboardV2: React.FC = () => {
 
   // Today Activity (PRs + Commits grouped by Repo)
   const [todayActivity, setTodayActivity] = useState<TodayActivity | null>(null);
+  const [userScope, setUserScope] = useState<'mine' | 'all'>('mine');
 
   // HR Portal - Department & Birthdays
   const [hrDepartments, setHrDepartments] = useState<HrDepartment[]>([]);
@@ -129,7 +130,7 @@ const QualityDashboardV2: React.FC = () => {
         getBugs({ areaPath: selectedAreaPath }, selectedConnectionId),
         getTrend(90, selectedConnectionId),
         getAgingDistribution(selectedConnectionId),
-        getTodayActivity(selectedConnectionId, selectedRepoIds.length > 0 ? selectedRepoIds : undefined).catch(() => null as TodayActivity | null),
+        getTodayActivity(selectedConnectionId, selectedRepoIds.length > 0 ? selectedRepoIds : undefined, userScope).catch(() => null as TodayActivity | null),
       ]);
       setKpi(kpiData);
       setBugs(bugsData);
@@ -141,7 +142,7 @@ const QualityDashboardV2: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [selectedConnectionId, selectedAreaPath, selectedRepoIds]);
+  }, [selectedConnectionId, selectedAreaPath, selectedRepoIds, userScope]);
 
   useEffect(() => { loadInitialData(); }, [loadInitialData]);
   useEffect(() => {
@@ -391,6 +392,28 @@ const QualityDashboardV2: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
+                    <button
+                      onClick={() => setUserScope('mine')}
+                      className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
+                        userScope === 'mine'
+                          ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                          : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                      }`}
+                    >
+                      <User className="w-3 h-3" /> My
+                    </button>
+                    <button
+                      onClick={() => setUserScope('all')}
+                      className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
+                        userScope === 'all'
+                          ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                          : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                      }`}
+                    >
+                      <Users className="w-3 h-3" /> All
+                    </button>
+                  </div>
                   {loading && (
                     <span className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2.5 py-1 rounded-full">
                       <Loader2 className="w-3 h-3 animate-spin" /> Syncing
