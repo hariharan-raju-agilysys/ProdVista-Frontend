@@ -50,6 +50,7 @@ const ToolsPage = lazy(() => import('./pages/ToolsPage'))
 const HrSetupPage = lazy(() => import('./pages/HrSetupPage'))
 const ProductionCustomersPage = lazy(() => import('./pages/ProductionCustomersPage'))
 const DataFeedPage = lazy(() => import('./pages/DataFeedPage'))
+const SalesforcePage = lazy(() => import('./pages/SalesforcePage'))
 const ManagerSettingsPage = lazy(() => import('./pages/ManagerSettings'))
 const UserManagement = lazy(() => import('./pages/UserManagement'))
 const TenantAdminPage = lazy(() => import('./pages/TenantAdminPage'))
@@ -114,6 +115,7 @@ function AppRoutes() {
         <Route path="data-feed" element={<DataFeedPage />} />
         <Route path="hr-setup" element={<HrSetupPage />} />
         <Route path="production-customers" element={<ProductionCustomersPage />} />
+        <Route path="salesforce" element={<SalesforcePage />} />
         
         {/* Manager-only routes */}
         <Route path="settings" element={<ManagerRoute><ManagerSettingsPage /></ManagerRoute>} />
