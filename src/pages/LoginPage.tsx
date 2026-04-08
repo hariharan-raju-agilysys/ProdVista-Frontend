@@ -135,15 +135,17 @@ export default function LoginPage() {
     sessionStorage.removeItem('msal_pending_tenant');
     setLoading(true);
 
-    // Helper: acquire token with silent-first, popup-fallback on expiry (AADSTS70043)
+    // Helper: acquire token with silent-first, redirect-fallback on expiry (AADSTS70043)
     const acquireGraphToken = async () => {
       try {
         return await msalInstance.acquireTokenSilent({ ...graphScopes, account: accounts[0] });
       } catch (silentErr) {
         if (silentErr instanceof InteractionRequiredAuthError) {
-          // Refresh token expired (e.g. conditional access 2-hour sign-in frequency)
-          console.warn('Silent token acquisition failed, falling back to popup:', silentErr.errorCode);
-          return await msalInstance.acquireTokenPopup({ ...graphScopes, account: accounts[0] });
+          // Refresh token expired — use redirect (popup is blocked outside user gesture)
+          console.warn('Silent token acquisition failed, falling back to redirect:', (silentErr as any).errorCode);
+          sessionStorage.setItem('msal_pending_tenant', savedTenant);
+          await msalInstance.acquireTokenRedirect({ ...graphScopes, account: accounts[0] });
+          return null; // redirect will reload the page
         }
         throw silentErr;
       }
@@ -165,12 +167,8 @@ export default function LoginPage() {
                 account: accounts[0],
               });
             } catch (silentErr) {
-              if (silentErr instanceof InteractionRequiredAuthError) {
-                armTokenResponse = await msalInstance.acquireTokenPopup({
-                  ...armScopes,
-                  account: accounts[0],
-                });
-              }
+              // ARM token is optional — skip if silent fails (no popup outside user gesture)
+              console.warn('ARM silent token failed, skipping (optional):', (silentErr as any)?.errorCode);
             }
             if (armTokenResponse?.accessToken) {
               localStorage.setItem('prodvista_azure_token', armTokenResponse.accessToken);
@@ -189,12 +187,8 @@ export default function LoginPage() {
                 account: accounts[0],
               });
             } catch (silentErr) {
-              if (silentErr instanceof InteractionRequiredAuthError) {
-                devopsTokenResponse = await msalInstance.acquireTokenPopup({
-                  ...devopsScopes,
-                  account: accounts[0],
-                });
-              }
+              // DevOps token is optional — skip if silent fails (no popup outside user gesture)
+              console.warn('DevOps silent token failed, skipping (optional):', (silentErr as any)?.errorCode);
             }
             if (devopsTokenResponse?.accessToken) {
               localStorage.setItem('prodvista_devops_token', devopsTokenResponse.accessToken);
