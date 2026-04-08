@@ -245,7 +245,7 @@ export default function LoginPage() {
       await msalInstance.loginRedirect({
         ...graphScopes,
         prompt: 'select_account',
-        extraScopesToConsent: [...devopsScopes.scopes, ...armScopes.scopes],
+        extraScopesToConsent: [...devopsScopes.scopes],
       });
     } catch (err: any) {
       sessionStorage.removeItem('msal_pending_tenant');
