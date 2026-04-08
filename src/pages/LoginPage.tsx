@@ -4,11 +4,12 @@ import { useMsal } from '@azure/msal-react';
 import { InteractionStatus, InteractionRequiredAuthError } from '@azure/msal-browser';
 import { authService, TenantInfo } from '../services/authService';
 import { useAuth } from '../context/AuthContext';
+import { getStoredOrgCode, getStoredOrgInfo } from '../context/AuthContext';
 import { graphScopes, armScopes, devopsScopes, isMsalConfigured } from '../config/msalConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Building2, Loader2, ArrowRight, Terminal, Shield,
-  BarChart3, Zap, Globe, Lock, Info,
+  BarChart3, Zap, Globe, Lock, Info, UserCheck,
 } from 'lucide-react';
 
 const basePath = import.meta.env.VITE_BASE_PATH || '';
@@ -105,6 +106,7 @@ const features = [
 export default function LoginPage() {
   const navigate = useNavigate();
   const hasNavigated = useRef(false);
+  const ssoAttempted = useRef(false);
   const { instance: msalInstance, inProgress, accounts } = useMsal();
   const { setUserFromLocal, updateOrgInfo } = useAuth();
 
@@ -115,6 +117,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [focusedInput, setFocusedInput] = useState(false);
+  // Detected SSO user from shared Microsoft session (e.g. already logged into Azure Portal / DevOps)
+  const [detectedSsoUser, setDetectedSsoUser] = useState<string | null>(null);
 
   // Already authenticated — go straight to app
   useEffect(() => {
@@ -125,6 +129,86 @@ export default function LoginPage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /* ---------------------------------------------------------------- */
+  /*  Auto-SSO: detect existing Microsoft session on page load        */
+  /*  (Same mechanism Azure Portal uses when you're already signed    */
+  /*   into Azure DevOps — shared SSO cookie across Microsoft apps)   */
+  /* ---------------------------------------------------------------- */
+  useEffect(() => {
+    if (hasNavigated.current || ssoAttempted.current) return;
+    if (inProgress !== InteractionStatus.None) return;
+    if (authService.isAuthenticated()) return;
+    // Don't interfere with redirect return handler
+    if (sessionStorage.getItem('msal_pending_tenant')) return;
+    if (!isMsalConfigured()) return;
+
+    ssoAttempted.current = true;
+
+    const detectExistingSession = async () => {
+      // 1. Check MSAL cache first (e.g. previous login in this browser session)
+      let account = accounts[0] || msalInstance.getActiveAccount();
+
+      // 2. No cached account — try ssoSilent to detect shared Microsoft SSO cookie
+      //    This is how Azure Portal knows you're already logged into DevOps
+      if (!account) {
+        try {
+          const ssoResult = await msalInstance.ssoSilent({ scopes: graphScopes.scopes });
+          account = ssoResult.account;
+        } catch {
+          // No shared Microsoft session — user isn't logged into any Microsoft service
+          return;
+        }
+      }
+
+      if (!account) return;
+
+      // We have a Microsoft session. Show detected user on the form.
+      setDetectedSsoUser(account.username || account.name || null);
+
+      // If we also have a stored org code, auto-login without any user input
+      const storedOrgCode = getStoredOrgCode();
+      const storedOrgInfo = getStoredOrgInfo();
+      if (!storedOrgCode) return; // No org code — just show the hint, wait for user
+
+      setPhase('connecting');
+      setConnectingOrg(storedOrgInfo?.name || storedOrgCode);
+
+      try {
+        const tokenResponse = await msalInstance.acquireTokenSilent({ ...graphScopes, account });
+        if (!tokenResponse?.accessToken) return resetToTenant();
+
+        const response = await authService.loginWithMsal(storedOrgCode, tokenResponse.accessToken);
+        if (!response.success) return resetToTenant(response.message || 'Auto sign-in failed');
+
+        if (response.user) setUserFromLocal(response.user as any);
+        updateOrgInfo(storedOrgCode, { code: storedOrgCode, name: response.user?.tenantName || storedOrgInfo?.name || storedOrgCode });
+
+        // Acquire optional tokens (ARM & DevOps)
+        try {
+          const armRes = await msalInstance.acquireTokenSilent({ ...armScopes, account }).catch(() => null);
+          if (armRes?.accessToken) sessionStorage.setItem('prodvista_azure_token', armRes.accessToken);
+        } catch { /* optional */ }
+        try {
+          const devRes = await msalInstance.acquireTokenSilent({ ...devopsScopes, account }).catch(() => null);
+          if (devRes?.accessToken) sessionStorage.setItem('prodvista_devops_token', devRes.accessToken);
+        } catch { /* optional */ }
+
+        hasNavigated.current = true;
+        navigate('/', { replace: true });
+      } catch {
+        resetToTenant();
+      }
+    };
+
+    const resetToTenant = (msg?: string) => {
+      if (msg) setError(msg);
+      setPhase('tenant');
+    };
+
+    detectExistingSession();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inProgress, accounts]);
 
   /* ---------------------------------------------------------------- */
   /*  MSAL redirect return handler                                    */
@@ -440,6 +524,28 @@ export default function LoginPage() {
                 <h2 className="text-2xl font-bold text-gray-900 mb-1.5">Welcome back</h2>
                 <p className="text-sm text-gray-500">Enter your organization code to sign in</p>
               </div>
+
+              {/* Detected SSO session hint */}
+              <AnimatePresence>
+                {detectedSsoUser && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                    animate={{ opacity: 1, height: 'auto', marginBottom: 20 }}
+                    exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                        <UserCheck className="w-3.5 h-3.5 text-blue-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs text-blue-700 font-medium truncate">{detectedSsoUser}</p>
+                        <p className="text-[11px] text-blue-500">Microsoft session detected</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Error */}
               <AnimatePresence>
