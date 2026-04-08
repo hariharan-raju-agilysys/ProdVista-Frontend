@@ -95,6 +95,7 @@ export default function InternalDashboardPage({ isAdminView = true }: InternalDa
   const [realTimeCommitData, setRealTimeCommitData] = useState<CommitStatsResponse | null>(null);
   const [realTimeBuildsData, setRealTimeBuildsData] = useState<TodayBuildsResponse | null>(null);
   const [daysFilter, setDaysFilter] = useState(7);
+  const [userScope, setUserScope] = useState<'mine' | 'all'>('mine');
   
   // ── Metric Detail Modal State ──
   const [metricDetailModal, setMetricDetailModal] = useState<{
@@ -176,8 +177,8 @@ export default function InternalDashboardPage({ isAdminView = true }: InternalDa
   const loadRealTimeStats = useCallback(async () => {
     try {
       const [prData, commitData, buildsData] = await Promise.all([
-        getPRSummaryWithFallback().catch(() => null),
-        getCommitStats(undefined, daysFilter).catch(() => null),
+        getPRSummaryWithFallback(undefined, userScope).catch(() => null),
+        getCommitStats(undefined, daysFilter, userScope === 'mine').catch(() => null),
         getTodayBuilds().catch(() => null)
       ]);
       if (prData) setRealTimePRData(prData);
@@ -186,20 +187,20 @@ export default function InternalDashboardPage({ isAdminView = true }: InternalDa
     } catch (err) {
       console.error('[loadRealTimeStats] Failed:', err);
     }
-  }, [daysFilter]);
+  }, [daysFilter, userScope]);
 
   useEffect(() => {
     loadRealTimeStats();
   }, [loadRealTimeStats]);
 
-  // ── Refresh stats when days filter changes ──
+  // ── Refresh stats when days filter or user scope changes ──
   useEffect(() => {
     if (daysFilter) {
-      getCommitStats(undefined, daysFilter)
+      getCommitStats(undefined, daysFilter, userScope === 'mine')
         .then(data => setRealTimeCommitData(data))
         .catch(() => {});
     }
-  }, [daysFilter]);
+  }, [daysFilter, userScope]);
 
   // ── Fetch Jenkins build details when selected ──
   useEffect(() => {
@@ -477,28 +478,47 @@ export default function InternalDashboardPage({ isAdminView = true }: InternalDa
         )}
       </div>
 
-      {/* ── Days Filter Control ── */}
-      <div className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-700 w-fit">
-        <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">Time Range:</span>
-        {[7, 14, 30, 90].map(d => (
+      {/* ── Scope + Days Filter Controls ── */}
+      <div className="flex items-center gap-3 flex-wrap">
+        {/* My / All Toggle */}
+        <div className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-700">
+          <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">View:</span>
+          {(['mine', 'all'] as const).map(s => (
+            <button
+              key={s}
+              onClick={() => setUserScope(s)}
+              className={`text-[10px] px-2.5 py-1 rounded transition-all ${userScope === s
+                ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 font-medium shadow-sm'
+                : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+            >
+              {s === 'mine' ? '👤 My' : '👥 All'}
+            </button>
+          ))}
+        </div>
+        {/* Days Filter */}
+        <div className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-700">
+          <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">Time Range:</span>
+          {[7, 14, 30, 90].map(d => (
+            <button
+              key={d}
+              onClick={() => setDaysFilter(d)}
+              className={`text-[10px] px-2 py-1 rounded ${daysFilter === d
+                ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium'
+                : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+            >
+              {d}d
+            </button>
+          ))}
           <button
-            key={d}
-            onClick={() => setDaysFilter(d)}
-            className={`text-[10px] px-2 py-1 rounded ${daysFilter === d
-              ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium'
-              : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'
-            }`}
+            onClick={loadRealTimeStats}
+            className="text-[10px] px-2 py-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            title="Refresh stats"
           >
-            {d}d
+            🔄
           </button>
-        ))}
-        <button
-          onClick={loadRealTimeStats}
-          className="text-[10px] px-2 py-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-          title="Refresh stats"
-        >
-          🔄
-        </button>
+        </div>
       </div>
 
       {/* ── Row 2: Jenkins + Build Success ── */}
@@ -535,6 +555,8 @@ export default function InternalDashboardPage({ isAdminView = true }: InternalDa
                   onBuildClick={(jobPath, buildNumber) => setSelectedJenkinsBuild({ jobPath, buildNumber })}
                   commitData={realTimeCommitData}
                   buildsData={realTimeBuildsData}
+                  userScope={userScope}
+                  prData={realTimePRData}
                 />
               ))}
             </div>
@@ -1537,7 +1559,7 @@ function JenkinsBuildDetailModal({ detail, loading, onClose }: {
 // Lazy Widget Renderer
 // ─────────────────────────────────────────
 
-function LazyWidgetRenderer({ config, summary, expandedWidget, setExpandedWidget, onRefresh, onViewAllPRs, onViewAllCommits, onBuildClick, commitData, buildsData }: {
+function LazyWidgetRenderer({ config, summary, expandedWidget, setExpandedWidget, onRefresh, onViewAllPRs, onViewAllCommits, onBuildClick, commitData, buildsData, userScope, prData }: {
   config: WidgetConfig;
   summary: DashboardSummary | null;
   expandedWidget: string | null;
@@ -1548,6 +1570,8 @@ function LazyWidgetRenderer({ config, summary, expandedWidget, setExpandedWidget
   onBuildClick?: (jobPath: string, buildNumber: number) => void;
   commitData?: CommitStatsResponse | null;
   buildsData?: TodayBuildsResponse | null;
+  userScope?: 'mine' | 'all';
+  prData?: PRSummaryResponse | null;
 }) {
   switch (config.key) {
     case 'branches': return <LazyBranches expanded={expandedWidget === 'branches'} toggle={() => setExpandedWidget(expandedWidget === 'branches' ? null : 'branches')} />;
@@ -1556,7 +1580,7 @@ function LazyWidgetRenderer({ config, summary, expandedWidget, setExpandedWidget
     case 'knowledge': return <LazyKnowledge onRefresh={onRefresh} />;
     case 'builds':    return <TodayBuildsWidget builds={buildsData?.builds ?? summary?.devops?.todayBuilds?.builds ?? []} />;
     case 'jenkinsBuilds': return <LazyJenkinsBuilds expanded={expandedWidget === 'jenkinsBuilds'} toggle={() => setExpandedWidget(expandedWidget === 'jenkinsBuilds' ? null : 'jenkinsBuilds')} onBuildClick={onBuildClick} />;
-    case 'prs':       return <LazyPRs expanded={expandedWidget === 'prs'} toggle={() => setExpandedWidget(expandedWidget === 'prs' ? null : 'prs')} onViewAll={onViewAllPRs} />;
+    case 'prs':       return <LazyPRs expanded={expandedWidget === 'prs'} toggle={() => setExpandedWidget(expandedWidget === 'prs' ? null : 'prs')} onViewAll={onViewAllPRs} userScope={userScope} preloadedData={prData} />;
     case 'commits':   return <LazyCommitStats onViewAll={onViewAllCommits} preloadedData={commitData} />;
     case 'customers': return <LazyCustomers onRefresh={onRefresh} />;
     case 'support':   return <LazySupportWidget onRefresh={onRefresh} />;
@@ -1580,12 +1604,13 @@ function LazyBranches({ expanded, toggle }: { expanded: boolean; toggle: () => v
   );
 }
 
-function LazyPRs({ expanded, toggle, onViewAll }: { expanded: boolean; toggle: () => void; onViewAll?: () => void }) {
-  const fetcher = useCallback(() => getPRSummaryWithFallback(), []);
-  const { ref, data, loading } = useLazyWidget(fetcher);
+function LazyPRs({ expanded, toggle, onViewAll, userScope = 'mine', preloadedData }: { expanded: boolean; toggle: () => void; onViewAll?: () => void; userScope?: 'mine' | 'all'; preloadedData?: PRSummaryResponse | null }) {
+  const fetcher = useCallback(() => getPRSummaryWithFallback(undefined, userScope), [userScope]);
+  const { ref, data: fetchedData, loading } = useLazyWidget(fetcher);
+  const data = preloadedData || fetchedData;
   return (
     <div ref={ref}>
-      {loading ? <WidgetSkeleton title="Pull Requests" icon="🔃" /> :
+      {loading && !data ? <WidgetSkeleton title="Pull Requests" icon="🔃" /> :
         <PRWidget data={data} expanded={expanded} toggle={toggle} onViewAll={onViewAll} />}
     </div>
   );
