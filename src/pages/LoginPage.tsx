@@ -330,11 +330,14 @@ export default function LoginPage() {
     }
 
     // No existing session — redirect to Microsoft login
+    // NOTE: Do NOT include extraScopesToConsent for DevOps scopes here.
+    // The Agilysys tenant requires admin consent for DevOps API access,
+    // so we only request basic Graph scopes on initial login.
+    // DevOps tokens are acquired incrementally via acquireTokenSilent later.
     try {
       await msalInstance.loginRedirect({
         ...graphScopes,
         prompt: 'select_account',
-        extraScopesToConsent: [...devopsScopes.scopes],
       });
     } catch (err: any) {
       sessionStorage.removeItem('msal_pending_tenant');
