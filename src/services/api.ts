@@ -25,17 +25,17 @@ export function registerTokenRefresh(fn: (() => Promise<boolean>) | null) {
 
 // Add auth token interceptor
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('prodvista_auth_token');
+  const token = sessionStorage.getItem('prodvista_auth_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   // Include Azure AD management token for resource discovery (from SSO login)
-  const azureToken = localStorage.getItem('prodvista_azure_token');
+  const azureToken = sessionStorage.getItem('prodvista_azure_token');
   if (azureToken) {
     config.headers['X-Azure-Token'] = azureToken;
   }
   // Include Azure DevOps token for DevOps org/project discovery
-  const devopsToken = localStorage.getItem('prodvista_devops_token');
+  const devopsToken = sessionStorage.getItem('prodvista_devops_token');
   if (devopsToken) {
     config.headers['X-DevOps-Token'] = devopsToken;
   }
@@ -61,11 +61,11 @@ api.interceptors.response.use(
           const refreshed = await _tokenRefreshFn();
           if (refreshed) {
             // Update headers with fresh tokens and retry
-            const newToken = localStorage.getItem('prodvista_auth_token');
+            const newToken = sessionStorage.getItem('prodvista_auth_token');
             if (newToken) originalRequest.headers.Authorization = `Bearer ${newToken}`;
-            const newAzureToken = localStorage.getItem('prodvista_azure_token');
+            const newAzureToken = sessionStorage.getItem('prodvista_azure_token');
             if (newAzureToken) originalRequest.headers['X-Azure-Token'] = newAzureToken;
-            const newDevopsToken = localStorage.getItem('prodvista_devops_token');
+            const newDevopsToken = sessionStorage.getItem('prodvista_devops_token');
             if (newDevopsToken) originalRequest.headers['X-DevOps-Token'] = newDevopsToken;
             return api(originalRequest);
           }
@@ -77,8 +77,8 @@ api.interceptors.response.use(
       }
 
       // Refresh not available or failed — session expired
-      const hadToken = localStorage.getItem('prodvista_auth_token');
-      localStorage.removeItem('prodvista_auth_token');
+      const hadToken = sessionStorage.getItem('prodvista_auth_token');
+      sessionStorage.removeItem('prodvista_auth_token');
       if (hadToken) {
         window.dispatchEvent(new CustomEvent('auth:unauthorized'));
       }

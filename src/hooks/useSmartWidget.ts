@@ -86,7 +86,7 @@ export function useSmartWidget(options: UseSmartWidgetOptions) {
 
   // Build connection
   const buildConnection = useCallback(() => {
-    const token = localStorage.getItem('prodvista_auth_token');
+    const token = sessionStorage.getItem('prodvista_auth_token');
     if (!token) {
       setError('No authentication token found');
       return null;
@@ -413,7 +413,7 @@ export function useSmartWidgets(configs: WidgetSubscriptionConfig[]) {
   // This is a simplified version - expand as needed
   
   const connect = useCallback(async () => {
-    const token = localStorage.getItem('prodvista_auth_token');
+    const token = sessionStorage.getItem('prodvista_auth_token');
     if (!token) return;
 
     const connection = new signalR.HubConnectionBuilder()

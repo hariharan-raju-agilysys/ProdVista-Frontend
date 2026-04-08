@@ -21,22 +21,22 @@ let authToken: string | null = null
 export const setAuthToken = (token: string | null) => {
   authToken = token
   if (token) {
-    localStorage.setItem('prodvista_auth_token', token)
+    sessionStorage.setItem('prodvista_auth_token', token)
   } else {
-    localStorage.removeItem('prodvista_auth_token')
+    sessionStorage.removeItem('prodvista_auth_token')
   }
 }
 
 export const getAuthToken = (): string | null => {
   if (!authToken) {
-    authToken = localStorage.getItem('prodvista_auth_token')
+    authToken = sessionStorage.getItem('prodvista_auth_token')
   }
   return authToken
 }
 
 export const clearAuthToken = () => {
   authToken = null
-  localStorage.removeItem('prodvista_auth_token')
+  sessionStorage.removeItem('prodvista_auth_token')
 }
 
 // Request interceptor - add auth headers and common config

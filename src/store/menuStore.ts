@@ -73,7 +73,7 @@ export interface NavigationMenuDto {
 const API_BASE = `${import.meta.env.VITE_API_BASE_PATH || '/api'}/dynamicdashboard`
 
 const getAuthHeader = (): Record<string, string> => {
-  const token = localStorage.getItem('prodvista_auth_token')
+  const token = sessionStorage.getItem('prodvista_auth_token')
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 

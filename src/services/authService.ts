@@ -77,9 +77,9 @@ export const authService = {
     const data = await response.json();
     
     if (data.success && data.token && data.user) {
-      localStorage.setItem(AUTH_TOKEN_KEY, data.token);
-      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
-      localStorage.setItem(AUTH_TENANT_KEY, request.tenantCode);
+      sessionStorage.setItem(AUTH_TOKEN_KEY, data.token);
+      sessionStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
+      sessionStorage.setItem(AUTH_TENANT_KEY, request.tenantCode);
     }
     
     return data;
@@ -95,9 +95,9 @@ export const authService = {
     const data = await response.json();
     
     if (data.success && data.token && data.user) {
-      localStorage.setItem(AUTH_TOKEN_KEY, data.token);
-      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
-      localStorage.setItem(AUTH_TENANT_KEY, request.tenantCode);
+      sessionStorage.setItem(AUTH_TOKEN_KEY, data.token);
+      sessionStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
+      sessionStorage.setItem(AUTH_TENANT_KEY, request.tenantCode);
     }
     
     return data;
@@ -129,9 +129,9 @@ export const authService = {
       const data = await response.json();
       
       if (data.success && data.token && data.user) {
-        localStorage.setItem(AUTH_TOKEN_KEY, data.token);
-        localStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
-        localStorage.setItem(AUTH_TENANT_KEY, tenantCode);
+        sessionStorage.setItem(AUTH_TOKEN_KEY, data.token);
+        sessionStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
+        sessionStorage.setItem(AUTH_TENANT_KEY, tenantCode);
       }
       
       return data;
@@ -154,9 +154,9 @@ export const authService = {
       const data = await response.json();
 
       if (data.success && data.token && data.user) {
-        localStorage.setItem(AUTH_TOKEN_KEY, data.token);
-        localStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
-        localStorage.setItem(AUTH_TENANT_KEY, tenantCode);
+        sessionStorage.setItem(AUTH_TOKEN_KEY, data.token);
+        sessionStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
+        sessionStorage.setItem(AUTH_TENANT_KEY, tenantCode);
       }
 
       return data;
@@ -201,11 +201,11 @@ export const authService = {
   },
 
   getToken(): string | null {
-    return localStorage.getItem(AUTH_TOKEN_KEY);
+    return sessionStorage.getItem(AUTH_TOKEN_KEY);
   },
 
   getUser(): AuthUser | null {
-    const userJson = localStorage.getItem(AUTH_USER_KEY);
+    const userJson = sessionStorage.getItem(AUTH_USER_KEY);
     if (!userJson) return null;
     try {
       return JSON.parse(userJson);
@@ -215,7 +215,7 @@ export const authService = {
   },
 
   getTenantCode(): string | null {
-    return localStorage.getItem(AUTH_TENANT_KEY);
+    return sessionStorage.getItem(AUTH_TENANT_KEY);
   },
 
   isAuthenticated(): boolean {
@@ -223,11 +223,11 @@ export const authService = {
   },
 
   logout(): void {
-    localStorage.removeItem(AUTH_TOKEN_KEY);
-    localStorage.removeItem(AUTH_USER_KEY);
-    localStorage.removeItem(AUTH_TENANT_KEY);
-    localStorage.removeItem('prodvista_azure_token');
-    localStorage.removeItem('prodvista_devops_token');
+    sessionStorage.removeItem(AUTH_TOKEN_KEY);
+    sessionStorage.removeItem(AUTH_USER_KEY);
+    sessionStorage.removeItem(AUTH_TENANT_KEY);
+    sessionStorage.removeItem('prodvista_azure_token');
+    sessionStorage.removeItem('prodvista_devops_token');
   },
 
   getAuthHeaders(): Record<string, string> {

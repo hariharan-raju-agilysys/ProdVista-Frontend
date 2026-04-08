@@ -155,7 +155,7 @@ async function fetchWidgetData(widget: WidgetData): Promise<unknown> {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('prodvista_auth_token') || ''}`
+          'Authorization': `Bearer ${sessionStorage.getItem('prodvista_auth_token') || ''}`
         },
         body: JSON.stringify({ query, workspaceId, timeRange })
       })
@@ -181,7 +181,7 @@ async function fetchWidgetData(widget: WidgetData): Promise<unknown> {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('prodvista_auth_token') || ''}`
+          'Authorization': `Bearer ${sessionStorage.getItem('prodvista_auth_token') || ''}`
         },
       })
       
@@ -202,7 +202,7 @@ async function fetchWidgetData(widget: WidgetData): Promise<unknown> {
     try {
       const connectionId = dataProviderConfig?.jenkinsConnectionId as string
       if (!connectionId) return cachedData || null
-      const token = localStorage.getItem('prodvista_auth_token') || ''
+      const token = sessionStorage.getItem('prodvista_auth_token') || ''
       const endpoint = dataProviderConfig?.jenkinsEndpoint as string || 'stats'
 
       const response = await fetch(`${API_BASE_PATH}/jenkins/connections/${connectionId}/${endpoint}`, {

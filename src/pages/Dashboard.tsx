@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { GitPullRequest, RefreshCw, User, Clock, Layers, Calendar, Eye } from 'lucide-react'
 import PRDashboardWidget from '../components/PRDashboardWidget'
 import { useAuth } from '../context/AuthContext'
-import { getPRSummary, getCommitStats, PRSummaryResponse, CommitStatsResponse } from '../services/internalDashboardService'
+import { getCommitStats, getPRSummaryWithFallback, PRSummaryResponse, CommitStatsResponse } from '../services/internalDashboardService'
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -18,7 +18,7 @@ export default function Dashboard() {
     try {
       // Fetch PRs for last week
       const [prResult, commitResult] = await Promise.all([
-        getPRSummary(undefined, 'all'), // Get all PRs, API returns myCreatedCount
+        getPRSummaryWithFallback(undefined, 'all'), // Backend first, falls back to direct DevOps API
         getCommitStats(undefined, 7, false) // Get commits from last 7 days
       ])
       

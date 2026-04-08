@@ -412,7 +412,7 @@ const DEVOPS_ORG = 'AGYS-VisualOne';
 const DEVOPS_PROJECTS = ['PMS', 'Visual One'];
 
 function getDevOpsToken(): string | null {
-  return localStorage.getItem('prodvista_devops_token');
+  return sessionStorage.getItem('prodvista_devops_token');
 }
 
 interface DevOpsRawPR {

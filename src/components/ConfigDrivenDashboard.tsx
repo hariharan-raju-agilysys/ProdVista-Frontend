@@ -109,7 +109,7 @@ export function ConfigDrivenDashboard({ pageSlug, initialConfig, onApplied }: Co
     config.widgets.forEach(async (w: WidgetConfig) => {
       if (w.data.provider === 'jenkins' && w.data.renderConfig?.connectionId) {
         try {
-          const token = localStorage.getItem('prodvista_auth_token') || '';
+          const token = sessionStorage.getItem('prodvista_auth_token') || '';
           const connId = w.data.renderConfig.connectionId as string;
           const endpoint = w.data.renderConfig.jenkinsEndpoint as string || 'stats';
           const resp = await fetch(`${API_BASE_PATH}/jenkins/connections/${connId}/${endpoint}`, {

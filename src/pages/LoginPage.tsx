@@ -171,7 +171,7 @@ export default function LoginPage() {
               console.warn('ARM silent token failed, skipping (optional):', (silentErr as any)?.errorCode);
             }
             if (armTokenResponse?.accessToken) {
-              localStorage.setItem('prodvista_azure_token', armTokenResponse.accessToken);
+              sessionStorage.setItem('prodvista_azure_token', armTokenResponse.accessToken);
             }
           } catch {
             // ARM token is optional — resource discovery will use server credentials as fallback
@@ -191,7 +191,7 @@ export default function LoginPage() {
               console.warn('DevOps silent token failed, skipping (optional):', (silentErr as any)?.errorCode);
             }
             if (devopsTokenResponse?.accessToken) {
-              localStorage.setItem('prodvista_devops_token', devopsTokenResponse.accessToken);
+              sessionStorage.setItem('prodvista_devops_token', devopsTokenResponse.accessToken);
             }
           } catch {
             // DevOps token is optional — server will fall back to PAT/MI
@@ -264,6 +264,7 @@ export default function LoginPage() {
       await msalInstance.loginRedirect({
         ...graphScopes,
         prompt: 'select_account',
+        extraScopesToConsent: [...devopsScopes.scopes, ...armScopes.scopes],
       });
     } catch (err: any) {
       sessionStorage.removeItem('msal_pending_tenant');

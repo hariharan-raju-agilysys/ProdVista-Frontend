@@ -420,13 +420,13 @@ export function useAzureHub(options: UseAzureHubOptions = {}) {
 
   // Build connection
   const buildConnection = useCallback(() => {
-    const token = localStorage.getItem('prodvista_auth_token');
+    const token = sessionStorage.getItem('prodvista_auth_token');
     if (!token) {
       setError('No authentication token found');
       return null;
     }
 
-    const azureToken = localStorage.getItem('prodvista_azure_token');
+    const azureToken = sessionStorage.getItem('prodvista_azure_token');
     const httpOptions: signalR.IHttpConnectionOptions = {
         accessTokenFactory: () => token,
         transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling,

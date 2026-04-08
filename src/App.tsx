@@ -173,7 +173,7 @@ function MsalTokenRefreshRegistrar({ children }: { children: React.ReactNode }) 
           }
         }
         if (armResponse?.accessToken) {
-          localStorage.setItem('prodvista_azure_token', armResponse.accessToken);
+          sessionStorage.setItem('prodvista_azure_token', armResponse.accessToken);
         }
       } catch {
         // ARM token is optional
@@ -194,7 +194,7 @@ function MsalTokenRefreshRegistrar({ children }: { children: React.ReactNode }) 
           }
         }
         if (devopsResponse?.accessToken) {
-          localStorage.setItem('prodvista_devops_token', devopsResponse.accessToken);
+          sessionStorage.setItem('prodvista_devops_token', devopsResponse.accessToken);
         }
       } catch {
         // DevOps token is optional
@@ -210,6 +210,24 @@ function MsalTokenRefreshRegistrar({ children }: { children: React.ReactNode }) 
     registerTokenRefresh(refreshTokens);
     return () => registerTokenRefresh(null);
   }, [refreshTokens]);
+
+  // Proactively acquire DevOps token on mount if missing (covers existing sessions)
+  useEffect(() => {
+    const ensureDevOpsToken = async () => {
+      if (sessionStorage.getItem('prodvista_devops_token')) return;
+      const account = accounts[0] || instance.getActiveAccount();
+      if (!account) return;
+      try {
+        const response = await instance.acquireTokenSilent({ ...devopsScopes, account });
+        if (response?.accessToken) {
+          sessionStorage.setItem('prodvista_devops_token', response.accessToken);
+        }
+      } catch {
+        // Silent failed — will be resolved on next login (extraScopesToConsent)
+      }
+    };
+    ensureDevOpsToken();
+  }, [instance, accounts]);
 
   return <>{children}</>;
 }

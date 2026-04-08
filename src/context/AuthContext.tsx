@@ -69,7 +69,7 @@ const AUTH_STORAGE_KEY = 'ProdVista_auth_user'
 
 function loadUserFromStorage(): User | null {
   // Try primary key first
-  const stored = localStorage.getItem(AUTH_STORAGE_KEY)
+  const stored = sessionStorage.getItem(AUTH_STORAGE_KEY)
   if (stored) {
     try { return JSON.parse(stored) } catch { /* ignore */ }
   }
@@ -120,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (userData) {
       setUser(userData)
       // Sync to primary key
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData))
+      sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData))
     }
     // Load org info
     setOrgCode(getStoredOrgCode())
@@ -134,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userData = loadUserFromStorage()
       if (userData) {
         setUser(userData)
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData))
+        sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData))
       }
       // Also update org info
       setOrgCode(getStoredOrgCode())
@@ -150,10 +150,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.warn('Session expired - showing modal')
       // Clear user state but keep org info so they can log back in
       setUser(null)
-      localStorage.removeItem(AUTH_STORAGE_KEY)
-      localStorage.removeItem('prodvista_auth_token')
-      localStorage.removeItem('prodvista_auth_user')
-      localStorage.removeItem('ProdVista_auth_token')
+      sessionStorage.removeItem(AUTH_STORAGE_KEY)
+      sessionStorage.removeItem('prodvista_auth_token')
+      sessionStorage.removeItem('prodvista_auth_user')
+      sessionStorage.removeItem('ProdVista_auth_token')
       sessionStorage.clear()
       authApi.clearToken()
       authService.logout()
@@ -189,7 +189,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       
       setUser(response.user)
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(response.user))
+      sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(response.user))
       return response
     } finally {
       setIsLoading(false)
@@ -203,12 +203,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
     setOrgCode(null)
     setOrgInfoState(null)
-    // Clear all auth-related localStorage keys
-    localStorage.removeItem(AUTH_STORAGE_KEY)
-    localStorage.removeItem('prodvista_auth_token')
-    localStorage.removeItem('prodvista_auth_user')
-    localStorage.removeItem('prodvista_auth_tenant')
-    localStorage.removeItem('ProdVista_auth_token')
+    // Clear all auth-related session keys
+    sessionStorage.removeItem(AUTH_STORAGE_KEY)
+    sessionStorage.removeItem('prodvista_auth_token')
+    sessionStorage.removeItem('prodvista_auth_user')
+    sessionStorage.removeItem('prodvista_auth_tenant')
+    sessionStorage.removeItem('ProdVista_auth_token')
+    // Clear UI preferences from localStorage
     localStorage.removeItem('ProdVista-azure-auth')
     localStorage.removeItem('ProdVista-user-role')
     localStorage.removeItem('ProdVista-user-id')
@@ -229,12 +230,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   const logoutToOrg = useCallback(() => {
     setUser(null)
-    // Clear only auth-related localStorage keys, keep org info
-    localStorage.removeItem(AUTH_STORAGE_KEY)
-    localStorage.removeItem('prodvista_auth_token')
-    localStorage.removeItem('prodvista_auth_user')
-    localStorage.removeItem('prodvista_auth_tenant')
-    localStorage.removeItem('ProdVista_auth_token')
+    // Clear only auth-related session keys, keep org info
+    sessionStorage.removeItem(AUTH_STORAGE_KEY)
+    sessionStorage.removeItem('prodvista_auth_token')
+    sessionStorage.removeItem('prodvista_auth_user')
+    sessionStorage.removeItem('prodvista_auth_tenant')
+    sessionStorage.removeItem('ProdVista_auth_token')
     localStorage.removeItem('ProdVista-azure-auth')
     localStorage.removeItem('ProdVista-user-role')
     localStorage.removeItem('ProdVista-user-id')
@@ -252,12 +253,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setOrgCode(null)
     setOrgInfoState(null)
     clearOrgInfo()
-    // Clear all auth data too
-    localStorage.removeItem(AUTH_STORAGE_KEY)
-    localStorage.removeItem('prodvista_auth_token')
-    localStorage.removeItem('prodvista_auth_user')
-    localStorage.removeItem('prodvista_auth_tenant')
-    localStorage.removeItem('ProdVista_auth_token')
+    // Clear all auth data
+    sessionStorage.removeItem(AUTH_STORAGE_KEY)
+    sessionStorage.removeItem('prodvista_auth_token')
+    sessionStorage.removeItem('prodvista_auth_user')
+    sessionStorage.removeItem('prodvista_auth_tenant')
+    sessionStorage.removeItem('ProdVista_auth_token')
     sessionStorage.clear()
     authApi.clearToken()
     authService.logout()
@@ -268,7 +269,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   const setUserFromLocal = useCallback((userData: User) => {
     setUser(userData)
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData))
+    sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData))
   }, [])
 
   /**
@@ -290,7 +291,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const currentUser = users.find(u => u.id === user.id)
       if (currentUser) {
         setUser(currentUser)
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(currentUser))
+        sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(currentUser))
       }
     } catch (error) {
       console.error('Failed to refresh user:', error)
