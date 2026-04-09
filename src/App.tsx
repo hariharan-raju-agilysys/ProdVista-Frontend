@@ -42,6 +42,8 @@ const AiQueryAssistantPage = lazy(() => import('./pages/AiQueryAssistantPage'))
 const ReleaseNotesPageV2 = lazy(() => import('./pages/ReleaseNotesPageV2'))
 const JenkinsPipelinePage = lazy(() => import('./pages/JenkinsPipelinePage'))
 const JenkinsSetupPage = lazy(() => import('./pages/JenkinsSetupPage'))
+const RancherPage = lazy(() => import('./pages/RancherPage'))
+const RancherSetupPage = lazy(() => import('./pages/RancherSetupPage'))
 const ObservabilityQueryPage = lazy(() => import('./pages/ObservabilityQueryPage'))
 const ObservabilityDashboardPage = lazy(() => import('./pages/ObservabilityDashboardPage'))
 const AutomationJobsPage = lazy(() => import('./pages/AutomationJobsPage'))
@@ -108,6 +110,8 @@ function AppRoutes() {
         <Route path="release-notes" element={<FeatureRoute feature="enableReleaseNotes"><ReleaseNotesPageV2 /></FeatureRoute>} />
         <Route path="jenkins" element={<FeatureRoute feature="enableJenkins"><JenkinsPipelinePage /></FeatureRoute>} />
         <Route path="jenkins-setup" element={<ManagerRoute><JenkinsSetupPage /></ManagerRoute>} />
+        <Route path="rancher" element={<RancherPage />} />
+        <Route path="rancher-setup" element={<RancherSetupPage />} />
         <Route path="observability-query" element={<ObservabilityQueryPage />} />
         <Route path="observability" element={<ObservabilityDashboardPage />} />
         <Route path="automation" element={<ManagerRoute><AutomationJobsPage /></ManagerRoute>} />
