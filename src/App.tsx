@@ -245,14 +245,15 @@ function MsalTokenRefreshRegistrar({ children }: { children: React.ReactNode }) 
  * Wrapper that shows session expired modal
  */
 function AuthModals({ children }: { children: React.ReactNode }) {
-  const { isSessionExpired, clearSessionExpired, user } = useAuth()
+  const { isSessionExpired, clearSessionExpired, user, justLoggedIn, clearJustLoggedIn } = useAuth()
   const [profileComplete, setProfileComplete] = useState(false)
 
-  // Show profile setup modal if user is logged in but DOB is missing
-  const needsProfile = !!user && !user.birthMonth && !profileComplete
+  // Show profile setup modal ONLY after a fresh login when DOB is missing
+  const needsProfile = !!user && justLoggedIn && !user.birthMonth && !profileComplete
 
   const handleProfileComplete = () => {
     setProfileComplete(true)
+    clearJustLoggedIn()
     // Refresh stored user so the rest of the app sees updated data
     const stored = sessionStorage.getItem('prodvista_auth_user')
     if (stored) {

@@ -61,6 +61,8 @@ interface AuthContextType {
   refreshUser: () => Promise<void>
   setUserFromLocal: (user: User) => void
   updateOrgInfo: (code: string, info: TenantInfo) => void
+  justLoggedIn: boolean
+  clearJustLoggedIn: () => void
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -192,6 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       
       setUser(response.user)
+      setJustLoggedIn(true)
       sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(response.user))
       return response
     } finally {
@@ -270,8 +273,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /**
    * Set user from local auth (called by LoginPage after successful login)
    */
+  const [justLoggedIn, setJustLoggedIn] = useState(false)
+
+  const clearJustLoggedIn = useCallback(() => {
+    setJustLoggedIn(false)
+  }, [])
+
   const setUserFromLocal = useCallback((userData: User) => {
     setUser(userData)
+    setJustLoggedIn(true)
     sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData))
   }, [])
 
@@ -339,7 +349,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshUser,
     setUserFromLocal,
     updateOrgInfo,
-  }), [user, isAuthenticated, isLoading, isManager, isAdmin, isGuest, orgCode, orgInfo, hasOrgAccess, isSessionExpired, isAccessDenied, accessDeniedMessage, clearSessionExpired, clearAccessDenied, login, logout, logoutToOrg, exitOrg, refreshUser, setUserFromLocal, updateOrgInfo]);
+    justLoggedIn,
+    clearJustLoggedIn,
+  }), [user, isAuthenticated, isLoading, isManager, isAdmin, isGuest, orgCode, orgInfo, hasOrgAccess, isSessionExpired, isAccessDenied, accessDeniedMessage, clearSessionExpired, clearAccessDenied, login, logout, logoutToOrg, exitOrg, refreshUser, setUserFromLocal, updateOrgInfo, justLoggedIn, clearJustLoggedIn]);
 
   return (
     <AuthContext.Provider value={providerValue}>
