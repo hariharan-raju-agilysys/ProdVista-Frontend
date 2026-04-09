@@ -100,7 +100,10 @@ function loadUserFromStorage(): User | null {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(loadUserFromStorage)
-  const [isLoading, setIsLoading] = useState(true)
+  // User & org state are loaded synchronously from storage in useState —
+  // no async work needed, so start with isLoading = false to avoid a
+  // flash of the FunLoader before the real page renders.
+  const [isLoading, setIsLoading] = useState(false)
   const [orgCode, setOrgCode] = useState<string | null>(getStoredOrgCode)
   const [orgInfo, setOrgInfoState] = useState<TenantInfo | null>(getStoredOrgInfo)
   // Session state

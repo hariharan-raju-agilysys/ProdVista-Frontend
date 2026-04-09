@@ -175,6 +175,7 @@ export interface BirthdayInfo {
   role?: string;
   department?: string;
   birthday: string;
+  bio?: string;
   daysUntil: number;
   isToday: boolean;
 }

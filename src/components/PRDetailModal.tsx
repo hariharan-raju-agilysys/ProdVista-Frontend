@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { 
   X, ExternalLink, GitBranch, GitMerge, User, 
   Check, FileText, Code, Calendar, Tag, Copy, CheckCircle2, XCircle,
   Eye, ThumbsUp, HelpCircle, Timer
 } from 'lucide-react'
+import { getPullRequestCommits } from '../services/azureDevOpsMcpService'
 
 export interface PRReviewer {
   name: string
@@ -23,6 +24,7 @@ export interface PullRequestDetail {
   sourceBranch: string
   targetBranch: string
   repository: string
+  repositoryId?: string
   project?: string
   isDraft: boolean
   reviewers?: PRReviewer[]
@@ -127,6 +129,50 @@ const getBranchName = (fullBranch: string) => {
 export function PRDetailModal({ pr, isOpen, onClose }: PRDetailModalProps) {
   const [copied, setCopied] = useState(false)
   const [activeTab, setActiveTab] = useState<'overview' | 'reviewers' | 'commits'>('overview')
+  const [fetchedCommits, setFetchedCommits] = useState<{ id: string; message: string; author: string; date: string }[]>([])
+  const [commitsLoading, setCommitsLoading] = useState(false)
+  const [commitsFetched, setCommitsFetched] = useState(false)
+
+  // Reset state when PR changes
+  useEffect(() => {
+    setActiveTab('overview')
+    setFetchedCommits([])
+    setCommitsFetched(false)
+    setCommitsLoading(false)
+  }, [pr?.id])
+
+  // Fetch commits when commits tab is activated
+  useEffect(() => {
+    if (activeTab !== 'commits' || commitsFetched || commitsLoading) return
+    if (!pr || !pr.repositoryId) return
+    // If commits already provided inline, skip fetch
+    if (pr.commits && pr.commits.length > 0) {
+      setFetchedCommits(pr.commits)
+      setCommitsFetched(true)
+      return
+    }
+
+    const fetchCommits = async () => {
+      setCommitsLoading(true)
+      try {
+        const result = await getPullRequestCommits(pr.id, pr.repositoryId!)
+        if (result.success && result.commits) {
+          setFetchedCommits(result.commits.map(c => ({
+            id: c.id,
+            message: c.message,
+            author: c.author,
+            date: c.date
+          })))
+        }
+      } catch (err) {
+        console.error('Failed to fetch PR commits:', err)
+      } finally {
+        setCommitsLoading(false)
+        setCommitsFetched(true)
+      }
+    }
+    fetchCommits()
+  }, [activeTab, pr, commitsFetched, commitsLoading])
 
   if (!isOpen || !pr) return null
 
@@ -437,8 +483,13 @@ export function PRDetailModal({ pr, isOpen, onClose }: PRDetailModalProps) {
 
           {activeTab === 'commits' && (
             <div className="space-y-3">
-              {pr.commits && pr.commits.length > 0 ? (
-                pr.commits.map((commit, idx) => (
+              {commitsLoading ? (
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                  <Code className="w-12 h-12 mx-auto mb-3 opacity-50 animate-pulse" />
+                  <p>Loading commits...</p>
+                </div>
+              ) : fetchedCommits.length > 0 ? (
+                fetchedCommits.map((commit, idx) => (
                   <div 
                     key={idx}
                     className="flex items-start gap-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl"
@@ -460,11 +511,16 @@ export function PRDetailModal({ pr, isOpen, onClose }: PRDetailModalProps) {
                     </div>
                   </div>
                 ))
-              ) : (
+              ) : !pr.repositoryId ? (
                 <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                   <Code className="w-12 h-12 mx-auto mb-3 opacity-50" />
                   <p>Commit details not available in this view</p>
                   <p className="text-sm mt-1">Open in Azure DevOps to see full commit history</p>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                  <Code className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p>No commits found for this pull request</p>
                 </div>
               )}
             </div>

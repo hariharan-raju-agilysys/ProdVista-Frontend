@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus, RefreshCw, CheckCircle2, XCircle, Link2, Server,
   Zap, Eye, EyeOff, Sparkles, ArrowRight, Loader2, Globe, Shield, Info,
-  Wrench, Activity, HardDrive, GitBranch, ChevronRight, ExternalLink
+  Wrench, Activity, HardDrive, GitBranch, ChevronRight, ExternalLink, Trash2
 } from 'lucide-react'
 import clsx from 'clsx'
 import jenkinsService, {
@@ -33,8 +33,10 @@ export default function JenkinsSetupPage() {
   const [serverUrl, setServerUrl] = useState('')
   const [connectionName, setConnectionName] = useState('')
   const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [apiToken, setApiToken] = useState('')
   const [showToken, setShowToken] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const [useCrumbIssuer, setUseCrumbIssuer] = useState(true)
   const [verifySsl, setVerifySsl] = useState(true)
 
@@ -48,6 +50,7 @@ export default function JenkinsSetupPage() {
   const [syncing, setSyncing] = useState<string | null>(null)
   const [syncResult, setSyncResult] = useState<JenkinsSyncResult | null>(null)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>([])
 
@@ -77,7 +80,7 @@ export default function JenkinsSetupPage() {
     const timer = setTimeout(async () => {
       try {
         setValidating(true)
-        const result = await jenkinsService.validateUrl(serverUrl, username || undefined, apiToken || undefined)
+        const result = await jenkinsService.validateUrl(serverUrl, username || undefined, password || undefined, apiToken || undefined)
         setUrlValidation(result)
 
         // Build AI suggestions from validation
@@ -105,7 +108,7 @@ export default function JenkinsSetupPage() {
     }, 800)
 
     return () => clearTimeout(timer)
-  }, [serverUrl, username, apiToken, connectionName])
+  }, [serverUrl, username, password, apiToken, connectionName])
 
   // Apply AI suggestion
   const applySuggestion = (suggestion: AISuggestion) => {
@@ -129,6 +132,7 @@ export default function JenkinsSetupPage() {
       const result = await jenkinsService.testConnection({
         serverUrl,
         username: username || undefined,
+        password: password || undefined,
         apiToken: apiToken || undefined
       })
       setTestResult(result)
@@ -145,7 +149,7 @@ export default function JenkinsSetupPage() {
     try {
       setDiscovering(true)
       setDiscovery(null)
-      const result = await jenkinsService.discover(serverUrl, username || undefined, apiToken || undefined)
+      const result = await jenkinsService.discover(serverUrl, username || undefined, password || undefined, apiToken || undefined)
       setDiscovery(result)
 
       // Auto-fill from discovery
@@ -170,6 +174,7 @@ export default function JenkinsSetupPage() {
         connectionName,
         serverUrl,
         username: username || undefined,
+        password: password || undefined,
         apiToken: apiToken || undefined,
         useCrumbIssuer,
         verifySsl
@@ -213,12 +218,28 @@ export default function JenkinsSetupPage() {
     }
   }
 
+  // Delete connection
+  const handleDelete = async (connId: string, connName: string) => {
+    if (!confirm(`Delete connection "${connName}"? This will also remove all associated pipeline configs.`)) return
+    try {
+      setDeleting(connId)
+      await jenkinsService.deleteConnection(connId)
+      await loadConnections()
+    } catch {
+      setError('Failed to delete connection')
+    } finally {
+      setDeleting(null)
+    }
+  }
+
   const resetForm = () => {
     setServerUrl('')
     setConnectionName('')
     setUsername('')
+    setPassword('')
     setApiToken('')
     setShowToken(false)
+    setShowPassword(false)
     setUseCrumbIssuer(true)
     setVerifySsl(true)
     setUrlValidation(null)
@@ -378,6 +399,14 @@ export default function JenkinsSetupPage() {
                             <ExternalLink className="w-3 h-3" />
                             Open
                           </a>
+                          <button
+                            onClick={() => handleDelete(conn.id, conn.connectionName)}
+                            disabled={deleting === conn.id}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-gray-800 hover:bg-red-900/50 text-gray-400 hover:text-red-300 rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            {deleting === conn.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                            Delete
+                          </button>
                         </div>
                       </div>
                     </motion.div>
@@ -520,7 +549,7 @@ export default function JenkinsSetupPage() {
                         <span className="px-2 py-0.5 text-[10px] bg-amber-500/20 text-amber-400 rounded font-medium">Required</span>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                       <div>
                         <label className="block text-xs text-gray-500 mb-1">Username</label>
                         <input
@@ -532,7 +561,26 @@ export default function JenkinsSetupPage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-500 mb-1">API Token</label>
+                        <label className="block text-xs text-gray-500 mb-1">Password</label>
+                        <div className="relative">
+                          <input
+                            type={showPassword ? 'text' : 'password'}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Jenkins password"
+                            className="w-full p-2.5 pr-10 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-600 text-sm focus:border-orange-500 outline-none"
+                          />
+                          <button
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                          >
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-gray-600 mt-1">Fallback if API token not provided</p>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">API Token <span className="text-orange-400">(preferred)</span></label>
                         <div className="relative">
                           <input
                             type={showToken ? 'text' : 'password'}

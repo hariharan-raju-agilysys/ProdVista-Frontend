@@ -11,6 +11,9 @@ export interface User {
   createdAt: string
   department?: string
   jobTitle?: string
+  birthMonth?: number | null
+  birthDay?: number | null
+  bio?: string | null
 }
 
 export interface LoginResponse {

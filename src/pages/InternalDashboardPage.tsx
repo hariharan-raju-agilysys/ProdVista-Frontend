@@ -2388,7 +2388,7 @@ function CommitStatsWidget({ data, onViewAll }: { data: CommitStatsResponse | nu
 function BirthdaysWidget({ birthdays }: { birthdays: BirthdayInfo[] }) {
   return (
     <Widget title="Birthdays" icon="🎂" empty={!birthdays.length}
-      emptyText="No upcoming birthdays. Sync employees via HR Portal.">
+      emptyText="No upcoming birthdays. Add your DOB in your profile or sync via HR Portal.">
       <div className="space-y-1.5 max-h-48 overflow-y-auto">
         {birthdays.map(b => (
           <div key={b.id} className={`flex items-center justify-between text-xs py-2 px-2.5 rounded-lg ${
@@ -2412,6 +2412,11 @@ function BirthdaysWidget({ birthdays }: { birthdays: BirthdayInfo[] }) {
                   <span className="text-[10px] text-gray-400 truncate">{b.role}</span>
                 )}
               </div>
+              {b.bio && (
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 italic truncate" title={b.bio}>
+                  {b.bio}
+                </p>
+              )}
             </div>
             <span className={`text-[10px] px-2 py-1 rounded-full flex-shrink-0 ml-2 ${
               b.isToday 

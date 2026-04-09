@@ -30,6 +30,7 @@ export interface CreateJenkinsConnectionRequest {
   connectionName: string
   serverUrl: string
   username?: string
+  password?: string
   apiToken?: string
   useCrumbIssuer?: boolean
   verifySsl?: boolean
@@ -39,6 +40,7 @@ export interface UpdateJenkinsConnectionRequest {
   connectionName?: string
   serverUrl?: string
   username?: string
+  password?: string
   apiToken?: string
   useCrumbIssuer?: boolean
   verifySsl?: boolean
@@ -48,6 +50,7 @@ export interface UpdateJenkinsConnectionRequest {
 export interface TestJenkinsConnectionRequest {
   serverUrl: string
   username?: string
+  password?: string
   apiToken?: string
 }
 
@@ -288,6 +291,10 @@ class JenkinsService {
     await api.put(`/jenkins/connections/${id}`, request)
   }
 
+  async deleteConnection(id: string): Promise<void> {
+    await api.delete(`/jenkins/connections/${id}`)
+  }
+
   async testConnection(request: TestJenkinsConnectionRequest): Promise<JenkinsTestResult> {
     const response = await api.post<JenkinsTestResult>('/jenkins/connections/test', request)
     return response.data
@@ -304,13 +311,13 @@ class JenkinsService {
   }
 
   // AI Auto-Discovery
-  async validateUrl(url: string, username?: string, apiToken?: string): Promise<JenkinsUrlValidation> {
-    const response = await api.post<JenkinsUrlValidation>('/jenkins/ai/validate-url', { url, username, apiToken })
+  async validateUrl(url: string, username?: string, password?: string, apiToken?: string): Promise<JenkinsUrlValidation> {
+    const response = await api.post<JenkinsUrlValidation>('/jenkins/ai/validate-url', { url, username, password, apiToken })
     return response.data
   }
 
-  async discover(serverUrl: string, username?: string, apiToken?: string): Promise<JenkinsDiscoveryResult> {
-    const response = await api.post<JenkinsDiscoveryResult>('/jenkins/ai/discover', { serverUrl, username, apiToken })
+  async discover(serverUrl: string, username?: string, password?: string, apiToken?: string): Promise<JenkinsDiscoveryResult> {
+    const response = await api.post<JenkinsDiscoveryResult>('/jenkins/ai/discover', { serverUrl, username, password, apiToken })
     return response.data
   }
 

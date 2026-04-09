@@ -7,21 +7,22 @@ interface OrgRouteProps {
 }
 
 /**
- * Route guard that requires organization access
- * Allows both authenticated users AND guests with org code
- * Redirects to org entry if no org code is set
+ * Route guard that requires a valid authenticated session.
+ * If the user is not authenticated, redirect to /login where
+ * auto-SSO can handle re-authentication seamlessly.
+ * The stored org code (localStorage) will pre-fill the tenant input.
  */
 export function OrgRoute({ children }: OrgRouteProps) {
-  const { isLoading, hasOrgAccess } = useAuth()
+  const { isLoading, isAuthenticated } = useAuth()
   const location = useLocation()
 
   if (isLoading) {
     return <FunLoader fullPage context="auth" />
   }
 
-  // Redirect to org entry if no org access
-  if (!hasOrgAccess) {
-    return <Navigate to="/org" state={{ from: location }} replace />
+  // No valid token — redirect to login for SSO / manual login
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />
   }
 
   return <>{children}</>

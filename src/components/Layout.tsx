@@ -39,6 +39,9 @@ import {
   Menu,
   Search,
   UserCheck,
+  AlertTriangle,
+  Info,
+  XCircle,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../context/AuthContext'
@@ -50,6 +53,7 @@ import CommandPalette from './CommandPalette'
 import FloatingAIButton from './FloatingAIButton'
 import PersistentChatWidget from './PersistentChatWidget'
 import FunLoader from './FunLoader'
+import { getTodayNotifications, markAsRead, markAllAsRead, dismissNotification, getUnreadCount, type UserNotification } from '../services/notificationService'
 
 // Icon mapping for dynamic icons
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -72,6 +76,11 @@ export default function Layout() {
   const [isInitializing, setIsInitializing] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
+
+  // Notification state
+  const [notifications, setNotifications] = useState<UserNotification[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [notifLoading, setNotifLoading] = useState(false)
 
   const profileRef = useRef<HTMLDivElement>(null)
   const notifRef = useRef<HTMLDivElement>(null)
@@ -119,6 +128,52 @@ export default function Layout() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  // Fetch unread badge count on mount + poll every 30s
+  useEffect(() => {
+    if (!isAuthenticated) return
+    const fetchCount = () => getUnreadCount().then(setUnreadCount).catch(() => {})
+    fetchCount()
+    const interval = setInterval(fetchCount, 30000)
+    return () => clearInterval(interval)
+  }, [isAuthenticated])
+
+  // Fetch today's notifications when dropdown opens
+  useEffect(() => {
+    if (!showNotifications || !isAuthenticated) return
+    setNotifLoading(true)
+    getTodayNotifications()
+      .then(setNotifications)
+      .catch(() => {})
+      .finally(() => setNotifLoading(false))
+  }, [showNotifications, isAuthenticated])
+
+  const handleMarkRead = async (notificationId: string) => {
+    await markAsRead(notificationId)
+    setNotifications(prev => prev.map(n => n.notificationId === notificationId ? { ...n, isRead: true, readAt: new Date().toISOString() } : n))
+    setUnreadCount(prev => Math.max(0, prev - 1))
+  }
+
+  const handleMarkAllRead = async () => {
+    await markAllAsRead()
+    setNotifications(prev => prev.map(n => ({ ...n, isRead: true, readAt: new Date().toISOString() })))
+    setUnreadCount(0)
+  }
+
+  const handleDismiss = async (notificationId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    await dismissNotification(notificationId)
+    setNotifications(prev => prev.filter(n => n.notificationId !== notificationId))
+  }
+
+  const notifIcon = (type: string) => {
+    switch (type) {
+      case 'Warning': return <AlertTriangle className="w-4 h-4 text-yellow-500" />
+      case 'Error': return <XCircle className="w-4 h-4 text-red-500" />
+      case 'Success': return <CheckCircle2 className="w-4 h-4 text-green-500" />
+      case 'Action': return <Zap className="w-4 h-4 text-orange-500" />
+      default: return <Info className="w-4 h-4 text-blue-500" />
+    }
+  }
 
 
   const handleLogout = () => {
@@ -394,20 +449,86 @@ export default function Layout() {
                 className="relative p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100"
               >
                 <Bell className="w-5 h-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full"></span>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
               </button>
               {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-                  <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
-                    <h3 className="text-sm font-semibold text-gray-800">Notifications</h3>
-                    <button onClick={() => setShowNotifications(false)} className="text-gray-400 hover:text-gray-600">
-                      <X className="w-4 h-4" />
-                    </button>
+                <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-[480px] flex flex-col">
+                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
+                    <h3 className="text-sm font-semibold text-gray-800">Today's Notifications</h3>
+                    <div className="flex items-center gap-2">
+                      {notifications.some(n => !n.isRead) && (
+                        <button onClick={handleMarkAllRead} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+                          Mark all read
+                        </button>
+                      )}
+                      <button onClick={() => setShowNotifications(false)} className="text-gray-400 hover:text-gray-600">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="px-4 py-6 text-center text-sm text-gray-500">
-                    <Bell className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                    No new notifications
+                  <div className="overflow-y-auto flex-1">
+                    {notifLoading ? (
+                      <div className="px-4 py-6 text-center text-sm text-gray-500">
+                        <Loader2 className="w-6 h-6 mx-auto mb-2 text-gray-300 animate-spin" />
+                        Loading...
+                      </div>
+                    ) : notifications.length === 0 ? (
+                      <div className="px-4 py-6 text-center text-sm text-gray-500">
+                        <Bell className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                        No notifications today
+                      </div>
+                    ) : (
+                      notifications.map(notif => (
+                        <div
+                          key={notif.id}
+                          onClick={() => { if (!notif.isRead) handleMarkRead(notif.notificationId); if (notif.actionUrl) navigate(notif.actionUrl) }}
+                          className={clsx(
+                            'px-4 py-3 border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors group',
+                            !notif.isRead && 'bg-blue-50/50'
+                          )}
+                        >
+                          <div className="flex items-start gap-2.5">
+                            <div className="mt-0.5 flex-shrink-0">{notifIcon(notif.type)}</div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between">
+                                <p className={clsx('text-sm truncate', !notif.isRead ? 'font-semibold text-gray-900' : 'font-medium text-gray-700')}>
+                                  {notif.title}
+                                </p>
+                                <button
+                                  onClick={(e) => handleDismiss(notif.notificationId, e)}
+                                  className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-600 ml-2 flex-shrink-0"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                              <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{notif.message}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-[10px] text-gray-400">{notif.senderDisplayName}</span>
+                                <span className="text-[10px] text-gray-400">
+                                  {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                                {notif.category && (
+                                  <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">{notif.category}</span>
+                                )}
+                              </div>
+                            </div>
+                            {!notif.isRead && <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1.5" />}
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
+                  {notifications.length > 0 && (
+                    <div className="px-4 py-2 border-t border-gray-100 text-center">
+                      <button onClick={() => { setShowNotifications(false); navigate('/notifications') }} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+                        View all notifications
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

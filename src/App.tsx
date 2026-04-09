@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useCallback } from 'react'
+import { lazy, Suspense, useEffect, useCallback, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useMsal } from '@azure/msal-react'
 import { InteractionRequiredAuthError } from '@azure/msal-browser'
@@ -9,6 +9,7 @@ import { ManagerRoute, OrgRoute, FeatureRoute } from './components/guards'
 import { ErrorBoundary, LoadingSpinner } from './components/shared'
 import Layout from './components/Layout'
 import SessionExpiredModal from './components/SessionExpiredModal'
+import ProfileSetupModal from './components/ProfileSetupModal'
 import { registerTokenRefresh } from './services/api'
 import { graphScopes, armScopes, devopsScopes } from './config/msalConfig'
 
@@ -56,6 +57,7 @@ const UserManagement = lazy(() => import('./pages/UserManagement'))
 const TenantAdminPage = lazy(() => import('./pages/TenantAdminPage'))
 const MenuManagementPage = lazy(() => import('./pages/MenuManagementPage'))
 const AccessDeniedPage = lazy(() => import('./pages/AccessDeniedPage'))
+const ReleaseBranchSetupPage = lazy(() => import('./pages/ReleaseBranchSetupPage'))
 
 // ---------------------------------------------------------------------------
 // Routes
@@ -122,6 +124,7 @@ function AppRoutes() {
         <Route path="tenant-admin" element={<ManagerRoute><TenantAdminPage /></ManagerRoute>} />
         <Route path="menu-management" element={<ManagerRoute><MenuManagementPage /></ManagerRoute>} />
         <Route path="users" element={<ManagerRoute><UserManagement /></ManagerRoute>} />
+        <Route path="release-branches" element={<ManagerRoute><ReleaseBranchSetupPage /></ManagerRoute>} />
       </Route>
       
       {/* Access Denied page */}
@@ -238,13 +241,34 @@ function MsalTokenRefreshRegistrar({ children }: { children: React.ReactNode }) 
  * Wrapper that shows session expired modal
  */
 function AuthModals({ children }: { children: React.ReactNode }) {
-  const { isSessionExpired, clearSessionExpired } = useAuth()
+  const { isSessionExpired, clearSessionExpired, user } = useAuth()
+  const [profileComplete, setProfileComplete] = useState(false)
+
+  // Show profile setup modal if user is logged in but DOB is missing
+  const needsProfile = !!user && !user.birthMonth && !profileComplete
+
+  const handleProfileComplete = () => {
+    setProfileComplete(true)
+    // Refresh stored user so the rest of the app sees updated data
+    const stored = sessionStorage.getItem('prodvista_auth_user')
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored)
+        if (parsed.birthMonth) setProfileComplete(true)
+      } catch { /* noop */ }
+    }
+  }
+
   return (
     <>
       {children}
       <SessionExpiredModal 
         isOpen={isSessionExpired} 
         onClose={clearSessionExpired}
+      />
+      <ProfileSetupModal
+        isOpen={needsProfile}
+        onComplete={handleProfileComplete}
       />
     </>
   )

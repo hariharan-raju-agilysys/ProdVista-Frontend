@@ -17,6 +17,9 @@ export interface AuthUser {
   profilePictureUrl?: string;
   department?: string;
   jobTitle?: string;
+  birthMonth?: number | null;
+  birthDay?: number | null;
+  bio?: string | null;
 }
 
 export interface TenantInfo {
@@ -233,6 +236,23 @@ export const authService = {
   getAuthHeaders(): Record<string, string> {
     const token = this.getToken();
     return token ? { Authorization: `Bearer ${token}` } : {};
+  },
+
+  async updateProfile(data: { birthMonth?: number; birthDay?: number; bio?: string }): Promise<AuthUser | null> {
+    try {
+      const response = await fetch(`${API_BASE}/auth/profile`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) return null;
+      const user: AuthUser = await response.json();
+      // Update stored user with new profile data
+      sessionStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+      return user;
+    } catch {
+      return null;
+    }
   },
 };
 

@@ -75,6 +75,7 @@ export interface DevOpsPullRequest {
   sourceBranch: string;
   targetBranch: string;
   repository: string;
+  repositoryId?: string;
   isDraft: boolean;
   reviewers?: { name: string; vote: number }[];
   url: string;
@@ -305,6 +306,22 @@ export const getPullRequestsFromAllProjects = async (filter?: AllProjectsPullReq
   message?: string;
 }> => {
   const response = await api.get('/mcp/devops/tools/pull-requests/all-projects', { params: filter });
+  return response.data;
+};
+
+/**
+ * Get commits for a specific pull request
+ */
+export const getPullRequestCommits = async (pullRequestId: number, repositoryId: string): Promise<{
+  success: boolean;
+  pullRequestId: number;
+  count: number;
+  commits: { id: string; shortId: string; message: string; author: string; authorEmail?: string; date: string }[];
+  message?: string;
+}> => {
+  const response = await api.get(`/mcp/devops/tools/pull-requests/${pullRequestId}/commits`, {
+    params: { repositoryId }
+  });
   return response.data;
 };
 

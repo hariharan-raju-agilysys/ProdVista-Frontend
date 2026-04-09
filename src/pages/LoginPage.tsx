@@ -111,9 +111,18 @@ export default function LoginPage() {
   const { setUserFromLocal, updateOrgInfo } = useAuth();
 
   const hasPendingMsal = !!sessionStorage.getItem('msal_pending_tenant');
-  const [phase, setPhase] = useState<'tenant' | 'connecting'>(hasPendingMsal ? 'connecting' : 'tenant');
-  const [tenantCode, setTenantCode] = useState('');
-  const [connectingOrg, setConnectingOrg] = useState<string | undefined>(undefined);
+  const storedOrgCode = getStoredOrgCode();
+  const storedOrgInfo = getStoredOrgInfo();
+  // If we have a stored org code and MSAL is likely available,
+  // start in 'connecting' phase so the user sees the connecting
+  // screen immediately instead of a brief flash of the form.
+  const [phase, setPhase] = useState<'tenant' | 'connecting'>(
+    hasPendingMsal || (storedOrgCode && isMsalConfigured()) ? 'connecting' : 'tenant'
+  );
+  const [tenantCode, setTenantCode] = useState(storedOrgCode || '');
+  const [connectingOrg, setConnectingOrg] = useState<string | undefined>(
+    (hasPendingMsal || storedOrgCode) ? (storedOrgInfo?.name || storedOrgCode || undefined) : undefined
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [focusedInput, setFocusedInput] = useState(false);
@@ -129,6 +138,16 @@ export default function LoginPage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Safety timeout: if we started in 'connecting' phase (optimistic SSO)
+  // but MSAL never settles within 8 s, fall back to the tenant form.
+  useEffect(() => {
+    if (phase !== 'connecting') return;
+    const timer = setTimeout(() => {
+      if (!hasNavigated.current) setPhase('tenant');
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [phase]);
 
   /* ---------------------------------------------------------------- */
   /*  Auto-SSO: detect existing Microsoft session on page load        */
@@ -156,12 +175,13 @@ export default function LoginPage() {
           const ssoResult = await msalInstance.ssoSilent({ scopes: graphScopes.scopes });
           account = ssoResult.account;
         } catch {
-          // No shared Microsoft session — user isn't logged into any Microsoft service
+          // No shared Microsoft session — fall back to tenant form
+          setPhase('tenant');
           return;
         }
       }
 
-      if (!account) return;
+      if (!account) { setPhase('tenant'); return; }
 
       // We have a Microsoft session. Show detected user on the form.
       setDetectedSsoUser(account.username || account.name || null);
@@ -323,6 +343,7 @@ export default function LoginPage() {
           setError(response.message || 'Login failed. Please try again.');
           setPhase('tenant');
           return;
+ 
         }
       } catch {
         // Silent failed — fall through to redirect
