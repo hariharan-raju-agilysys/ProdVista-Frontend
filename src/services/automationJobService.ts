@@ -7,7 +7,6 @@ import api from './api'
 export type AutomationJobType =
   | 'BuildTrigger'
   | 'DataSync'
-  | 'ReleaseNotes'
   | 'HealthCheck'
   | 'Webhook'
   | 'CacheRefresh'
@@ -177,7 +176,6 @@ export async function getRecentRuns(take = 20): Promise<AutomationJobRunDto[]> {
 export const JOB_TYPE_LABELS: Record<AutomationJobType, string> = {
   BuildTrigger: 'Build Trigger',
   DataSync: 'Data Sync',
-  ReleaseNotes: 'Release Notes',
   HealthCheck: 'Health Check',
   Webhook: 'Webhook',
   CacheRefresh: 'Cache Refresh',
@@ -187,7 +185,6 @@ export const JOB_TYPE_LABELS: Record<AutomationJobType, string> = {
 export const JOB_TYPE_COLORS: Record<AutomationJobType, string> = {
   BuildTrigger: 'from-blue-500 to-cyan-500',
   DataSync: 'from-emerald-500 to-teal-500',
-  ReleaseNotes: 'from-violet-500 to-purple-500',
   HealthCheck: 'from-amber-500 to-orange-500',
   Webhook: 'from-rose-500 to-pink-500',
   CacheRefresh: 'from-indigo-500 to-blue-500',

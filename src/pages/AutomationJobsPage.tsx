@@ -4,7 +4,7 @@ import {
   Zap, Plus, Play, Pause, Trash2, RefreshCw, Clock, CheckCircle2,
   XCircle, AlertTriangle, Settings2, ChevronDown, ChevronRight,
   ExternalLink, Loader2, Activity, BarChart3, Power,
-  Hammer, Database, FileText, RotateCcw, Send
+  Hammer, Database, RotateCcw, Send
 } from 'lucide-react'
 import {
   getDashboard, getJobs, createJob, updateJob, deleteJob,
@@ -36,7 +36,6 @@ function formatDuration(ms?: number) {
 const JOB_TYPE_ICONS: Record<AutomationJobType, typeof Zap> = {
   BuildTrigger: Hammer,
   DataSync: Database,
-  ReleaseNotes: FileText,
   HealthCheck: Activity,
   Webhook: Send,
   CacheRefresh: RotateCcw,
@@ -504,14 +503,13 @@ function CreateJobModal({ job, onClose, onSuccess }: {
     } finally { setSaving(false) }
   }
 
-  const jobTypes: AutomationJobType[] = ['BuildTrigger', 'DataSync', 'ReleaseNotes', 'HealthCheck', 'Webhook', 'CacheRefresh', 'ReportGeneration']
+  const jobTypes: AutomationJobType[] = ['BuildTrigger', 'DataSync', 'HealthCheck', 'Webhook', 'CacheRefresh', 'ReportGeneration']
   const scheduleTypes: ScheduleType[] = ['Manual', 'Interval', 'Cron', 'Event']
 
   // Config templates per job type
   const configTemplates: Record<AutomationJobType, string> = {
     BuildTrigger: JSON.stringify({ provider: "jenkins", connectionId: "", jobName: "", parameters: {} }, null, 2),
     DataSync: JSON.stringify({ connectionId: "", syncTypes: ["users", "areas", "iterations"] }, null, 2),
-    ReleaseNotes: JSON.stringify({ configurationId: "" }, null, 2),
     HealthCheck: JSON.stringify({ url: "https://example.com/health", expectedStatus: 200, timeoutMs: 5000 }, null, 2),
     Webhook: JSON.stringify({ url: "https://example.com/webhook", method: "POST", headers: {}, body: {} }, null, 2),
     CacheRefresh: JSON.stringify({ scope: "all" }, null, 2),

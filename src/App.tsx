@@ -39,7 +39,6 @@ const LogsDashboard = lazy(() => import('./pages/LogsDashboard'))
 const AzureDashboard = lazy(() => import('./pages/AzureDashboard'))
 const AIChatPage = lazy(() => import('./pages/AIChatPage'))
 const AiQueryAssistantPage = lazy(() => import('./pages/AiQueryAssistantPage'))
-const ReleaseNotesPageV2 = lazy(() => import('./pages/ReleaseNotesPageV2'))
 const JenkinsPipelinePage = lazy(() => import('./pages/JenkinsPipelinePage'))
 const JenkinsSetupPage = lazy(() => import('./pages/JenkinsSetupPage'))
 const RancherPage = lazy(() => import('./pages/RancherPage'))
@@ -107,7 +106,6 @@ function AppRoutes() {
         <Route path="azure" element={<AzureDashboard />} />
         <Route path="ai-chat" element={<FeatureRoute feature="enableAI"><AIChatPage /></FeatureRoute>} />
         <Route path="ai-query" element={<FeatureRoute feature="enableAI"><AiQueryAssistantPage /></FeatureRoute>} />
-        <Route path="release-notes" element={<FeatureRoute feature="enableReleaseNotes"><ReleaseNotesPageV2 /></FeatureRoute>} />
         <Route path="jenkins" element={<FeatureRoute feature="enableJenkins"><JenkinsPipelinePage /></FeatureRoute>} />
         <Route path="jenkins-setup" element={<ManagerRoute><JenkinsSetupPage /></ManagerRoute>} />
         <Route path="rancher" element={<RancherPage />} />

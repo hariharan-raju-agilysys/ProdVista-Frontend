@@ -249,6 +249,9 @@ export const authService = {
       const user: AuthUser = await response.json();
       // Update stored user with new profile data
       sessionStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+      // Invalidate birthday cache so dashboard picks up DOB changes
+      const todayKey = `prodvista_birthdays_${new Date().toISOString().slice(0, 10)}`;
+      sessionStorage.removeItem(todayKey);
       return user;
     } catch {
       return null;

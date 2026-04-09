@@ -8,7 +8,7 @@ import { useSettingsStore, useIsManager } from '../stores/settingsStore'
 import { LLMConfigPanel } from '../components/LLMConfigPanel'
 import AzureResourceManager from '../components/AzureResourceManager'
 import AzureResourceSetup from '../components/AzureResourceSetup'
-import { releaseNotesService, AzureDevOpsOrganization } from '../services/releaseNotesService'
+import { devopsService, AzureDevOpsOrganization } from '../services/devopsService'
 import engineeringService, { EngineeringConfig } from '../services/engineeringService'
 
 type TabId = 'general' | 'llm' | 'azure-setup' | 'azure' | 'devops' | 'regions' | 'users'
@@ -59,7 +59,7 @@ export function ManagerSettingsPage() {
     setDevopsIsDiscovering(true)
     setDevopsError(null)
     try {
-      const orgs = await releaseNotesService.discoverOrganizations()
+      const orgs = await devopsService.discoverOrganizations()
       setDevopsOrgs(orgs)
       if (orgs.length > 0 && !devopsSelectedOrg) {
         setDevopsSelectedOrg(orgs[0].accountUri)
@@ -76,7 +76,7 @@ export function ManagerSettingsPage() {
     setDevopsIsDiscovering(true)
     setDevopsError(null)
     try {
-      const projs = await releaseNotesService.discoverProjects(orgUrl)
+      const projs = await devopsService.discoverProjects(orgUrl)
       setDevopsProjects(projs)
       if (projs.length > 0 && devopsSelectedProjects.length === 0) {
         setDevopsSelectedProjects([projs[0].name])
@@ -99,7 +99,7 @@ export function ManagerSettingsPage() {
     setDevopsIsDiscovering(true)
     setDevopsTestResult(null)
     try {
-      const result = await releaseNotesService.testDiscoveredConnection(devopsSelectedOrg, devopsSelectedProjects[0])
+      const result = await devopsService.testDiscoveredConnection(devopsSelectedOrg, devopsSelectedProjects[0])
       setDevopsTestResult(result)
     } catch {
       setDevopsTestResult({ success: false, message: 'Connection test failed' })

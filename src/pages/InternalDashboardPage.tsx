@@ -118,6 +118,30 @@ export default function InternalDashboardPage({ isAdminView = true }: InternalDa
   // ── Widget Config Modal State ──
   const [editingWidget, setEditingWidget] = useState<WidgetConfig | null>(null);
 
+  // ── Birthday day-level cache (avoids re-fetch on page navigation within same day) ──
+  const birthdayCacheKey = `prodvista_birthdays_${new Date().toISOString().slice(0, 10)}`;
+
+  const getCachedBirthdays = useCallback((): BirthdayInfo[] | null => {
+    try {
+      const raw = sessionStorage.getItem(birthdayCacheKey);
+      if (raw) return JSON.parse(raw);
+    } catch { /* ignore */ }
+    return null;
+  }, [birthdayCacheKey]);
+
+  const cacheBirthdays = useCallback((birthdays: BirthdayInfo[]) => {
+    try {
+      // Clear stale day keys
+      for (let i = sessionStorage.length - 1; i >= 0; i--) {
+        const key = sessionStorage.key(i);
+        if (key?.startsWith('prodvista_birthdays_') && key !== birthdayCacheKey) {
+          sessionStorage.removeItem(key);
+        }
+      }
+      sessionStorage.setItem(birthdayCacheKey, JSON.stringify(birthdays));
+    } catch { /* storage full — non-critical */ }
+  }, [birthdayCacheKey]);
+
   // SignalR streaming hub — sends data section by section (db → devops → jenkins)
   const hub = useInternalDashboardHub({
     onSectionLoaded: () => {
@@ -126,10 +150,28 @@ export default function InternalDashboardPage({ isAdminView = true }: InternalDa
     },
   });
 
-  // Keep summary in sync with hub data
+  // Keep summary in sync with hub data; cache birthdays when they arrive
   useEffect(() => {
-    if (hub.summary) setSummary(hub.summary);
-  }, [hub.summary]);
+    if (hub.summary) {
+      setSummary(hub.summary);
+      if (hub.summary.birthdays?.length) {
+        cacheBirthdays(hub.summary.birthdays);
+      }
+    }
+  }, [hub.summary, cacheBirthdays]);
+
+  // On mount: load cached birthdays instantly for fast render
+  useEffect(() => {
+    const cached = getCachedBirthdays();
+    if (cached && !summary) {
+      setSummary(prev => prev ? { ...prev, birthdays: cached } : {
+        birthdays: cached,
+        customers: { total: 0 }, team: { totalMembers: 0 },
+        support: { openIncidents: 0 }, knowledgeSharesCount: 0,
+        apiCatalogCount: 0, generatedAt: new Date().toISOString(),
+      } as DashboardSummary);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load config + summary on mount (SignalR primary, HTTP fallback)
   const loadInitial = useCallback(async () => {
@@ -154,6 +196,7 @@ export default function InternalDashboardPage({ isAdminView = true }: InternalDa
       try {
         const s = await getSummary();
         setSummary(s);
+        if (s.birthdays?.length) cacheBirthdays(s.birthdays);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Failed to load dashboard';
         setError(msg);
