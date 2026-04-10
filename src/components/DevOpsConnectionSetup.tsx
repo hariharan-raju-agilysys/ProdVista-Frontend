@@ -13,9 +13,11 @@ import {
 
 interface Props {
   onConnectionChange?: () => void;
+  /** 'badge' = collapsible pill (OverviewPage), 'settings' = always-expanded panel (ManagerSettings) */
+  mode?: 'badge' | 'settings';
 }
 
-export default function DevOpsConnectionSetup({ onConnectionChange }: Props) {
+export default function DevOpsConnectionSetup({ onConnectionChange, mode = 'badge' }: Props) {
   const [status, setStatus] = useState<PatStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
@@ -164,8 +166,8 @@ export default function DevOpsConnectionSetup({ onConnectionChange }: Props) {
 
   if (loading) return null;
 
-  // Collapsed view — shows connection status + expand button
-  if (!expanded) {
+  // In badge mode, show collapsed pill when not expanded
+  if (mode === 'badge' && !expanded) {
     return (
       <button
         onClick={() => setExpanded(true)}
@@ -201,7 +203,7 @@ export default function DevOpsConnectionSetup({ onConnectionChange }: Props) {
           </div>
         </div>
         <button onClick={() => { setExpanded(false); setTestResult(null); setSaveResult(null); }}
-          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1">
+          className={`text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 ${mode === 'settings' ? 'hidden' : ''}`}>
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
@@ -378,12 +380,14 @@ export default function DevOpsConnectionSetup({ onConnectionChange }: Props) {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => { setExpanded(false); setTestResult(null); setSaveResult(null); }}
-            className="px-3 py-1.5 text-xs text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-          >
-            Cancel
-          </button>
+          {mode === 'badge' && (
+            <button
+              onClick={() => { setExpanded(false); setTestResult(null); setSaveResult(null); }}
+              className="px-3 py-1.5 text-xs text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              Cancel
+            </button>
+          )}
           <button
             onClick={handleSave}
             disabled={!selectedOrg || !selectedProject || saving || (!pat.trim() && !status?.configured)}

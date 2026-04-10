@@ -8,6 +8,7 @@ import { useSettingsStore, useIsManager } from '../stores/settingsStore'
 import { LLMConfigPanel } from '../components/LLMConfigPanel'
 import AzureResourceManager from '../components/AzureResourceManager'
 import AzureResourceSetup from '../components/AzureResourceSetup'
+import DevOpsConnectionSetup from '../components/DevOpsConnectionSetup'
 import { devopsService, AzureDevOpsOrganization } from '../services/devopsService'
 import engineeringService, { EngineeringConfig } from '../services/engineeringService'
 import { authService } from '../services/authService'
@@ -352,17 +353,6 @@ export function ManagerSettingsPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
                 >
-                  <div className="mb-6">
-                    <div className="flex items-center gap-3 mb-4">
-                      <Zap className="w-6 h-6 text-yellow-400" />
-                      <div>
-                        <h3 className="text-lg font-semibold text-white">Azure Resource Setup</h3>
-                        <p className="text-sm text-gray-400">
-                          One-time setup to select subscriptions and resources. This enables fast filtering across the application.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
                   <AzureResourceSetup />
                 </motion.div>
               )}
@@ -398,13 +388,24 @@ export function ManagerSettingsPage() {
                   exit={{ opacity: 0, y: -20 }}
                   className="space-y-6"
                 >
+                  {/* PAT-based Connection (primary method) */}
+                  <DevOpsConnectionSetup mode="settings" />
+
+                  {/* Separator */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 border-t border-gray-700" />
+                    <span className="text-xs text-gray-500 uppercase tracking-wider">or use Azure SSO</span>
+                    <div className="flex-1 border-t border-gray-700" />
+                  </div>
+
+                  {/* SSO-based connection (secondary/alternative) */}
                   <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
                     <div className="flex items-center gap-3 mb-6">
                       <GitBranch className="w-6 h-6 text-blue-400" />
                       <div>
-                        <h3 className="text-lg font-semibold text-white">Azure DevOps Connection</h3>
+                        <h3 className="text-lg font-semibold text-white">Azure SSO Discovery</h3>
                         <p className="text-sm text-gray-400">
-                          Connect your Azure DevOps organization to enable engineering metrics, builds, PRs, and commit analytics.
+                          Auto-discover organizations and projects using your Azure SSO session.
                         </p>
                       </div>
                     </div>
@@ -575,16 +576,16 @@ export function ManagerSettingsPage() {
                     <h3 className="text-lg font-semibold text-white mb-2">How It Works</h3>
                     <ul className="text-sm text-gray-400 space-y-2">
                       <li className="flex items-start gap-2">
-                        <span className="text-blue-400 mt-0.5">1.</span>
-                        Click "Discover" to find organizations via your Azure SSO session
+                        <span className="text-blue-400 mt-0.5">•</span>
+                        <strong className="text-gray-300">PAT (Recommended):</strong> Paste a Personal Access Token above for direct, reliable access
                       </li>
                       <li className="flex items-start gap-2">
-                        <span className="text-blue-400 mt-0.5">2.</span>
-                        Select an organization and project
+                        <span className="text-blue-400 mt-0.5">•</span>
+                        <strong className="text-gray-300">SSO:</strong> Click "Discover" to auto-detect organizations via your Azure session
                       </li>
                       <li className="flex items-start gap-2">
-                        <span className="text-blue-400 mt-0.5">3.</span>
-                        Save the connection — Engineering Dashboard and Bug Analytics will use it
+                        <span className="text-blue-400 mt-0.5">•</span>
+                        Engineering Dashboard, Bug Analytics, and Commit/PR widgets will use the saved connection
                       </li>
                     </ul>
                   </div>
