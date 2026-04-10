@@ -580,9 +580,9 @@ export default function InternalDashboardPage({ isAdminView = true }: InternalDa
         </div>
       )}
 
-      {/* ── Row 3: Config-driven Widget Grid with Lazy Loading ── */}
+      {/* ── Row 3: Config-driven Widget Grid (Developer Toolkit Layout) ── */}
       {configLoaded && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[5fr_4fr_3fr] gap-4">
           {columns.map((col, ci) => (
             <div key={ci} className="space-y-4">
               {col.map(w => (
