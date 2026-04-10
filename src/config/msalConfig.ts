@@ -5,7 +5,15 @@ const AZURE_CLIENT_ID = import.meta.env.VITE_AZURE_CLIENT_ID || 'your-client-id'
 const AZURE_TENANT_ID = import.meta.env.VITE_AZURE_TENANT_ID || 'your-tenant-id'
 // Compute redirect URI: use explicit env var, or origin + base path (e.g. /prodvista)
 // This avoids the dangerous sed replacement of window.location.origin in the JS bundle
-const REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI || `${window.location.origin}${import.meta.env.VITE_BASE_PATH || ''}`
+// Enforce HTTPS when the page is loaded over HTTPS (prevents mixed content errors
+// in AKS behind TLS-terminating ingress when the build-time env var uses http://)
+const REDIRECT_URI = (() => {
+  const uri = import.meta.env.VITE_REDIRECT_URI || `${window.location.origin}${import.meta.env.VITE_BASE_PATH || ''}`;
+  if (window.location.protocol === 'https:' && uri.startsWith('http://')) {
+    return uri.replace('http://', 'https://');
+  }
+  return uri;
+})();
 
 /**
  * MSAL Configuration for Azure AD authentication
