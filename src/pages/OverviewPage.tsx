@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef, createContext, useCo
 import { useNavigate } from 'react-router-dom';
 import { useLazyWidget } from '../hooks/useLazyWidget';
 import { usePersistentChat } from '../context/PersistentChatContext';
-import { useInternalDashboardHub } from '../hooks/useInternalDashboardHub';
+import { useOverviewHub } from '../hooks/useOverviewHub';
 import {
   getSummary, getBranches, getPRSummaryWithFallback, getCommitStats, getTodayBuilds,
   getKnowledgeShares, getProductionSupport, getApiCatalog,
@@ -16,7 +16,7 @@ import {
   type CustomersOverviewResponse, type WidgetConfig, type MetricConfig,
   type JenkinsBuildsResponse, type JenkinsBuildDetailResponse, type PRInfo, type CommitInfo,
   type TodayBuildsResponse,
-} from '../services/internalDashboardService';
+} from '../services/overviewService';
 import { AdvancedPRListModal } from '../components/AdvancedPRListModal';
 import { WidgetConfigModal } from '../components/WidgetConfigModal';
 
@@ -36,7 +36,7 @@ interface DashboardTemplate {
 }
 
 const TEMPLATES: DashboardTemplate[] = [
-  { key: 'internal', label: 'Internal Dashboard', sub: 'Team hub — DevOps · Jenkins · Excel', icon: '🚀', gradient: 'from-indigo-500 to-blue-600', border: 'border-indigo-200 dark:border-indigo-800' },
+  { key: 'internal', label: 'Overview', sub: 'Team hub — DevOps · Jenkins · Excel', icon: '🚀', gradient: 'from-indigo-500 to-blue-600', border: 'border-indigo-200 dark:border-indigo-800' },
   { key: 'customers', label: 'Customer Intelligence', sub: 'Customer portfolio & deployment overview', icon: '🏢', gradient: 'from-emerald-500 to-teal-600', border: 'border-emerald-200 dark:border-emerald-800', route: '/' },
   { key: 'quality', label: 'Quality Dashboard', sub: 'Bugs, releases & sprint metrics', icon: '🐛', gradient: 'from-red-500 to-orange-600', border: 'border-red-200 dark:border-red-800', route: '/quality' },
   { key: 'bug-analytics', label: 'Bug Analytics', sub: 'Deep drill-down by area & user', icon: '🔬', gradient: 'from-orange-500 to-red-500', border: 'border-orange-200 dark:border-orange-800', route: '/bug-analytics' },
@@ -65,7 +65,7 @@ function getPrUrl(pr: { url?: string; webUrl?: string }): string {
 // ─────────────────────────────────────────
 // Main Page Props
 // ─────────────────────────────────────────
-interface InternalDashboardProps {
+interface OverviewPageProps {
   /** When false, hides admin features (upload, templates, edit config, remove buttons). Default: true */
   isAdminView?: boolean;
 }
@@ -74,7 +74,7 @@ interface InternalDashboardProps {
 // Main Page
 // ─────────────────────────────────────────
 
-export default function InternalDashboardPage({ isAdminView = true }: InternalDashboardProps) {
+export default function OverviewPage({ isAdminView = true }: OverviewPageProps) {
   const navigate = useNavigate();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
@@ -143,7 +143,7 @@ export default function InternalDashboardPage({ isAdminView = true }: InternalDa
   }, [birthdayCacheKey]);
 
   // SignalR streaming hub — sends data section by section (db → devops → jenkins)
-  const hub = useInternalDashboardHub({
+  const hub = useOverviewHub({
     onSectionLoaded: () => {
       // Each section arriving clears the loading state so UI renders progressively
       setSummaryLoading(false);

@@ -47,7 +47,7 @@ const RancherSetupPage = lazy(() => import('./pages/RancherSetupPage'))
 const ObservabilityQueryPage = lazy(() => import('./pages/ObservabilityQueryPage'))
 const ObservabilityDashboardPage = lazy(() => import('./pages/ObservabilityDashboardPage'))
 const AutomationJobsPage = lazy(() => import('./pages/AutomationJobsPage'))
-const InternalDashboardPage = lazy(() => import('./pages/InternalDashboardPage'))
+const OverviewPage = lazy(() => import('./pages/OverviewPage'))
 const McpToolsPage = lazy(() => import('./pages/McpToolsPage'))
 const ToolsPage = lazy(() => import('./pages/ToolsPage'))
 const HrSetupPage = lazy(() => import('./pages/HrSetupPage'))
@@ -81,8 +81,8 @@ function AppRoutes() {
           <Layout />
         </OrgRoute>
       }>
-        {/* Main dashboard - uses InternalDashboardPage with admin features hidden */}
-        <Route index element={<InternalDashboardPage isAdminView={false} />} />
+        {/* Main dashboard - uses OverviewPage with admin features hidden */}
+        <Route index element={<OverviewPage isAdminView={false} />} />
         
         {/* Dynamic Dashboard Builder - Manager/Admin only */}
         <Route path="dashboard" element={<ManagerRoute><DynamicDashboardPage /></ManagerRoute>} />
@@ -115,7 +115,7 @@ function AppRoutes() {
         <Route path="observability" element={<ObservabilityDashboardPage />} />
         <Route path="automation" element={<ManagerRoute><AutomationJobsPage /></ManagerRoute>} />
         <Route path="mcp-tools" element={<McpToolsPage />} />
-        <Route path="internal" element={<InternalDashboardPage />} />
+        <Route path="overview" element={<OverviewPage />} />
         <Route path="tools" element={<ToolsPage />} />
         <Route path="data-feed" element={<DataFeedPage />} />
         <Route path="hr-setup" element={<HrSetupPage />} />

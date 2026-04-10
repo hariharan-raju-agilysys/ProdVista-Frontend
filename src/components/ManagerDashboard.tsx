@@ -18,7 +18,7 @@ import {
   type DashboardSummary, type PRSummaryResponse, type CommitStatsResponse,
   type KnowledgeShareInfo, type ProductionSupportResponse, type ApiCatalogInfo,
   type CustomersOverviewResponse,
-} from '../services/internalDashboardService'
+} from '../services/overviewService'
 import CustomerDetailPopup from './CustomerDetailPopup'
 import WidgetConfigWizard from './widget-wizard/WidgetConfigWizard'
 import MagicalQuoteOverlay, { getRandomQuote, fetchAiQuote } from './MagicalQuoteOverlay'

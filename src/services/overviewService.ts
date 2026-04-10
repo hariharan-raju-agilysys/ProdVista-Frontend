@@ -273,7 +273,7 @@ export interface TodayBuildsResponse {
 // API Functions
 // ========================================
 
-const BASE = '/internal-dashboard';
+const BASE = '/overview';
 
 export const getSummary = (connectionId?: string) =>
   api.get<DashboardSummary>(`${BASE}/summary${connectionId ? `?connectionId=${connectionId}` : ''}`).then(r => r.data);

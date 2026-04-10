@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { HubConnection, HubConnectionBuilder, LogLevel, HubConnectionState } from '@microsoft/signalr';
 import { authService } from '../services/authService';
-import type { DashboardSummary } from '../services/internalDashboardService';
+import type { DashboardSummary } from '../services/overviewService';
 
 const API_BASE_URL = (import.meta.env.VITE_BASE_PATH || '').replace(/\/$/, '');
 
@@ -13,11 +13,11 @@ interface StreamChunk {
   generatedAt: string;
 }
 
-interface UseInternalDashboardHubOptions {
+interface UseOverviewHubOptions {
   onSectionLoaded?: (section: SummarySection) => void;
 }
 
-export function useInternalDashboardHub(opts: UseInternalDashboardHubOptions = {}) {
+export function useOverviewHub(opts: UseOverviewHubOptions = {}) {
   const [connection, setConnection] = useState<HubConnection | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
@@ -33,7 +33,7 @@ export function useInternalDashboardHub(opts: UseInternalDashboardHubOptions = {
     if (!token) return;
 
     const conn = new HubConnectionBuilder()
-      .withUrl(`${API_BASE_URL}/hubs/internal-dashboard`, {
+      .withUrl(`${API_BASE_URL}/hubs/overview`, {
         accessTokenFactory: () => token,
       })
       .withAutomaticReconnect([0, 2000, 5000, 10000])

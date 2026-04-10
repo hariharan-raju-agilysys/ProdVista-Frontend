@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { GitPullRequest, RefreshCw, User, Clock, Layers, Calendar, Eye } from 'lucide-react'
 import PRDashboardWidget from '../components/PRDashboardWidget'
 import { useAuth } from '../context/AuthContext'
-import { getCommitStats, getPRSummaryWithFallback, PRSummaryResponse, CommitStatsResponse } from '../services/internalDashboardService'
+import { getCommitStats, getPRSummaryWithFallback, PRSummaryResponse, CommitStatsResponse } from '../services/overviewService'
 
 export default function Dashboard() {
   const { user } = useAuth()
