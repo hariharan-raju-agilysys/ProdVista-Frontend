@@ -144,8 +144,11 @@ export default function LoginPage() {
   useEffect(() => {
     if (phase !== 'connecting') return;
     const timer = setTimeout(() => {
-      if (!hasNavigated.current) setPhase('tenant');
-    }, 8000);
+      if (!hasNavigated.current) {
+        setPhase('tenant');
+        setError('Sign-in is taking longer than expected. Please try again.');
+      }
+    }, 12000);
     return () => clearTimeout(timer);
   }, [phase]);
 

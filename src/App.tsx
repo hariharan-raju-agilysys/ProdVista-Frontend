@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useCallback, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useMsal } from '@azure/msal-react'
-import { InteractionRequiredAuthError } from '@azure/msal-browser'
+import { InteractionRequiredAuthError, InteractionStatus } from '@azure/msal-browser'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { AzureAuthProvider } from './context/AzureAuthContext'
 import { PersistentChatProvider } from './context/PersistentChatContext'
@@ -239,6 +239,31 @@ function MsalTokenRefreshRegistrar({ children }: { children: React.ReactNode }) 
   return <>{children}</>;
 }
 
+const appBasePath = import.meta.env.VITE_BASE_PATH || '';
+
+/**
+ * Blocks all routing while MSAL processes a redirect return from Microsoft login.
+ * Prevents the visual "wobble" of multiple loading screens flashing in sequence.
+ */
+function AuthGate({ children }: { children: React.ReactNode }) {
+  const { inProgress } = useMsal();
+
+  if (inProgress !== InteractionStatus.None) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
+        <div className="flex items-center gap-3 mb-10">
+          <img src={`${appBasePath}/favicon.svg`} alt="ProdVista" className="w-10 h-10 rounded-xl shadow-md" />
+          <span className="text-xl font-bold text-gray-900 tracking-tight">ProdVista</span>
+        </div>
+        <div className="w-12 h-12 rounded-full border-[3px] border-blue-100 animate-spin" style={{ borderTopColor: '#3b82f6' }} />
+        <p className="mt-6 text-sm text-gray-400">Authenticating...</p>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}
+
 /**
  * Wrapper that shows session expired modal
  */
@@ -284,13 +309,15 @@ function App() {
         <AzureAuthProvider>
           <MsalTokenRefreshRegistrar>
             <BrowserRouter basename={import.meta.env.VITE_BASE_PATH || '/'}>
-              <AuthModals>
-                <PersistentChatProvider>
-                  <Suspense fallback={<LoadingSpinner label="Loading..." />}>
-                    <AppRoutes />
-                  </Suspense>
-                </PersistentChatProvider>
-              </AuthModals>
+              <AuthGate>
+                <AuthModals>
+                  <PersistentChatProvider>
+                    <Suspense fallback={<LoadingSpinner label="Loading..." />}>
+                      <AppRoutes />
+                    </Suspense>
+                  </PersistentChatProvider>
+                </AuthModals>
+              </AuthGate>
             </BrowserRouter>
           </MsalTokenRefreshRegistrar>
         </AzureAuthProvider>

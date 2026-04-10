@@ -2,7 +2,8 @@ import { useAuth } from '../../context/AuthContext'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useMsal } from '@azure/msal-react'
 import { InteractionStatus } from '@azure/msal-browser'
-import FunLoader from '../FunLoader'
+
+const basePath = import.meta.env.VITE_BASE_PATH || '';
 
 interface OrgRouteProps {
   children: React.ReactNode
@@ -10,23 +11,29 @@ interface OrgRouteProps {
 
 /**
  * Route guard that requires a valid authenticated session.
- * If the user is not authenticated, redirect to /login where
- * auto-SSO can handle re-authentication seamlessly.
- * The stored org code (localStorage) will pre-fill the tenant input.
+ * AuthGate (in App.tsx) already blocks during MSAL redirect processing,
+ * so this guard mainly handles auth-check and loading states.
  *
- * IMPORTANT: We must wait for MSAL to finish processing any redirect
- * before deciding to navigate to /login. Otherwise the redirect hash
- * (containing the auth code) gets cleared before MSAL reads it,
- * causing a login loop.
+ * Uses a branded splash (matching the login ConnectingScreen) instead
+ * of FunLoader to prevent jarring visual transitions.
  */
 export function OrgRoute({ children }: OrgRouteProps) {
   const { isLoading, isAuthenticated } = useAuth()
   const { inProgress } = useMsal()
   const location = useLocation()
 
-  // Wait for auth context AND MSAL redirect processing to finish
+  // Wait for auth context AND any MSAL interaction to finish
   if (isLoading || inProgress !== InteractionStatus.None) {
-    return <FunLoader fullPage context="auth" />
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
+        <div className="flex items-center gap-3 mb-10">
+          <img src={`${basePath}/favicon.svg`} alt="ProdVista" className="w-10 h-10 rounded-xl shadow-md" />
+          <span className="text-xl font-bold text-gray-900 tracking-tight">ProdVista</span>
+        </div>
+        <div className="w-12 h-12 rounded-full border-[3px] border-blue-100 animate-spin" style={{ borderTopColor: '#3b82f6' }} />
+        <p className="mt-6 text-sm text-gray-400">Loading workspace...</p>
+      </div>
+    );
   }
 
   // No valid token — redirect to login for SSO / manual login
