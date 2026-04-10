@@ -341,7 +341,7 @@ export default function Layout() {
           
           {/* Overview — prominent standalone link */}
           <NavLink
-            to="/internal"
+            to="/"
             onClick={() => setSidebarOpen(false)}
             className={({ isActive }) =>
               clsx(
