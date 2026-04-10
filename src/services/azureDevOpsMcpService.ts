@@ -395,6 +395,85 @@ export const searchWorkItems = async (query: string, limit?: number): Promise<{
   return response.data;
 };
 
+// ========================================
+// PAT Management Types
+// ========================================
+
+export interface PatStatus {
+  configured: boolean;
+  connectionId?: string;
+  connectionName?: string;
+  organizationUrl?: string;
+  projectName?: string;
+  maskedPat?: string;
+  lastSync?: string;
+}
+
+export interface PatTestResult {
+  success: boolean;
+  message: string;
+}
+
+export interface PatSaveRequest {
+  pat?: string;
+  organizationUrl: string;
+  projectName: string;
+  connectionName?: string;
+}
+
+// ========================================
+// PAT Management API
+// ========================================
+
+/** Get stored PAT status (masked) */
+export const getPatStatus = async (): Promise<PatStatus> => {
+  const response = await api.get('/devops/pat/status');
+  return response.data;
+};
+
+/** Test a PAT without saving */
+export const testPatConnection = async (
+  pat: string,
+  organizationUrl?: string,
+  projectName?: string
+): Promise<PatTestResult> => {
+  const response = await api.post('/devops/pat/test', { pat, organizationUrl, projectName });
+  return response.data;
+};
+
+/** Discover organizations using a PAT */
+export const discoverOrganizationsWithPat = async (
+  pat: string
+): Promise<{ success: boolean; organizations: DevOpsOrganization[]; message?: string }> => {
+  const response = await api.post('/devops/pat/discover/organizations', { pat });
+  return response.data;
+};
+
+/** Discover projects using a PAT and organization URL */
+export const discoverProjectsWithPat = async (
+  pat: string,
+  organizationUrl: string
+): Promise<{ success: boolean; projects: DevOpsProject[]; message?: string }> => {
+  const response = await api.post('/devops/pat/discover/projects', { pat, organizationUrl });
+  return response.data;
+};
+
+/** Save PAT connection (tests first, then saves) */
+export const savePatConnection = async (request: PatSaveRequest): Promise<{
+  success: boolean;
+  message: string;
+  connectionId?: string;
+}> => {
+  const response = await api.post('/devops/pat/save', request);
+  return response.data;
+};
+
+/** Remove PAT from active connection */
+export const removePat = async (): Promise<{ message: string }> => {
+  const response = await api.delete('/devops/pat');
+  return response.data;
+};
+
 // Default export for convenience
 const azureDevOpsMcpService = {
   discoverOrganizations,
@@ -410,6 +489,12 @@ const azureDevOpsMcpService = {
   getCommits,
   getPipelines,
   searchWorkItems,
+  getPatStatus,
+  testPatConnection,
+  discoverOrganizationsWithPat,
+  discoverProjectsWithPat,
+  savePatConnection,
+  removePat,
 };
 
 export default azureDevOpsMcpService;

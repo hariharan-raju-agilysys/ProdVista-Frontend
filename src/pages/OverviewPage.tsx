@@ -19,6 +19,7 @@ import {
 } from '../services/overviewService';
 import { AdvancedPRListModal } from '../components/AdvancedPRListModal';
 import { WidgetConfigModal } from '../components/WidgetConfigModal';
+import DevOpsConnectionSetup from '../components/DevOpsConnectionSetup';
 
 // ── Admin View Context - Controls visibility of admin features ───────────────
 const AdminViewContext = createContext<boolean>(true);
@@ -423,20 +424,19 @@ export default function OverviewPage({ isAdminView = true }: OverviewPageProps) 
       </div>}
 
       {/* ── Data Source Status Bar ── */}
-      <div className="flex items-center gap-3 text-[10px]">
-        <span className="font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Data Sources:</span>
-        <span className={`flex items-center gap-1 px-2 py-1 rounded-full ${d?.connected ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
-          <span className={`w-1.5 h-1.5 rounded-full ${d?.connected ? 'bg-green-500' : 'bg-gray-400'}`} />
-          Azure DevOps {d?.connected ? '✓' : '—'}
-        </span>
-        <span className={`flex items-center gap-1 px-2 py-1 rounded-full ${j?.connected ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
-          <span className={`w-1.5 h-1.5 rounded-full ${j?.connected ? 'bg-green-500' : 'bg-gray-400'}`} />
-          Jenkins {j?.connected ? '✓' : '—'}
-        </span>
-        <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400">
-          <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-          Excel Data
-        </span>
+      <div className="space-y-3">
+        <div className="flex items-center gap-3 text-[10px]">
+          <span className="font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Data Sources:</span>
+          <DevOpsConnectionSetup onConnectionChange={loadInitial} />
+          <span className={`flex items-center gap-1 px-2 py-1 rounded-full ${j?.connected ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${j?.connected ? 'bg-green-500' : 'bg-gray-400'}`} />
+            Jenkins {j?.connected ? '✓' : '—'}
+          </span>
+          <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+            Excel Data
+          </span>
+        </div>
       </div>
 
       {/* ── Edit Mode: Widget/Metric Config Panel (admin only) ── */}
