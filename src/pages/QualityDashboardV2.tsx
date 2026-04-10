@@ -4,10 +4,12 @@ import {
   getReleases, getReleaseWorkItems, getOwnerEfficiency, getFilterOptions,
   getTrend, getAgingDistribution,
   getAreaPaths, getRepositories, getKpiSummary, getBugDetailWithContext, getTodayActivity,
+  getWorkItemCommits,
   QualityWorkItemDto, QualityReleaseDto,
   OwnerEfficiencyDto, QualityFilterOptionsDto, QualityTrendPointDto,
   BugAgingDistributionDto, QualityConnection, QualityAreaPath, QualityRepository,
   KpiSummary, BugDetailContext, TodayActivity,
+  WorkItemRelations,
   getSeverityColor, getStateColor, getReleaseStateColor,
   formatDate, formatRelativeTime, getEfficiencyColor, getCompletionColor
 } from '../services/qualityService';
@@ -22,7 +24,8 @@ import {
   Loader2, RefreshCw, Search, User, Users, X,
   AlertTriangle, BarChart3, Target, ArrowUpDown,
   TrendingUp, TrendingDown, Activity, Shield, GitBranch, Layers,
-  FileText, Link2, CheckCircle2, Minus, Cake, GitPullRequest, GitCommitHorizontal, FolderGit2
+  FileText, Link2, CheckCircle2, Minus, Cake, GitPullRequest, GitCommitHorizontal, FolderGit2,
+  Image, Copy, ClipboardList
 } from 'lucide-react';
 
 // ============================================================================
@@ -72,10 +75,16 @@ const QualityDashboardV2: React.FC = () => {
   );
   const [birthdays, setBirthdays] = useState<HrBirthday[]>([]);
 
-  // Bug detail side panel
+  // Bug detail modal (replaces side panel)
   const [selectedBugId, setSelectedBugId] = useState<number | null>(null);
   const [bugDetail, setBugDetail] = useState<BugDetailContext | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [detailTab, setDetailTab] = useState<'details' | 'commits' | 'images' | 'related'>('details');
+  const [commitRelations, setCommitRelations] = useState<WorkItemRelations | null>(null);
+  const [commitsLoading, setCommitsLoading] = useState(false);
+
+  // Context menu
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; bug: QualityWorkItemDto } | null>(null);
 
   // UI state
   const [loading, setLoading] = useState(true);
@@ -188,12 +197,22 @@ const QualityDashboardV2: React.FC = () => {
   useEffect(() => {
     if (selectedBugId && selectedConnectionId) {
       setDetailLoading(true);
+      setDetailTab('details');
+      setCommitRelations(null);
+      setBugDetail(null);
       getBugDetailWithContext(selectedBugId, selectedConnectionId)
         .then(setBugDetail)
         .catch(() => setBugDetail(null))
         .finally(() => setDetailLoading(false));
+      // Load commits in parallel
+      setCommitsLoading(true);
+      getWorkItemCommits(selectedBugId, selectedConnectionId)
+        .then(setCommitRelations)
+        .catch(() => setCommitRelations(null))
+        .finally(() => setCommitsLoading(false));
     } else {
       setBugDetail(null);
+      setCommitRelations(null);
     }
   }, [selectedBugId, selectedConnectionId]);
 
@@ -251,6 +270,31 @@ const QualityDashboardV2: React.FC = () => {
   const handleBugClick = (bugId: number) => {
     setSelectedBugId(prev => prev === bugId ? null : bugId);
   };
+
+  const handleContextMenu = (e: React.MouseEvent, bug: QualityWorkItemDto) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, bug });
+  };
+
+  const copyAsHtml = (bug: QualityWorkItemDto) => {
+    const html = `<tr><td>${bug.id}</td><td>${bug.workItemType}</td><td>${bug.title}</td><td>${bug.state}</td><td>${bug.severity || ''}</td><td>${bug.assignedTo || ''}</td><td>${bug.ageDays}d</td></tr>`;
+    navigator.clipboard.writeText(html);
+    setContextMenu(null);
+  };
+
+  const copyAsCsv = (bug: QualityWorkItemDto) => {
+    const csv = `${bug.id},${bug.workItemType},"${bug.title}",${bug.state},${bug.severity || ''},${bug.assignedTo || ''},${bug.ageDays}`;
+    navigator.clipboard.writeText(csv);
+    setContextMenu(null);
+  };
+
+  // Close context menu on click outside
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    window.addEventListener('click', close);
+    return () => window.removeEventListener('click', close);
+  }, [contextMenu]);
 
   // Sort helper
   const sortedBugs = (list: QualityWorkItemDto[]) => {
@@ -322,7 +366,7 @@ const QualityDashboardV2: React.FC = () => {
     <div className="min-h-screen bg-[#f0f2f5] dark:bg-[#1b1b1f]">
       <div className="flex">
         {/* Main Content */}
-        <div className={`flex-1 transition-all duration-300 ${selectedBugId ? 'mr-[500px]' : ''}`}>
+        <div className="flex-1 transition-all duration-300">
           {/* Azure-style top command bar */}
           <div className="sticky top-0 z-30 bg-white dark:bg-[#1f1f23] border-b border-slate-200 dark:border-slate-700/50 shadow-sm">
             <div className="max-w-[1440px] mx-auto px-6 py-3">
@@ -581,25 +625,51 @@ const QualityDashboardV2: React.FC = () => {
               bugFilter={bugFilter} setBugFilter={setBugFilter}
               sortField={sortField} sortDir={sortDir} toggleSort={toggleSort}
               onBugClick={handleBugClick} selectedBugId={selectedBugId}
+              onContextMenu={handleContextMenu}
             />}
-            {activeTab === 'my-bugs' && <MyBugsTab bugs={sortedBugs(myBugs)} userEmail={user?.email ?? ''} sortField={sortField} sortDir={sortDir} toggleSort={toggleSort} onBugClick={handleBugClick} selectedBugId={selectedBugId} />}
+            {activeTab === 'my-bugs' && <MyBugsTab bugs={sortedBugs(myBugs)} userEmail={user?.email ?? ''} sortField={sortField} sortDir={sortDir} toggleSort={toggleSort} onBugClick={handleBugClick} selectedBugId={selectedBugId} onContextMenu={handleContextMenu} />}
             {activeTab === 'sprints' && <SprintsTab
               releases={releases} expandedRelease={expandedRelease}
               releaseWorkItems={releaseWorkItems} onExpand={handleExpandRelease}
             />}
-            {activeTab === 'team' && <TeamTab owners={ownerEfficiency} />}
+            {activeTab === 'team' && <TeamTab owners={ownerEfficiency} onBugClick={handleBugClick} />}
             {activeTab === 'query' && <SearchTab
               filterOptions={filterOptions} connectionId={selectedConnectionId}
               onBugClick={handleBugClick} selectedBugId={selectedBugId}
+              onContextMenu={handleContextMenu}
             />}
           </div>
         </div>
 
-        {/* Bug Detail Side Panel */}
+        {/* Context Menu */}
+        {contextMenu && (
+          <div className="fixed z-[100] bg-white dark:bg-[#292929] border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 min-w-[180px]"
+            style={{ left: contextMenu.x, top: contextMenu.y }}>
+            <button onClick={() => copyAsHtml(contextMenu.bug)} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+              <Copy className="w-3.5 h-3.5" /> Copy as HTML
+            </button>
+            <button onClick={() => copyAsCsv(contextMenu.bug)} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+              <ClipboardList className="w-3.5 h-3.5" /> Copy as CSV
+            </button>
+            {contextMenu.bug.devOpsUrl && (
+              <a href={contextMenu.bug.devOpsUrl} target="_blank" rel="noopener noreferrer"
+                onClick={() => setContextMenu(null)}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                <ExternalLink className="w-3.5 h-3.5" /> Open in Azure DevOps
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* Work Item Modal */}
         {selectedBugId && (
-          <BugDetailPanel
+          <WorkItemModal
             bugDetail={bugDetail}
             loading={detailLoading}
+            commitRelations={commitRelations}
+            commitsLoading={commitsLoading}
+            detailTab={detailTab}
+            onTabChange={setDetailTab}
             onClose={() => setSelectedBugId(null)}
             onBugClick={handleBugClick}
           />
@@ -659,163 +729,343 @@ const MiniStat: React.FC<{ label: string; value: string | number; color?: string
 ));
 
 // ============================================================================
-// Bug Detail Side Panel — Azure Portal Blade style
+// Work Item Modal — Full overlay with tabs (Details, Commits, Images, Related)
 // ============================================================================
-const BugDetailPanel: React.FC<{
+const extractImages = (html?: string | null): string[] => {
+  if (!html) return [];
+  const matches = html.match(/<img[^>]+src=["']([^"']+)["'][^>]*>/gi) || [];
+  return matches.map(tag => {
+    const m = tag.match(/src=["']([^"']+)["']/i);
+    return m ? m[1] : '';
+  }).filter(Boolean);
+};
+
+const WorkItemModal: React.FC<{
   bugDetail: BugDetailContext | null; loading: boolean;
+  commitRelations: WorkItemRelations | null; commitsLoading: boolean;
+  detailTab: 'details' | 'commits' | 'images' | 'related';
+  onTabChange: (tab: 'details' | 'commits' | 'images' | 'related') => void;
   onClose: () => void; onBugClick: (id: number) => void;
-}> = ({ bugDetail, loading, onClose, onBugClick }) => (
-  <div className="fixed right-0 top-0 h-screen w-[500px] bg-white dark:bg-[#1f1f23] border-l border-slate-200 dark:border-slate-700/50 shadow-2xl overflow-y-auto z-50">
-    {/* Panel Header */}
-    <div className="sticky top-0 bg-white/95 dark:bg-[#1f1f23]/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700/50 px-5 py-4 flex items-center justify-between z-10">
-      <h2 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-        <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-        Work Item Details
-      </h2>
-      <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors">
-        <X className="w-4 h-4" />
-      </button>
-    </div>
+}> = ({ bugDetail, loading, commitRelations, commitsLoading, detailTab, onTabChange, onClose, onBugClick }) => {
+  const allImages = bugDetail ? [
+    ...extractImages(bugDetail.description),
+    ...extractImages(bugDetail.reproSteps),
+    ...extractImages(bugDetail.acceptanceCriteria),
+  ] : [];
 
-    {loading ? (
-      <div className="flex items-center justify-center py-24">
-        <div className="text-center">
-          <Loader2 className="w-6 h-6 animate-spin text-blue-600 dark:text-blue-400 mx-auto mb-2" />
-          <p className="text-sm text-slate-400">Loading details...</p>
-        </div>
-      </div>
-    ) : !bugDetail ? (
-      <div className="p-8 text-center">
-        <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-3">
-          <AlertTriangle className="w-5 h-5 text-slate-400" />
-        </div>
-        <p className="text-slate-500 dark:text-slate-400 text-sm">Failed to load details</p>
-      </div>
-    ) : (
-      <div className="p-5 space-y-5">
-        {/* Bug Header */}
-        <div>
-          <div className="flex items-center gap-2 mb-3 flex-wrap">
-            <span className="text-blue-600 dark:text-blue-400 font-mono text-sm font-semibold">#{bugDetail.bug.id}</span>
-            <span className={`px-2.5 py-1 rounded-md text-xs font-semibold ${getStateColor(bugDetail.bug.state)}`}>{bugDetail.bug.state}</span>
-            {bugDetail.bug.severity && (
-              <span className={`px-2.5 py-1 rounded-md text-xs font-semibold ${getSeverityColor(bugDetail.bug.severity)}`}>{bugDetail.bug.severity}</span>
-            )}
-            {bugDetail.bug.priority && (
-              <span className="px-2 py-1 rounded-md text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                P{bugDetail.bug.priority}
-              </span>
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white dark:bg-[#1f1f23] rounded-2xl shadow-2xl w-[90vw] max-w-5xl h-[85vh] flex flex-col overflow-hidden border border-slate-200 dark:border-slate-700/50"
+        onClick={e => e.stopPropagation()}>
+        {/* Modal Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700/50 shrink-0">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
+            {bugDetail ? (
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-blue-600 dark:text-blue-400 font-mono text-sm font-bold">#{bugDetail.bug.id}</span>
+                  <span className={`px-2.5 py-1 rounded-md text-xs font-semibold ${getStateColor(bugDetail.bug.state)}`}>{bugDetail.bug.state}</span>
+                  {bugDetail.bug.severity && <span className={`px-2.5 py-1 rounded-md text-xs font-semibold ${getSeverityColor(bugDetail.bug.severity)}`}>{bugDetail.bug.severity}</span>}
+                  {bugDetail.bug.priority && <span className="px-2 py-1 rounded-md text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">P{bugDetail.bug.priority}</span>}
+                  <span className={`px-2 py-0.5 rounded-md border text-xs font-semibold ${getTypeBadge(bugDetail.bug.workItemType)}`}>{bugDetail.bug.workItemType}</span>
+                </div>
+                <h2 className="text-base font-semibold text-slate-900 dark:text-white mt-1 truncate">{bugDetail.bug.title}</h2>
+              </div>
+            ) : (
+              <span className="text-sm font-semibold text-slate-900 dark:text-white">Work Item Details</span>
             )}
           </div>
-          <h3 className="text-base font-semibold text-slate-900 dark:text-white leading-snug">{bugDetail.bug.title}</h3>
-          <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 text-xs text-slate-500 dark:text-slate-400">
-            {bugDetail.bug.assignedTo && (
-              <span className="flex items-center gap-1.5"><User className="w-3 h-3" />{bugDetail.bug.assignedTo}</span>
+          <div className="flex items-center gap-2 shrink-0 ml-4">
+            {bugDetail?.bug.devOpsUrl && (
+              <a href={bugDetail.bug.devOpsUrl} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors font-medium">
+                <ExternalLink className="w-3.5 h-3.5" /> DevOps
+              </a>
             )}
-            <span className="flex items-center gap-1.5"><Clock className="w-3 h-3" />{bugDetail.bug.ageDays}d old</span>
-            {bugDetail.bug.areaPath && (
-              <span className="flex items-center gap-1.5"><Layers className="w-3 h-3" />{bugDetail.bug.areaPath.split('\\').pop()}</span>
-            )}
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors">
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          {bugDetail.bug.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-3">
-              {bugDetail.bug.tags.map(tag => (
-                <span key={tag} className="text-[10px] px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-full border border-blue-200 dark:border-blue-800/40 font-medium">{tag}</span>
-              ))}
-            </div>
-          )}
-          {bugDetail.bug.devOpsUrl && (
-            <a href={bugDetail.bug.devOpsUrl} target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 mt-3 text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium">
-              <ExternalLink className="w-3 h-3" /> Open in Azure DevOps
-            </a>
-          )}
         </div>
 
-        {/* Description */}
-        {bugDetail.description && (
-          <DetailSection title="Description">
-            <div className="text-sm text-slate-600 dark:text-slate-300 prose prose-sm dark:prose-invert max-w-none leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: bugDetail.description }} />
-          </DetailSection>
+        {/* Modal Tabs */}
+        {bugDetail && (
+          <div className="flex gap-0 border-b border-slate-200 dark:border-slate-700/50 px-6 shrink-0">
+            {([
+              { id: 'details' as const, label: 'Details', icon: FileText },
+              { id: 'commits' as const, label: `Commits${commitRelations ? ` (${commitRelations.totalCommits})` : ''}`, icon: GitCommitHorizontal },
+              { id: 'images' as const, label: `Images${allImages.length > 0 ? ` (${allImages.length})` : ''}`, icon: Image },
+              { id: 'related' as const, label: 'Related', icon: Link2 },
+            ]).map(tab => (
+              <button key={tab.id} onClick={() => onTabChange(tab.id)}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
+                  detailTab === tab.id
+                    ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400'
+                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
+                }`}>
+                <tab.icon className="w-3.5 h-3.5" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
         )}
 
-        {/* Repro Steps */}
-        {bugDetail.reproSteps && (
-          <DetailSection title="Repro Steps">
-            <div className="text-sm text-slate-600 dark:text-slate-300 prose prose-sm dark:prose-invert max-w-none leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: bugDetail.reproSteps }} />
-          </DetailSection>
-        )}
-
-        {/* Acceptance Criteria */}
-        {bugDetail.acceptanceCriteria && (
-          <DetailSection title="Acceptance Criteria">
-            <div className="text-sm text-slate-600 dark:text-slate-300 prose prose-sm dark:prose-invert max-w-none leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: bugDetail.acceptanceCriteria }} />
-          </DetailSection>
-        )}
-
-        {/* Area Context */}
-        {bugDetail.areaContext && bugDetail.areaContext.totalRelatedBugs > 0 && (
-          <DetailSection title={`Area Context — ${bugDetail.areaContext.shortName}`} icon={<Link2 className="w-3 h-3" />}>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 text-center border border-slate-200 dark:border-slate-700/50">
-                <p className="text-lg font-bold text-slate-900 dark:text-white">{bugDetail.areaContext.totalRelatedBugs}</p>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">Related</p>
-              </div>
-              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 text-center border border-slate-200 dark:border-slate-700/50">
-                <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{bugDetail.areaContext.activeRelated}</p>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">Active</p>
-              </div>
-              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 text-center border border-slate-200 dark:border-slate-700/50">
-                <p className="text-lg font-bold text-red-600 dark:text-red-400">{bugDetail.areaContext.criticalRelated}</p>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">Critical</p>
+        {/* Modal Body */}
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-24">
+              <div className="text-center">
+                <Loader2 className="w-6 h-6 animate-spin text-blue-600 dark:text-blue-400 mx-auto mb-2" />
+                <p className="text-sm text-slate-400">Loading details...</p>
               </div>
             </div>
-          </DetailSection>
-        )}
-
-        {/* Related Bugs */}
-        {bugDetail.relatedBugsInArea && bugDetail.relatedBugsInArea.length > 0 && (
-          <DetailSection title={`Related Bugs (${bugDetail.relatedBugsInArea.length})`}>
-            <div className="space-y-1.5 max-h-48 overflow-y-auto">
-              {bugDetail.relatedBugsInArea.map(rb => (
-                <button key={rb.id} onClick={() => onBugClick(rb.id)}
-                  className="w-full text-left bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-700/40 rounded-lg p-2.5 border border-slate-200 dark:border-slate-700/50 transition-colors">
-                  <div className="flex items-center gap-2">
-                    <span className="text-blue-600 dark:text-blue-400 font-mono text-xs font-semibold">#{rb.id}</span>
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${getStateColor(rb.state)}`}>{rb.state}</span>
-                    {rb.severity && <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${getSeverityColor(rb.severity)}`}>{rb.severity?.split(' - ')[1] || rb.severity}</span>}
+          ) : !bugDetail ? (
+            <div className="p-8 text-center">
+              <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-3">
+                <AlertTriangle className="w-5 h-5 text-slate-400" />
+              </div>
+              <p className="text-slate-500 dark:text-slate-400 text-sm">Failed to load details</p>
+            </div>
+          ) : (
+            <>
+              {/* Details Tab */}
+              {detailTab === 'details' && (
+                <div className="p-6 space-y-5">
+                  {/* Meta info */}
+                  <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-500 dark:text-slate-400">
+                    {bugDetail.bug.assignedTo && <span className="flex items-center gap-1.5"><User className="w-3 h-3" />{bugDetail.bug.assignedTo}</span>}
+                    <span className="flex items-center gap-1.5"><Clock className="w-3 h-3" />{bugDetail.bug.ageDays}d old</span>
+                    {bugDetail.bug.areaPath && <span className="flex items-center gap-1.5"><Layers className="w-3 h-3" />{bugDetail.bug.areaPath.split('\\').pop()}</span>}
+                    {bugDetail.bug.iterationPath && <span className="flex items-center gap-1.5"><Target className="w-3 h-3" />{bugDetail.bug.iterationPath.split('\\').pop()}</span>}
                   </div>
-                  <p className="text-xs text-slate-700 dark:text-slate-200 truncate mt-1">{rb.title}</p>
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">{rb.assignedTo || 'Unassigned'} · {rb.ageDays}d old</p>
-                </button>
-              ))}
-            </div>
-          </DetailSection>
-        )}
+                  {bugDetail.bug.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {bugDetail.bug.tags.map(tag => (
+                        <span key={tag} className="text-[10px] px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-full border border-blue-200 dark:border-blue-800/40 font-medium">{tag}</span>
+                      ))}
+                    </div>
+                  )}
 
-        {/* Sibling Work Items */}
-        {bugDetail.siblingWorkItems && bugDetail.siblingWorkItems.length > 0 && (
-          <DetailSection title={`Sibling Items — Same Sprint (${bugDetail.siblingWorkItems.length})`}>
-            <div className="space-y-1 max-h-36 overflow-y-auto">
-              {bugDetail.siblingWorkItems.map(si => (
-                <button key={si.id} onClick={() => onBugClick(si.id)}
-                  className="w-full text-left flex items-center gap-2 px-2.5 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 rounded-lg text-xs transition-colors">
-                  <span className="text-blue-600 dark:text-blue-400 font-mono font-semibold">#{si.id}</span>
-                  <span className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${getTypeBadge(si.workItemType)}`}>{si.workItemType}</span>
-                  <span className="text-slate-700 dark:text-slate-200 truncate flex-1">{si.title}</span>
-                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${getStateColor(si.state)}`}>{si.state}</span>
-                </button>
-              ))}
-            </div>
-          </DetailSection>
-        )}
+                  {/* Description */}
+                  {bugDetail.description && (
+                    <DetailSection title="Description">
+                      <div className="text-sm text-slate-600 dark:text-slate-300 prose prose-sm dark:prose-invert max-w-none leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: bugDetail.description }} />
+                    </DetailSection>
+                  )}
+
+                  {/* Repro Steps */}
+                  {bugDetail.reproSteps && (
+                    <DetailSection title="Repro Steps">
+                      <div className="text-sm text-slate-600 dark:text-slate-300 prose prose-sm dark:prose-invert max-w-none leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: bugDetail.reproSteps }} />
+                    </DetailSection>
+                  )}
+
+                  {/* Acceptance Criteria */}
+                  {bugDetail.acceptanceCriteria && (
+                    <DetailSection title="Acceptance Criteria">
+                      <div className="text-sm text-slate-600 dark:text-slate-300 prose prose-sm dark:prose-invert max-w-none leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: bugDetail.acceptanceCriteria }} />
+                    </DetailSection>
+                  )}
+
+                  {/* Area Context */}
+                  {bugDetail.areaContext && bugDetail.areaContext.totalRelatedBugs > 0 && (
+                    <DetailSection title={`Area Context — ${bugDetail.areaContext.shortName}`} icon={<Link2 className="w-3 h-3" />}>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 text-center border border-slate-200 dark:border-slate-700/50">
+                          <p className="text-lg font-bold text-slate-900 dark:text-white">{bugDetail.areaContext.totalRelatedBugs}</p>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">Related</p>
+                        </div>
+                        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 text-center border border-slate-200 dark:border-slate-700/50">
+                          <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{bugDetail.areaContext.activeRelated}</p>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">Active</p>
+                        </div>
+                        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 text-center border border-slate-200 dark:border-slate-700/50">
+                          <p className="text-lg font-bold text-red-600 dark:text-red-400">{bugDetail.areaContext.criticalRelated}</p>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">Critical</p>
+                        </div>
+                      </div>
+                    </DetailSection>
+                  )}
+                </div>
+              )}
+
+              {/* Commits Tab */}
+              {detailTab === 'commits' && (
+                <div className="p-6 space-y-4">
+                  {commitsLoading ? (
+                    <div className="flex items-center justify-center py-16">
+                      <Loader2 className="w-5 h-5 animate-spin text-blue-600 dark:text-blue-400 mr-2" />
+                      <span className="text-sm text-slate-400">Loading commits...</span>
+                    </div>
+                  ) : !commitRelations || commitRelations.commits.length === 0 ? (
+                    <div className="py-16 text-center">
+                      <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-3">
+                        <GitCommitHorizontal className="w-5 h-5 text-slate-400" />
+                      </div>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">No linked commits found</p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Commits linked via Azure DevOps will appear here</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-3 gap-3 mb-4">
+                        <div className="text-center p-3 bg-cyan-50 dark:bg-cyan-900/20 rounded-lg border border-cyan-200 dark:border-cyan-800/40">
+                          <p className="text-xl font-bold text-cyan-700 dark:text-cyan-400">{commitRelations.totalCommits}</p>
+                          <p className="text-[10px] text-cyan-600 dark:text-cyan-500 font-medium uppercase">Total Commits</p>
+                        </div>
+                        <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800/40">
+                          <p className="text-xl font-bold text-green-700 dark:text-green-400">{commitRelations.commits.reduce((s, c) => s + (c.additions || 0), 0)}</p>
+                          <p className="text-[10px] text-green-600 dark:text-green-500 font-medium uppercase">Additions</p>
+                        </div>
+                        <div className="text-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800/40">
+                          <p className="text-xl font-bold text-red-700 dark:text-red-400">{commitRelations.commits.reduce((s, c) => s + (c.deletions || 0), 0)}</p>
+                          <p className="text-[10px] text-red-600 dark:text-red-500 font-medium uppercase">Deletions</p>
+                        </div>
+                      </div>
+
+                      {/* PR Links */}
+                      {commitRelations.pullRequestLinks.length > 0 && (
+                        <div className="mb-4">
+                          <h4 className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                            <GitPullRequest className="w-3 h-3" /> Pull Request Links ({commitRelations.pullRequestLinks.length})
+                          </h4>
+                          <div className="space-y-1">
+                            {commitRelations.pullRequestLinks.map((pr, i) => (
+                              <a key={i} href={pr.url} target="_blank" rel="noopener noreferrer"
+                                className="flex items-center gap-2 px-3 py-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800/40 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors text-xs text-purple-700 dark:text-purple-300 font-medium">
+                                <GitPullRequest className="w-3.5 h-3.5 shrink-0" />
+                                <span className="truncate">{pr.name || pr.url}</span>
+                                <ExternalLink className="w-3 h-3 text-purple-400 shrink-0 ml-auto" />
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Commit List */}
+                      <div className="space-y-2">
+                        {commitRelations.commits.map(c => (
+                          <div key={c.commitId} className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-lg p-3.5 hover:border-cyan-300 dark:hover:border-cyan-700 transition-colors">
+                            <div className="flex items-start gap-3">
+                              <div className="w-8 h-8 rounded-full bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                                {c.authorName?.charAt(0) || '?'}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm text-slate-900 dark:text-white font-medium leading-snug">{c.comment}</p>
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+                                  <span className="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">{c.shortCommitId}</span>
+                                  <span className="flex items-center gap-1"><User className="w-3 h-3" />{c.authorName}</span>
+                                  {c.authorDate && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatRelativeTime(c.authorDate)}</span>}
+                                  <span className="flex items-center gap-1.5">
+                                    <span className="text-green-600 dark:text-green-400">+{c.additions || 0}</span>
+                                    <span className="text-slate-400">/</span>
+                                    <span className="text-amber-600 dark:text-amber-400">~{c.edits || 0}</span>
+                                    <span className="text-slate-400">/</span>
+                                    <span className="text-red-600 dark:text-red-400">-{c.deletions || 0}</span>
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Images Tab */}
+              {detailTab === 'images' && (
+                <div className="p-6">
+                  {allImages.length === 0 ? (
+                    <div className="py-16 text-center">
+                      <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-3">
+                        <Image className="w-5 h-5 text-slate-400" />
+                      </div>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">No images found</p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Images embedded in description, repro steps, or acceptance criteria will appear here</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{allImages.length} image{allImages.length !== 1 ? 's' : ''} found in work item content</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {allImages.map((src, i) => (
+                          <a key={i} href={src} target="_blank" rel="noopener noreferrer"
+                            className="block border border-slate-200 dark:border-slate-700/50 rounded-lg overflow-hidden hover:border-blue-400 dark:hover:border-blue-600 transition-colors group">
+                            <img src={src} alt={`Attachment ${i + 1}`} className="w-full h-auto max-h-80 object-contain bg-slate-50 dark:bg-slate-800" loading="lazy" />
+                            <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800/60 text-[10px] text-slate-400 truncate flex items-center gap-1.5 group-hover:text-blue-500 transition-colors">
+                              <ExternalLink className="w-3 h-3 shrink-0" />
+                              Image {i + 1}
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Related Tab */}
+              {detailTab === 'related' && (
+                <div className="p-6 space-y-5">
+                  {/* Related Bugs */}
+                  {bugDetail.relatedBugsInArea && bugDetail.relatedBugsInArea.length > 0 && (
+                    <DetailSection title={`Related Bugs in Area (${bugDetail.relatedBugsInArea.length})`}>
+                      <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                        {bugDetail.relatedBugsInArea.map(rb => (
+                          <button key={rb.id} onClick={() => onBugClick(rb.id)}
+                            className="w-full text-left bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-700/40 rounded-lg p-2.5 border border-slate-200 dark:border-slate-700/50 transition-colors">
+                            <div className="flex items-center gap-2">
+                              <span className="text-blue-600 dark:text-blue-400 font-mono text-xs font-semibold">#{rb.id}</span>
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${getStateColor(rb.state)}`}>{rb.state}</span>
+                              {rb.severity && <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${getSeverityColor(rb.severity)}`}>{rb.severity?.split(' - ')[1] || rb.severity}</span>}
+                            </div>
+                            <p className="text-xs text-slate-700 dark:text-slate-200 truncate mt-1">{rb.title}</p>
+                            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">{rb.assignedTo || 'Unassigned'} · {rb.ageDays}d old</p>
+                          </button>
+                        ))}
+                      </div>
+                    </DetailSection>
+                  )}
+
+                  {/* Sibling Work Items */}
+                  {bugDetail.siblingWorkItems && bugDetail.siblingWorkItems.length > 0 && (
+                    <DetailSection title={`Sibling Items — Same Sprint (${bugDetail.siblingWorkItems.length})`}>
+                      <div className="space-y-1 max-h-52 overflow-y-auto">
+                        {bugDetail.siblingWorkItems.map(si => (
+                          <button key={si.id} onClick={() => onBugClick(si.id)}
+                            className="w-full text-left flex items-center gap-2 px-2.5 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 rounded-lg text-xs transition-colors">
+                            <span className="text-blue-600 dark:text-blue-400 font-mono font-semibold">#{si.id}</span>
+                            <span className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${getTypeBadge(si.workItemType)}`}>{si.workItemType}</span>
+                            <span className="text-slate-700 dark:text-slate-200 truncate flex-1">{si.title}</span>
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${getStateColor(si.state)}`}>{si.state}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </DetailSection>
+                  )}
+
+                  {(!bugDetail.relatedBugsInArea || bugDetail.relatedBugsInArea.length === 0) &&
+                   (!bugDetail.siblingWorkItems || bugDetail.siblingWorkItems.length === 0) && (
+                    <div className="py-16 text-center">
+                      <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-3">
+                        <Link2 className="w-5 h-5 text-slate-400" />
+                      </div>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">No related items found</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
-    )}
-  </div>
-);
+    </div>
+  );
+};
 
 // Detail panel section wrapper
 const DetailSection: React.FC<{ title: string; icon?: React.ReactNode; children: React.ReactNode }> = ({ title, icon, children }) => (
@@ -875,7 +1125,8 @@ const BugTable: React.FC<{
   bugs: QualityWorkItemDto[]; sortField: string; sortDir: string;
   toggleSort: (f: string) => void; compact?: boolean;
   onBugClick?: (id: number) => void; selectedBugId?: number | null;
-}> = ({ bugs, sortField, sortDir, toggleSort, compact, onBugClick, selectedBugId }) => (
+  onContextMenu?: (e: React.MouseEvent, bug: QualityWorkItemDto) => void;
+}> = ({ bugs, sortField, sortDir, toggleSort, compact, onBugClick, selectedBugId, onContextMenu }) => (
   <div className="overflow-x-auto">
     <table className="w-full text-sm">
       <thead>
@@ -910,6 +1161,7 @@ const BugTable: React.FC<{
           <tr
             key={bug.id}
             onClick={() => onBugClick?.(bug.id)}
+            onContextMenu={e => onContextMenu?.(e, bug)}
             className={`transition-all duration-150 cursor-pointer group ${
               selectedBugId === bug.id
                 ? 'bg-blue-50 dark:bg-blue-900/20 border-l-[3px] border-l-blue-600'
@@ -991,7 +1243,8 @@ const OverviewTab: React.FC<{
   setBugFilter: React.Dispatch<React.SetStateAction<{ state: string; severity: string; search: string }>>;
   sortField: string; sortDir: string; toggleSort: (f: string) => void;
   onBugClick: (id: number) => void; selectedBugId: number | null;
-}> = ({ kpi, bugs, trendData, agingData, todayActivity, birthdays, bugFilter, setBugFilter, sortField, sortDir, toggleSort, onBugClick, selectedBugId }) => {
+  onContextMenu?: (e: React.MouseEvent, bug: QualityWorkItemDto) => void;
+}> = ({ kpi, bugs, trendData, agingData, todayActivity, birthdays, bugFilter, setBugFilter, sortField, sortDir, toggleSort, onBugClick, selectedBugId, onContextMenu }) => {
   const [expandedPrRepo, setExpandedPrRepo] = useState<string | null>(null);
   const [expandedCommitRepo, setExpandedCommitRepo] = useState<string | null>(null);
   
@@ -1369,7 +1622,7 @@ const OverviewTab: React.FC<{
           </div>
         }
       >
-        <BugTable bugs={bugs.slice(0, 50)} sortField={sortField} sortDir={sortDir} toggleSort={toggleSort} onBugClick={onBugClick} selectedBugId={selectedBugId} />
+        <BugTable bugs={bugs.slice(0, 50)} sortField={sortField} sortDir={sortDir} toggleSort={toggleSort} onBugClick={onBugClick} selectedBugId={selectedBugId} onContextMenu={onContextMenu} />
         {bugs.length > 50 && (
           <div className="px-5 py-3 text-center border-t border-slate-100 dark:border-slate-700/40">
             <p className="text-xs text-slate-500 dark:text-slate-400">Showing 50 of {bugs.length} items</p>
@@ -1387,7 +1640,8 @@ const MyBugsTab: React.FC<{
   bugs: QualityWorkItemDto[]; userEmail: string;
   sortField: string; sortDir: string; toggleSort: (f: string) => void;
   onBugClick: (id: number) => void; selectedBugId: number | null;
-}> = ({ bugs, userEmail, sortField, sortDir, toggleSort, onBugClick, selectedBugId }) => {
+  onContextMenu?: (e: React.MouseEvent, bug: QualityWorkItemDto) => void;
+}> = ({ bugs, userEmail, sortField, sortDir, toggleSort, onBugClick, selectedBugId, onContextMenu }) => {
   const activeBugs = bugs.filter(b => b.state === 'Active' || b.state === 'New' || b.state === 'In Progress');
   const resolvedBugs = bugs.filter(b => b.state === 'Resolved' || b.state === 'Done' || b.state === 'Closed');
   const oldBugs = activeBugs.filter(b => b.ageDays > 14);
@@ -1447,7 +1701,7 @@ const MyBugsTab: React.FC<{
           )}
 
           <Card title={`My Work Items (${bugs.length})`} titleIcon={<User className="w-3.5 h-3.5 text-blue-500" />}>
-            <BugTable bugs={bugs} sortField={sortField} sortDir={sortDir} toggleSort={toggleSort} compact onBugClick={onBugClick} selectedBugId={selectedBugId} />
+            <BugTable bugs={bugs} sortField={sortField} sortDir={sortDir} toggleSort={toggleSort} compact onBugClick={onBugClick} selectedBugId={selectedBugId} onContextMenu={onContextMenu} />
           </Card>
         </>
       )}
@@ -1547,62 +1801,116 @@ const SprintsTab: React.FC<{
 );
 
 // ============================================================================
-// Team Tab — developer efficiency leaderboard
+// Team Tab — developer efficiency with expandable work item rows
 // ============================================================================
-const TeamTab: React.FC<{ owners: OwnerEfficiencyDto[] }> = ({ owners }) => (
-  <div className="space-y-4">
-    {owners.length === 0 ? (
-      <Card className="!py-0">
-        <div className="py-16 text-center">
-          <div className="w-14 h-14 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
-            <Users className="w-7 h-7 text-slate-400" />
+const TeamTab: React.FC<{ owners: OwnerEfficiencyDto[]; onBugClick: (id: number) => void }> = ({ owners, onBugClick }) => {
+  const [expandedOwner, setExpandedOwner] = useState<string | null>(null);
+
+  // Team aggregate stats
+  const totalAssigned = owners.reduce((s, o) => s + o.totalAssigned, 0);
+  const totalActive = owners.reduce((s, o) => s + o.active, 0);
+  const totalResolved = owners.reduce((s, o) => s + o.resolved, 0);
+  const avgEfficiency = owners.length > 0 ? Math.round(owners.reduce((s, o) => s + o.efficiencyScore, 0) / owners.length) : 0;
+
+  return (
+    <div className="space-y-4">
+      {owners.length === 0 ? (
+        <Card className="!py-0">
+          <div className="py-16 text-center">
+            <div className="w-14 h-14 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
+              <Users className="w-7 h-7 text-slate-400" />
+            </div>
+            <p className="text-lg font-semibold text-slate-900 dark:text-white mb-1">No developer data</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">No developer metrics available for this selection</p>
           </div>
-          <p className="text-lg font-semibold text-slate-900 dark:text-white mb-1">No developer data</p>
-          <p className="text-sm text-slate-500 dark:text-slate-400">No developer metrics available for this selection</p>
-        </div>
-      </Card>
-    ) : (
-      <Card title="Team Efficiency" titleIcon={<Users className="w-4 h-4" />}>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-700/50">
-                <th className="px-5 py-3 text-left text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Developer</th>
-                <th className="px-3 py-3 text-center text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total</th>
-                <th className="px-3 py-3 text-center text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Active</th>
-                <th className="px-3 py-3 text-center text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Resolved</th>
-                <th className="px-3 py-3 text-center text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Avg Days</th>
-                <th className="px-3 py-3 text-center text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Efficiency</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-              {owners.map((o, i) => (
-                <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                  <td className="px-5 py-3 text-slate-900 dark:text-white font-semibold flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs font-bold">{o.ownerName?.charAt(0) || '?'}</div>
-                    {o.ownerName}
-                  </td>
-                  <td className="px-3 py-3 text-center text-slate-700 dark:text-slate-300 font-medium">{o.totalAssigned}</td>
-                  <td className="px-3 py-3 text-center text-amber-600 dark:text-amber-400 font-semibold">{o.active}</td>
-                  <td className="px-3 py-3 text-center text-emerald-600 dark:text-emerald-400 font-semibold">{o.resolved}</td>
-                  <td className="px-3 py-3 text-center text-blue-600 dark:text-blue-400 font-medium">{o.avgResolutionDays}d</td>
-                  <td className="px-3 py-3 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="w-16 bg-slate-200 dark:bg-slate-700 rounded-full h-1.5">
-                        <div className={`h-1.5 rounded-full ${getEfficiencyColor(o.efficiencyScore)}`} style={{ width: `${Math.min(o.efficiencyScore, 100)}%` }} />
+        </Card>
+      ) : (
+        <>
+          {/* Team Summary Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <MiniStat label="Team Members" value={owners.length} icon={<Users className="w-3 h-3" />} />
+            <MiniStat label="Total Assigned" value={totalAssigned} icon={<BarChart3 className="w-3 h-3" />} />
+            <MiniStat label="Active" value={totalActive} color="text-amber-600 dark:text-amber-400" />
+            <MiniStat label="Resolved" value={totalResolved} color="text-emerald-600 dark:text-emerald-400" />
+            <MiniStat label="Avg Efficiency" value={`${avgEfficiency}%`} color={avgEfficiency >= 70 ? 'text-emerald-600 dark:text-emerald-400' : avgEfficiency >= 40 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'} />
+          </div>
+
+          {/* Developer Cards with Expandable Work Items */}
+          <Card title="Team Efficiency" titleIcon={<Users className="w-4 h-4" />}>
+            <div className="divide-y divide-slate-100 dark:divide-slate-800/50">
+              {owners.map((o, i) => {
+                const isExpanded = expandedOwner === o.ownerName;
+                return (
+                  <div key={i}>
+                    <button onClick={() => setExpandedOwner(isExpanded ? null : o.ownerName)}
+                      className="w-full flex items-center gap-3 px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors text-left">
+                      {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />}
+                      <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs font-bold shrink-0">
+                        {o.ownerName?.charAt(0) || '?'}
                       </div>
-                      <span className={`font-bold text-xs ${getEfficiencyColor(o.efficiencyScore)}`}>{o.efficiencyScore}%</span>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-    )}
-  </div>
-);
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-semibold text-slate-900 dark:text-white">{o.ownerName}</span>
+                        {o.reopenRate > 0 && <span className="ml-2 text-[10px] text-amber-600 dark:text-amber-400 font-medium">{o.reopenRate}% reopen</span>}
+                      </div>
+                      <div className="flex items-center gap-4 text-xs shrink-0">
+                        <div className="text-center">
+                          <p className="text-slate-900 dark:text-white font-bold">{o.totalAssigned}</p>
+                          <p className="text-[10px] text-slate-400">Total</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-amber-600 dark:text-amber-400 font-bold">{o.active}</p>
+                          <p className="text-[10px] text-slate-400">Active</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-emerald-600 dark:text-emerald-400 font-bold">{o.resolved}</p>
+                          <p className="text-[10px] text-slate-400">Resolved</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-blue-600 dark:text-blue-400 font-medium">{o.avgResolutionDays}d</p>
+                          <p className="text-[10px] text-slate-400">Avg</p>
+                        </div>
+                        <div className="flex items-center gap-2 w-24">
+                          <div className="w-14 bg-slate-200 dark:bg-slate-700 rounded-full h-1.5">
+                            <div className={`h-1.5 rounded-full ${getEfficiencyColor(o.efficiencyScore)}`} style={{ width: `${Math.min(o.efficiencyScore, 100)}%` }} />
+                          </div>
+                          <span className={`font-bold text-xs ${getEfficiencyColor(o.efficiencyScore)}`}>{o.efficiencyScore}%</span>
+                        </div>
+                      </div>
+                    </button>
+                    {isExpanded && o.workItems && o.workItems.length > 0 && (
+                      <div className="border-t border-slate-100 dark:border-slate-800/50 bg-slate-50/50 dark:bg-slate-800/20">
+                        <div className="px-5 py-2 max-h-60 overflow-y-auto">
+                          <table className="w-full text-xs">
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/30">
+                              {o.workItems.map(wi => (
+                                <tr key={wi.id} onClick={() => onBugClick(wi.id)} className="hover:bg-slate-100 dark:hover:bg-slate-800/40 cursor-pointer transition-colors">
+                                  <td className="px-2 py-1.5 text-blue-600 dark:text-blue-400 font-mono font-semibold w-16">{wi.id}</td>
+                                  <td className="px-2 py-1.5"><span className={`px-1.5 py-0.5 rounded-md border text-[10px] font-semibold ${getTypeBadge(wi.workItemType)}`}>{wi.workItemType}</span></td>
+                                  <td className="px-2 py-1.5"><span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${getStateColor(wi.state)}`}>{wi.state}</span></td>
+                                  <td className="px-2 py-1.5 text-slate-700 dark:text-slate-300 truncate max-w-xs">{wi.title}</td>
+                                  <td className="px-2 py-1.5 text-slate-400 whitespace-nowrap">{wi.ageDays}d</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                    {isExpanded && (!o.workItems || o.workItems.length === 0) && (
+                      <div className="border-t border-slate-100 dark:border-slate-800/50 px-5 py-4 bg-slate-50/50 dark:bg-slate-800/20">
+                        <p className="text-xs text-slate-400 text-center">No work items detail available for this developer</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        </>
+      )}
+    </div>
+  );
+};
 
 // ============================================================================
 // Search / Query Tab — filter-driven bug exploration
@@ -1611,7 +1919,8 @@ const SearchTab: React.FC<{
   filterOptions: QualityFilterOptionsDto | null;
   connectionId?: string;
   onBugClick: (id: number) => void; selectedBugId: number | null;
-}> = ({ filterOptions, connectionId, onBugClick, selectedBugId }) => {
+  onContextMenu?: (e: React.MouseEvent, bug: QualityWorkItemDto) => void;
+}> = ({ filterOptions, connectionId, onBugClick, selectedBugId, onContextMenu }) => {
   const [filter, setFilter] = useState({ state: '', severity: '', assignedTo: '', areaPath: '', search: '' });
   const [results, setResults] = useState<QualityWorkItemDto[]>([]);
   const [searching, setSearching] = useState(false);
@@ -1672,7 +1981,7 @@ const SearchTab: React.FC<{
 
       {results.length > 0 && (
         <Card title={`Results (${results.length})`} titleIcon={<Search className="w-4 h-4" />}>
-          <BugTable bugs={results} sortField="createdDate" sortDir="desc" toggleSort={() => {}} onBugClick={onBugClick} selectedBugId={selectedBugId} />
+          <BugTable bugs={results} sortField="createdDate" sortDir="desc" toggleSort={() => {}} onBugClick={onBugClick} selectedBugId={selectedBugId} onContextMenu={onContextMenu} />
         </Card>
       )}
     </div>

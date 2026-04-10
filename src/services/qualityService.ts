@@ -522,6 +522,32 @@ export interface BugDetailContext {
   };
 }
 
+// Work Item Relations / Linked Commits
+export interface LinkedCommit {
+  commitId: string;
+  shortCommitId: string;
+  comment: string;
+  authorName: string;
+  authorEmail: string;
+  authorDate: string;
+  repositoryId: string;
+  additions: number;
+  edits: number;
+  deletions: number;
+}
+
+export interface LinkedPR {
+  url: string;
+  name: string;
+}
+
+export interface WorkItemRelations {
+  workItemId: number;
+  totalCommits: number;
+  commits: LinkedCommit[];
+  pullRequestLinks: LinkedPR[];
+}
+
 export const getRepositories = async (connectionId?: string): Promise<QualityRepository[]> => {
   const response = await api.get<QualityRepository[]>(`/quality/repositories${buildParams(connectionId)}`);
   return response.data;
@@ -539,6 +565,11 @@ export const getKpiSummary = async (connectionId?: string, areaPath?: string): P
 
 export const getBugDetailWithContext = async (workItemId: number, connectionId?: string): Promise<BugDetailContext> => {
   const response = await api.get<BugDetailContext>(`/quality/bug-detail/${workItemId}${buildParams(connectionId)}`);
+  return response.data;
+};
+
+export const getWorkItemCommits = async (workItemId: number, connectionId?: string): Promise<WorkItemRelations> => {
+  const response = await api.get<WorkItemRelations>(`/quality/work-item-commits/${workItemId}${buildParams(connectionId)}`);
   return response.data;
 };
 
