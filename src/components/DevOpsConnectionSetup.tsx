@@ -25,6 +25,7 @@ export default function DevOpsConnectionSetup({ onConnectionChange, mode = 'badg
   // Form state
   const [pat, setPat] = useState('');
   const [selectedOrg, setSelectedOrg] = useState('');
+  const [manualOrgUrl, setManualOrgUrl] = useState('');
   const [selectedProject, setSelectedProject] = useState('');
   const [connectionName, setConnectionName] = useState('');
 
@@ -59,12 +60,15 @@ export default function DevOpsConnectionSetup({ onConnectionChange, mode = 'badg
 
   useEffect(() => { loadStatus(); }, [loadStatus]);
 
+  // Effective org URL: prefer dropdown selection, fall back to manual entry
+  const effectiveOrg = selectedOrg || manualOrgUrl.trim();
+
   const handleTestPat = async () => {
     if (!pat.trim()) return;
     setTesting(true);
     setTestResult(null);
     try {
-      const result = await testPatConnection(pat.trim());
+      const result = await testPatConnection(pat.trim(), effectiveOrg || undefined, selectedProject || undefined);
       setTestResult(result);
       if (result.success) {
         // Auto-discover organizations on successful test
@@ -114,19 +118,20 @@ export default function DevOpsConnectionSetup({ onConnectionChange, mode = 'badg
   };
 
   const handleSave = async () => {
-    if (!selectedOrg || !selectedProject) return;
+    if (!effectiveOrg || !selectedProject) return;
     setSaving(true);
     setSaveResult(null);
     try {
       const result = await savePatConnection({
         pat: pat.trim() || undefined,
-        organizationUrl: selectedOrg,
+        organizationUrl: effectiveOrg,
         projectName: selectedProject,
         connectionName: connectionName.trim() || undefined,
       });
       setSaveResult(result);
       if (result.success) {
         setPat('');
+        setManualOrgUrl('');
         await loadStatus();
         onConnectionChange?.();
         // Auto-collapse after success
@@ -146,6 +151,7 @@ export default function DevOpsConnectionSetup({ onConnectionChange, mode = 'badg
       setStatus(null);
       setPat('');
       setSelectedOrg('');
+      setManualOrgUrl('');
       setSelectedProject('');
       setConnectionName('');
       setOrganizations([]);
@@ -159,9 +165,19 @@ export default function DevOpsConnectionSetup({ onConnectionChange, mode = 'badg
 
   const handleOrgChange = (org: string) => {
     setSelectedOrg(org);
+    setManualOrgUrl('');
     setSelectedProject('');
     setProjects([]);
     if (org) handleDiscoverProjects(org);
+  };
+
+  const handleManualOrgBlur = () => {
+    const url = manualOrgUrl.trim();
+    if (url && !selectedOrg) {
+      setSelectedProject('');
+      setProjects([]);
+      if (pat.trim()) handleDiscoverProjects(url);
+    }
   };
 
   if (loading) return null;
@@ -282,35 +298,54 @@ export default function DevOpsConnectionSetup({ onConnectionChange, mode = 'badg
         )}
       </div>
 
-      {/* Organization dropdown */}
+      {/* Organization */}
       <div className="space-y-1.5">
-        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Organization</label>
-        <div className="flex gap-2">
-          <select
-            value={selectedOrg}
-            onChange={e => handleOrgChange(e.target.value)}
-            className="flex-1 px-3 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">
-              {discoveringOrgs ? 'Discovering organizations...' : organizations.length ? 'Select an organization' : 'Enter PAT & test to discover orgs'}
-            </option>
-            {organizations.map(org => (
-              <option key={org.id || org.name} value={org.url}>
-                {org.name}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={() => handleDiscoverOrgs()}
-            disabled={!pat.trim() || discoveringOrgs}
-            className="px-2.5 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 text-gray-600 dark:text-gray-300"
-            title="Refresh organizations"
-          >
-            {discoveringOrgs ? (
-              <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-            ) : '🔄'}
-          </button>
-        </div>
+        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Organization URL</label>
+        {/* Manual URL input */}
+        <input
+          type="text"
+          value={selectedOrg || manualOrgUrl}
+          onChange={e => {
+            if (selectedOrg) {
+              // Clear dropdown selection and switch to manual
+              setSelectedOrg('');
+            }
+            setManualOrgUrl(e.target.value);
+          }}
+          onBlur={handleManualOrgBlur}
+          placeholder="https://dev.azure.com/your-org"
+          className="w-full px-3 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+        {/* Discovered orgs dropdown (shown only when orgs available) */}
+        {organizations.length > 0 && (
+          <div className="flex gap-2">
+            <select
+              value={selectedOrg}
+              onChange={e => handleOrgChange(e.target.value)}
+              className="flex-1 px-3 py-1.5 text-[11px] border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900/50 text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Discovered organizations ({organizations.length})</option>
+              {organizations.map(org => (
+                <option key={org.id || org.name} value={org.url}>
+                  {org.name}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => handleDiscoverOrgs()}
+              disabled={!pat.trim() || discoveringOrgs}
+              className="px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 text-gray-500 dark:text-gray-400"
+              title="Refresh organizations"
+            >
+              {discoveringOrgs ? (
+                <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+              ) : '🔄'}
+            </button>
+          </div>
+        )}
+        {!organizations.length && pat.trim() && (
+          <p className="text-[10px] text-gray-400">Enter your org URL above, or <button type="button" onClick={() => handleDiscoverOrgs()} disabled={discoveringOrgs} className="text-blue-500 hover:underline disabled:opacity-40">{discoveringOrgs ? 'discovering...' : 'auto-discover orgs'}</button></p>
+        )}
       </div>
 
       {/* Project dropdown */}
@@ -320,11 +355,11 @@ export default function DevOpsConnectionSetup({ onConnectionChange, mode = 'badg
           <select
             value={selectedProject}
             onChange={e => setSelectedProject(e.target.value)}
-            disabled={!selectedOrg}
+            disabled={!effectiveOrg}
             className="flex-1 px-3 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
           >
             <option value="">
-              {discoveringProjects ? 'Discovering projects...' : projects.length ? 'Select a project' : selectedOrg ? 'No projects found' : 'Select org first'}
+              {discoveringProjects ? 'Discovering projects...' : projects.length ? 'Select a project' : effectiveOrg ? 'No projects found' : 'Enter org URL first'}
             </option>
             {projects.map(p => (
               <option key={p.id || p.name} value={p.name}>
@@ -334,7 +369,7 @@ export default function DevOpsConnectionSetup({ onConnectionChange, mode = 'badg
           </select>
           <button
             onClick={() => handleDiscoverProjects()}
-            disabled={!selectedOrg || !pat.trim() || discoveringProjects}
+            disabled={!effectiveOrg || !pat.trim() || discoveringProjects}
             className="px-2.5 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 text-gray-600 dark:text-gray-300"
             title="Refresh projects"
           >
@@ -390,7 +425,7 @@ export default function DevOpsConnectionSetup({ onConnectionChange, mode = 'badg
           )}
           <button
             onClick={handleSave}
-            disabled={!selectedOrg || !selectedProject || saving || (!pat.trim() && !status?.configured)}
+            disabled={!effectiveOrg || !selectedProject || saving || (!pat.trim() && !status?.configured)}
             className="px-4 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
           >
             {saving ? (
