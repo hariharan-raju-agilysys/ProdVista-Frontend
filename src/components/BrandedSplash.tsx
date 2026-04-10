@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 const basePath = import.meta.env.VITE_BASE_PATH || '';
 
 /* ------------------------------------------------------------------ */
-/*  Rotating quotes — tech-themed, inspirational, fun                 */
+/*  Rotating quotes — bottom-center (Slack-style)                     */
 /* ------------------------------------------------------------------ */
 const quotes = [
   { text: 'First, solve the problem. Then, write the code.', author: 'John Johnson' },
@@ -21,137 +21,44 @@ const quotes = [
 ];
 
 /* ------------------------------------------------------------------ */
-/*  CSS-only animated astronaut character                              */
+/*  Particle constellation background (nodes + connecting lines)      */
 /* ------------------------------------------------------------------ */
-function AstroCharacter() {
-  return (
-    <div className="relative w-28 h-36 select-none" aria-hidden="true">
-      {/* Floating wrapper */}
-      <div
-        className="w-full h-full"
-        style={{
-          animation: 'astroFloat 3s ease-in-out infinite',
-        }}
-      >
-        {/* === Helmet / Head === */}
-        <div className="relative mx-auto w-[68px] h-[68px] rounded-[20px] bg-gradient-to-br from-slate-100 via-white to-slate-200 border-2 border-slate-300 shadow-lg">
-          {/* Visor */}
-          <div className="absolute inset-[6px] rounded-[14px] bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 overflow-hidden">
-            {/* Visor glare */}
-            <div
-              className="absolute top-1 right-1 w-4 h-6 rounded-full bg-white/10"
-              style={{ transform: 'rotate(-20deg)' }}
-            />
-            {/* Eyes */}
-            <div className="flex gap-[10px] justify-center pt-[14px]">
-              <div
-                className="w-[9px] h-[9px] rounded-full bg-cyan-400"
-                style={{
-                  boxShadow: '0 0 8px rgba(34,211,238,0.7), 0 0 16px rgba(34,211,238,0.3)',
-                  animation: 'astroBlink 4s ease-in-out infinite',
-                }}
-              />
-              <div
-                className="w-[9px] h-[9px] rounded-full bg-cyan-400"
-                style={{
-                  boxShadow: '0 0 8px rgba(34,211,238,0.7), 0 0 16px rgba(34,211,238,0.3)',
-                  animation: 'astroBlink 4s ease-in-out infinite 0.15s',
-                }}
-              />
-            </div>
-            {/* Smile */}
-            <div className="mx-auto mt-[6px] w-[14px] h-[6px] border-b-2 border-cyan-400/80 rounded-b-full" />
-          </div>
-          {/* Antenna */}
-          <div className="absolute -top-[10px] left-1/2 -ml-[2px] w-[4px] h-[10px] bg-slate-300 rounded-t-full">
-            <div
-              className="absolute -top-[5px] left-1/2 -ml-[5px] w-[10px] h-[10px] rounded-full bg-blue-400"
-              style={{
-                boxShadow: '0 0 10px rgba(96,165,250,0.6)',
-                animation: 'antennaPulse 2s ease-in-out infinite',
-              }}
-            />
-          </div>
-        </div>
+const PARTICLE_COUNT = 40;
 
-        {/* === Body === */}
-        <div className="relative mx-auto w-[52px] h-[42px] rounded-b-[14px] bg-gradient-to-b from-slate-200 to-slate-300 border-2 border-t-0 border-slate-300">
-          {/* Chest indicator */}
-          <div
-            className="mx-auto mt-[7px] w-[12px] h-[12px] rounded-full bg-gradient-to-br from-cyan-300 to-blue-500"
-            style={{
-              boxShadow: '0 0 10px rgba(34,211,238,0.5)',
-              animation: 'chestPulse 2.5s ease-in-out infinite',
-            }}
-          />
-          {/* Belt */}
-          <div className="mx-auto mt-[3px] w-[36px] h-[3px] rounded-full bg-slate-400/50" />
-        </div>
-
-        {/* === Left Arm (waving!) === */}
-        <div
-          className="absolute top-[62px] left-[8px] w-[12px] h-[30px] rounded-full bg-gradient-to-b from-slate-200 to-slate-300 border border-slate-300"
-          style={{
-            transformOrigin: 'top center',
-            animation: 'armWave 2.5s ease-in-out infinite',
-          }}
-        >
-          {/* Glove */}
-          <div className="absolute -bottom-[3px] left-1/2 -ml-[5px] w-[10px] h-[10px] rounded-full bg-white border border-slate-300" />
-        </div>
-
-        {/* === Right Arm === */}
-        <div
-          className="absolute top-[62px] right-[8px] w-[12px] h-[30px] rounded-full bg-gradient-to-b from-slate-200 to-slate-300 border border-slate-300"
-          style={{ transform: 'rotate(8deg)' }}
-        >
-          <div className="absolute -bottom-[3px] left-1/2 -ml-[5px] w-[10px] h-[10px] rounded-full bg-white border border-slate-300" />
-        </div>
-
-        {/* === Legs === */}
-        <div className="flex justify-center gap-[6px] -mt-[1px]">
-          <div className="w-[16px] h-[18px] rounded-b-lg bg-gradient-to-b from-slate-300 to-slate-400 border border-t-0 border-slate-300">
-            <div className="mt-[10px] w-full h-[8px] rounded-b-lg bg-white/80 border-t border-slate-300" />
-          </div>
-          <div className="w-[16px] h-[18px] rounded-b-lg bg-gradient-to-b from-slate-300 to-slate-400 border border-t-0 border-slate-300">
-            <div className="mt-[10px] w-full h-[8px] rounded-b-lg bg-white/80 border-t border-slate-300" />
-          </div>
-        </div>
-      </div>
-
-      {/* Shadow on ground */}
-      <div
-        className="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-[6px] rounded-full bg-slate-300/50 blur-[2px]"
-        style={{ animation: 'shadowPulse 3s ease-in-out infinite' }}
-      />
-    </div>
-  );
+function useParticles() {
+  return useMemo(() =>
+    Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      size: 1.5 + Math.random() * 2.5,
+      duration: 20 + Math.random() * 30,
+      delay: -(Math.random() * 40),
+      driftX: (Math.random() - 0.5) * 30,
+      driftY: (Math.random() - 0.5) * 30,
+      opacity: 0.15 + Math.random() * 0.35,
+    })),
+  []);
 }
 
-/* ------------------------------------------------------------------ */
-/*  Sparkle particles around the character                            */
-/* ------------------------------------------------------------------ */
-function Sparkles() {
+function ParticleNetwork() {
+  const particles = useParticles();
   return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
-      {[
-        { top: '18%', left: '20%', delay: '0s', size: 3 },
-        { top: '25%', right: '22%', delay: '1.2s', size: 2 },
-        { top: '60%', left: '15%', delay: '0.6s', size: 2.5 },
-        { top: '55%', right: '18%', delay: '1.8s', size: 3 },
-        { top: '40%', left: '28%', delay: '2.4s', size: 2 },
-        { top: '35%', right: '30%', delay: '0.3s', size: 2 },
-      ].map((s, i) => (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+      {particles.map((p) => (
         <div
-          key={i}
-          className="absolute rounded-full bg-blue-400/60"
+          key={p.id}
+          className="absolute rounded-full"
           style={{
-            top: s.top,
-            left: s.left,
-            right: s.right,
-            width: s.size,
-            height: s.size,
-            animation: `sparkle 3s ease-in-out infinite ${s.delay}`,
+            left: `${p.x}%`,
+            top: `${p.y}%`,
+            width: p.size,
+            height: p.size,
+            background: `rgba(99, 179, 237, ${p.opacity})`,
+            boxShadow: `0 0 ${p.size * 3}px rgba(99, 179, 237, ${p.opacity * 0.5})`,
+            animation: `particleDrift ${p.duration}s ease-in-out infinite ${p.delay}s`,
+            ['--drift-x' as string]: `${p.driftX}px`,
+            ['--drift-y' as string]: `${p.driftY}px`,
           }}
         />
       ))}
@@ -160,14 +67,224 @@ function Sparkles() {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Aurora gradient blobs — animated background glow                  */
+/* ------------------------------------------------------------------ */
+function AuroraBackground() {
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+      {/* Primary aurora blob */}
+      <div
+        className="absolute w-[600px] h-[600px] rounded-full opacity-[0.07]"
+        style={{
+          background: 'radial-gradient(circle, #3b82f6 0%, transparent 70%)',
+          left: '10%',
+          top: '10%',
+          animation: 'auroraMove1 20s ease-in-out infinite',
+          filter: 'blur(60px)',
+        }}
+      />
+      {/* Secondary aurora blob */}
+      <div
+        className="absolute w-[500px] h-[500px] rounded-full opacity-[0.06]"
+        style={{
+          background: 'radial-gradient(circle, #06b6d4 0%, transparent 70%)',
+          right: '5%',
+          bottom: '15%',
+          animation: 'auroraMove2 25s ease-in-out infinite',
+          filter: 'blur(80px)',
+        }}
+      />
+      {/* Tertiary accent */}
+      <div
+        className="absolute w-[400px] h-[400px] rounded-full opacity-[0.04]"
+        style={{
+          background: 'radial-gradient(circle, #8b5cf6 0%, transparent 70%)',
+          left: '50%',
+          top: '50%',
+          transform: 'translate(-50%, -50%)',
+          animation: 'auroraMove3 18s ease-in-out infinite',
+          filter: 'blur(70px)',
+        }}
+      />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Core orb with orbital rings                                       */
+/* ------------------------------------------------------------------ */
+function ProcessingOrb() {
+  return (
+    <div className="relative w-44 h-44 select-none" aria-hidden="true">
+      {/* Outer glow pulse */}
+      <div
+        className="absolute inset-0 rounded-full"
+        style={{
+          background: 'radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%)',
+          animation: 'orbGlow 3s ease-in-out infinite',
+        }}
+      />
+
+      {/* Orbital ring 1 — tilted, slow */}
+      <div
+        className="absolute inset-2"
+        style={{
+          animation: 'orbitSpin1 8s linear infinite',
+          transformStyle: 'preserve-3d',
+          transform: 'rotateX(65deg) rotateY(10deg)',
+        }}
+      >
+        <div className="w-full h-full rounded-full border border-blue-400/20" />
+        {/* Orbiting dot */}
+        <div
+          className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-blue-400"
+          style={{ boxShadow: '0 0 10px rgba(59,130,246,0.8), 0 0 20px rgba(59,130,246,0.4)' }}
+        />
+      </div>
+
+      {/* Orbital ring 2 — different tilt, medium speed */}
+      <div
+        className="absolute inset-5"
+        style={{
+          animation: 'orbitSpin2 6s linear infinite',
+          transformStyle: 'preserve-3d',
+          transform: 'rotateX(72deg) rotateY(-20deg)',
+        }}
+      >
+        <div className="w-full h-full rounded-full border border-cyan-400/15" />
+        <div
+          className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-cyan-400"
+          style={{ boxShadow: '0 0 8px rgba(6,182,212,0.8), 0 0 16px rgba(6,182,212,0.3)' }}
+        />
+      </div>
+
+      {/* Orbital ring 3 — fast, tight */}
+      <div
+        className="absolute inset-9"
+        style={{
+          animation: 'orbitSpin3 4.5s linear infinite',
+          transformStyle: 'preserve-3d',
+          transform: 'rotateX(60deg) rotateY(30deg)',
+        }}
+      >
+        <div className="w-full h-full rounded-full border border-violet-400/15" />
+        <div
+          className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-violet-400"
+          style={{ boxShadow: '0 0 8px rgba(167,139,250,0.8)' }}
+        />
+      </div>
+
+      {/* Central core sphere */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div
+          className="w-16 h-16 rounded-full relative"
+          style={{
+            background: 'radial-gradient(circle at 35% 35%, #60a5fa 0%, #3b82f6 40%, #1d4ed8 80%, #1e3a5f 100%)',
+            boxShadow: '0 0 30px rgba(59,130,246,0.4), 0 0 60px rgba(59,130,246,0.15), inset 0 -4px 12px rgba(0,0,0,0.2)',
+            animation: 'corePulse 3s ease-in-out infinite',
+          }}
+        >
+          {/* Surface highlight */}
+          <div
+            className="absolute top-1.5 left-2 w-6 h-4 rounded-full bg-white/25"
+            style={{ filter: 'blur(3px)' }}
+          />
+          {/* Inner pulse ring */}
+          <div
+            className="absolute inset-0 rounded-full border border-blue-300/30"
+            style={{ animation: 'innerRingPulse 2s ease-in-out infinite' }}
+          />
+        </div>
+      </div>
+
+      {/* Scanning sweep line */}
+      <div
+        className="absolute inset-0"
+        style={{ animation: 'scanSweep 4s linear infinite' }}
+      >
+        <div
+          className="absolute top-1/2 left-1/2 h-[1px] origin-left"
+          style={{
+            width: '50%',
+            background: 'linear-gradient(90deg, rgba(59,130,246,0.4) 0%, transparent 100%)',
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Rising data particles (the "processing" effect)                   */
+/* ------------------------------------------------------------------ */
+function DataStream() {
+  const streams = useMemo(() =>
+    Array.from({ length: 20 }, (_, i) => ({
+      id: i,
+      left: 15 + Math.random() * 70,
+      size: 2 + Math.random() * 3,
+      duration: 4 + Math.random() * 6,
+      delay: Math.random() * 8,
+      opacity: 0.1 + Math.random() * 0.25,
+    })),
+  []);
+
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+      {streams.map((s) => (
+        <div
+          key={s.id}
+          className="absolute rounded-full"
+          style={{
+            left: `${s.left}%`,
+            bottom: '-5%',
+            width: s.size,
+            height: s.size,
+            background: `rgba(147, 197, 253, ${s.opacity})`,
+            boxShadow: `0 0 ${s.size * 2}px rgba(147, 197, 253, ${s.opacity * 0.6})`,
+            animation: `dataRise ${s.duration}s ease-out infinite ${s.delay}s`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Perspective grid floor                                            */
+/* ------------------------------------------------------------------ */
+function GridFloor() {
+  return (
+    <div
+      className="absolute bottom-0 left-0 right-0 h-[35%] overflow-hidden pointer-events-none opacity-[0.04]"
+      aria-hidden="true"
+      style={{
+        perspective: '500px',
+        perspectiveOrigin: '50% 0%',
+      }}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage:
+            'linear-gradient(rgba(59,130,246,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,0.6) 1px, transparent 1px)',
+          backgroundSize: '60px 60px',
+          transform: 'rotateX(55deg)',
+          transformOrigin: 'bottom center',
+          animation: 'gridScroll 10s linear infinite',
+        }}
+      />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Main Branded Splash                                               */
 /* ------------------------------------------------------------------ */
 interface BrandedSplashProps {
-  /** Status message below the character, e.g. "Authenticating..." */
   message?: string;
-  /** Sub-message, e.g. "Signing in to Versa" */
   subMessage?: string;
-  /** Animated status dots cycling (overrides message when provided) */
   statusDots?: string[];
 }
 
@@ -176,7 +293,6 @@ export default function BrandedSplash({ message, subMessage, statusDots }: Brand
   const [dotIdx, setDotIdx] = useState(0);
   const [quoteVisible, setQuoteVisible] = useState(true);
 
-  // Rotate quotes every 5s with fade transition
   useEffect(() => {
     const interval = setInterval(() => {
       setQuoteVisible(false);
@@ -184,11 +300,10 @@ export default function BrandedSplash({ message, subMessage, statusDots }: Brand
         setQuoteIdx((prev) => (prev + 1) % quotes.length);
         setQuoteVisible(true);
       }, 400);
-    }, 5000);
+    }, 6000);
     return () => clearInterval(interval);
   }, []);
 
-  // Cycle status dots
   useEffect(() => {
     if (!statusDots?.length) return;
     const interval = setInterval(() => setDotIdx((p) => (p + 1) % statusDots.length), 2200);
@@ -198,132 +313,183 @@ export default function BrandedSplash({ message, subMessage, statusDots }: Brand
   const quote = quotes[quoteIdx];
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-white to-blue-50/30 relative overflow-hidden">
-      {/* Subtle background pattern */}
-      <div className="absolute inset-0 opacity-[0.015]" style={{
-        backgroundImage: 'radial-gradient(circle, #3b82f6 1px, transparent 1px)',
-        backgroundSize: '32px 32px',
-      }} />
+    <div
+      className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden"
+      style={{
+        background: 'linear-gradient(145deg, #0c1222 0%, #0f172a 30%, #111827 60%, #0c1222 100%)',
+      }}
+    >
+      {/* Animated aurora gradient blobs */}
+      <AuroraBackground />
 
-      <Sparkles />
+      {/* Perspective grid floor */}
+      <GridFloor />
 
-      {/* Quote at top */}
-      <div className="absolute top-[12%] left-1/2 -translate-x-1/2 w-full max-w-lg px-6 text-center">
+      {/* Floating constellation particles */}
+      <ParticleNetwork />
+
+      {/* Rising data stream particles */}
+      <DataStream />
+
+      {/* Subtle noise texture overlay */}
+      <div
+        className="absolute inset-0 opacity-[0.03] pointer-events-none"
+        style={{
+          backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")',
+        }}
+      />
+
+      {/* === Central content === */}
+      <div className="relative z-10 flex flex-col items-center">
+        {/* Processing orb with orbital rings */}
+        <ProcessingOrb />
+
+        {/* Logo + wordmark */}
+        <div className="flex items-center gap-3 mt-8 mb-5">
+          <img
+            src={`${basePath}/favicon.svg`}
+            alt="ProdVista"
+            className="w-9 h-9 rounded-xl"
+            style={{
+              filter: 'drop-shadow(0 0 8px rgba(59,130,246,0.3))',
+            }}
+          />
+          <span
+            className="text-[22px] font-bold text-white/90 tracking-tight"
+            style={{ fontFamily: "'Inter', 'SF Pro Display', -apple-system, sans-serif" }}
+          >
+            ProdVista
+          </span>
+        </div>
+
+        {/* Status message */}
+        <div className="h-6 flex items-center mb-2">
+          {statusDots ? (
+            <p
+              key={dotIdx}
+              className="text-sm font-medium text-blue-300/80"
+              style={{
+                fontFamily: "'Inter', -apple-system, sans-serif",
+                animation: 'fadeSlideIn 0.3s ease-out',
+              }}
+            >
+              {statusDots[dotIdx]}
+              <span style={{ animation: 'dotPulse 1.4s ease-in-out infinite' }}>...</span>
+            </p>
+          ) : message ? (
+            <p
+              className="text-sm text-slate-400/80"
+              style={{ fontFamily: "'Inter', -apple-system, sans-serif" }}
+            >
+              {message}
+            </p>
+          ) : null}
+        </div>
+
+        {/* Sub-message */}
+        {subMessage && (
+          <p
+            className="text-xs text-slate-500/70"
+            style={{ fontFamily: "'Inter', -apple-system, sans-serif" }}
+          >
+            {subMessage}
+          </p>
+        )}
+
+        {/* Minimal progress bar */}
+        <div className="mt-6 w-48 h-[2px] rounded-full bg-white/5 overflow-hidden">
+          <div
+            className="h-full rounded-full"
+            style={{
+              background: 'linear-gradient(90deg, transparent, #3b82f6, transparent)',
+              animation: 'progressSweep 2s ease-in-out infinite',
+            }}
+          />
+        </div>
+      </div>
+
+      {/* === Quote at bottom-center (Slack-style) === */}
+      <div className="absolute bottom-[7%] left-1/2 -translate-x-1/2 w-full max-w-md px-8 text-center z-10">
         <div
-          className="transition-all duration-400"
+          className="transition-all duration-500"
           style={{
             opacity: quoteVisible ? 1 : 0,
-            transform: quoteVisible ? 'translateY(0)' : 'translateY(-8px)',
+            transform: quoteVisible ? 'translateY(0)' : 'translateY(6px)',
           }}
         >
-          <p
-            className="text-[15px] leading-relaxed text-slate-500 italic"
-            style={{ fontFamily: "'Georgia', 'Times New Roman', serif" }}
-          >
+          <p className="text-[13px] leading-relaxed text-slate-400/60 italic">
             "{quote.text}"
           </p>
-          <p className="mt-2 text-[11px] font-medium tracking-wider uppercase text-slate-400">
-            — {quote.author}
+          <p className="mt-1.5 text-[10px] font-medium tracking-widest uppercase text-slate-500/40">
+            {quote.author}
           </p>
         </div>
       </div>
 
-      {/* Animated character */}
-      <div className="relative mb-8">
-        <AstroCharacter />
-      </div>
-
-      {/* Logo */}
-      <div className="flex items-center gap-3 mb-6">
-        <img
-          src={`${basePath}/favicon.svg`}
-          alt="ProdVista"
-          className="w-9 h-9 rounded-xl shadow-md"
-        />
-        <span
-          className="text-xl font-bold text-gray-900"
-          style={{ fontFamily: "'Inter', 'SF Pro Display', -apple-system, sans-serif", letterSpacing: '-0.02em' }}
-        >
-          ProdVista
-        </span>
-      </div>
-
-      {/* Loading ring */}
-      <div className="relative mb-6">
-        <div
-          className="w-10 h-10 rounded-full border-[3px] border-blue-100"
-          style={{
-            borderTopColor: '#3b82f6',
-            animation: 'spin 1s linear infinite',
-          }}
-        />
-      </div>
-
-      {/* Status message */}
-      {statusDots ? (
-        <div className="h-6 flex items-center">
-          <p
-            key={dotIdx}
-            className="text-sm font-medium text-slate-500"
-            style={{
-              fontFamily: "'Inter', -apple-system, sans-serif",
-              animation: 'fadeSlideIn 0.3s ease-out',
-            }}
-          >
-            {statusDots[dotIdx]}
-            <span style={{ animation: 'dotPulse 1.4s ease-in-out infinite' }}>...</span>
-          </p>
-        </div>
-      ) : message ? (
-        <p
-          className="text-sm text-slate-400"
-          style={{ fontFamily: "'Inter', -apple-system, sans-serif" }}
-        >
-          {message}
-        </p>
-      ) : null}
-
-      {/* Sub-message (e.g. org name) */}
-      {subMessage && (
-        <p
-          className="mt-2 text-xs text-slate-400"
-          style={{ fontFamily: "'Inter', -apple-system, sans-serif" }}
-        >
-          {subMessage}
-        </p>
-      )}
-
-      {/* Keyframe styles — injected once */}
+      {/* Keyframe animations */}
       <style>{`
-        @keyframes astroFloat {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-10px); }
+        @keyframes particleDrift {
+          0%, 100% { transform: translate(0, 0); }
+          25% { transform: translate(var(--drift-x), calc(var(--drift-y) * -1)); }
+          50% { transform: translate(calc(var(--drift-x) * -0.5), var(--drift-y)); }
+          75% { transform: translate(calc(var(--drift-x) * 0.7), calc(var(--drift-y) * -0.3)); }
         }
-        @keyframes astroBlink {
-          0%, 42%, 44%, 100% { transform: scaleY(1); }
-          43% { transform: scaleY(0.1); }
+        @keyframes auroraMove1 {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          33% { transform: translate(60px, 40px) scale(1.1); }
+          66% { transform: translate(-30px, 60px) scale(0.9); }
         }
-        @keyframes antennaPulse {
-          0%, 100% { opacity: 0.6; transform: scale(0.8) translateX(-50%); }
-          50% { opacity: 1; transform: scale(1.1) translateX(-50%); }
+        @keyframes auroraMove2 {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          33% { transform: translate(-50px, -30px) scale(1.15); }
+          66% { transform: translate(40px, -50px) scale(0.95); }
         }
-        @keyframes chestPulse {
-          0%, 100% { opacity: 0.7; }
-          50% { opacity: 1; box-shadow: 0 0 16px rgba(34,211,238,0.7); }
+        @keyframes auroraMove3 {
+          0%, 100% { transform: translate(-50%, -50%) scale(1); }
+          50% { transform: translate(-50%, -50%) scale(1.3); }
         }
-        @keyframes armWave {
-          0%, 100% { transform: rotate(-8deg); }
-          25% { transform: rotate(-35deg); }
-          50% { transform: rotate(-15deg); }
-          75% { transform: rotate(-40deg); }
+        @keyframes orbitSpin1 {
+          from { transform: rotateX(65deg) rotateY(10deg) rotateZ(0deg); }
+          to { transform: rotateX(65deg) rotateY(10deg) rotateZ(360deg); }
         }
-        @keyframes shadowPulse {
-          0%, 100% { transform: translateX(-50%) scaleX(1); opacity: 0.4; }
-          50% { transform: translateX(-50%) scaleX(0.75); opacity: 0.25; }
+        @keyframes orbitSpin2 {
+          from { transform: rotateX(72deg) rotateY(-20deg) rotateZ(0deg); }
+          to { transform: rotateX(72deg) rotateY(-20deg) rotateZ(-360deg); }
         }
-        @keyframes sparkle {
-          0%, 100% { opacity: 0; transform: scale(0); }
-          50% { opacity: 1; transform: scale(1); }
+        @keyframes orbitSpin3 {
+          from { transform: rotateX(60deg) rotateY(30deg) rotateZ(0deg); }
+          to { transform: rotateX(60deg) rotateY(30deg) rotateZ(360deg); }
+        }
+        @keyframes orbGlow {
+          0%, 100% { opacity: 0.5; transform: scale(1); }
+          50% { opacity: 1; transform: scale(1.05); }
+        }
+        @keyframes corePulse {
+          0%, 100% { transform: scale(1); box-shadow: 0 0 30px rgba(59,130,246,0.4), 0 0 60px rgba(59,130,246,0.15), inset 0 -4px 12px rgba(0,0,0,0.2); }
+          50% { transform: scale(1.04); box-shadow: 0 0 40px rgba(59,130,246,0.5), 0 0 80px rgba(59,130,246,0.2), inset 0 -4px 12px rgba(0,0,0,0.2); }
+        }
+        @keyframes innerRingPulse {
+          0%, 100% { transform: scale(1); opacity: 0.3; }
+          50% { transform: scale(1.15); opacity: 0; }
+        }
+        @keyframes scanSweep {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes dataRise {
+          0% { transform: translateY(0) scale(1); opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { transform: translateY(-110vh) scale(0.3); opacity: 0; }
+        }
+        @keyframes gridScroll {
+          0% { background-position: 0 0; }
+          100% { background-position: 0 60px; }
+        }
+        @keyframes progressSweep {
+          0% { transform: translateX(-100%); width: 60%; }
+          50% { width: 40%; }
+          100% { transform: translateX(250%); width: 60%; }
         }
         @keyframes fadeSlideIn {
           from { opacity: 0; transform: translateY(4px); }
