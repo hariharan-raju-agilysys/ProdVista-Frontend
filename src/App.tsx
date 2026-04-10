@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useCallback, useState } from 'react'
+import { Suspense, useEffect, useCallback, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useMsal } from '@azure/msal-react'
 import { InteractionRequiredAuthError, InteractionStatus } from '@azure/msal-browser'
@@ -13,6 +13,7 @@ import SessionExpiredModal from './components/SessionExpiredModal'
 import ProfileSetupModal from './components/ProfileSetupModal'
 import { registerTokenRefresh } from './services/api'
 import { graphScopes, armScopes, devopsScopes } from './config/msalConfig'
+import { lazyWithRetry, lazyNamedWithRetry } from './utils/lazyWithRetry'
 
 // ---------------------------------------------------------------------------
 // Lazy-loaded pages — each page is its own chunk, loaded on first navigation.
@@ -23,43 +24,43 @@ import { graphScopes, armScopes, devopsScopes } from './config/msalConfig'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 
-// Everything else: lazy
-const DynamicDashboardPage = lazy(() => import('./pages/DynamicDashboardPage'))
-const DynamicPageRenderer = lazy(() => import('./components/dynamic').then(m => ({ default: m.DynamicPageRenderer })))
-const EngineeringDashboardV2 = lazy(() => import('./pages/EngineeringDashboardV2'))
-const PullRequestsPage = lazy(() => import('./pages/PullRequestsPage'))
-const DevOpsOverviewPage = lazy(() => import('./pages/DevOpsOverviewPage'))
-const DeveloperToolkitPage = lazy(() => import('./pages/DeveloperToolkitPage'))
-const EngineeringCommandCenter = lazy(() => import('./pages/EngineeringCommandCenter'))
-const ReleaseManagement = lazy(() => import('./pages/ReleaseManagement'))
-const QualityDashboardV2 = lazy(() => import('./pages/QualityDashboardV2'))
-const BugAnalyticsPage = lazy(() => import('./pages/BugAnalyticsPage'))
-const Production = lazy(() => import('./pages/Production'))
-const CustomerDashboardV2 = lazy(() => import('./pages/CustomerDashboardV2'))
-const LogsDashboard = lazy(() => import('./pages/LogsDashboard'))
-const AzureDashboard = lazy(() => import('./pages/AzureDashboard'))
-const AIChatPage = lazy(() => import('./pages/AIChatPage'))
-const AiQueryAssistantPage = lazy(() => import('./pages/AiQueryAssistantPage'))
-const JenkinsPipelinePage = lazy(() => import('./pages/JenkinsPipelinePage'))
-const JenkinsSetupPage = lazy(() => import('./pages/JenkinsSetupPage'))
-const RancherPage = lazy(() => import('./pages/RancherPage'))
-const RancherSetupPage = lazy(() => import('./pages/RancherSetupPage'))
-const ObservabilityQueryPage = lazy(() => import('./pages/ObservabilityQueryPage'))
-const ObservabilityDashboardPage = lazy(() => import('./pages/ObservabilityDashboardPage'))
-const AutomationJobsPage = lazy(() => import('./pages/AutomationJobsPage'))
-const OverviewPage = lazy(() => import('./pages/OverviewPage'))
-const McpToolsPage = lazy(() => import('./pages/McpToolsPage'))
-const ToolsPage = lazy(() => import('./pages/ToolsPage'))
-const HrSetupPage = lazy(() => import('./pages/HrSetupPage'))
-const ProductionCustomersPage = lazy(() => import('./pages/ProductionCustomersPage'))
-const DataFeedPage = lazy(() => import('./pages/DataFeedPage'))
-const SalesforcePage = lazy(() => import('./pages/SalesforcePage'))
-const ManagerSettingsPage = lazy(() => import('./pages/ManagerSettings'))
-const UserManagement = lazy(() => import('./pages/UserManagement'))
-const TenantAdminPage = lazy(() => import('./pages/TenantAdminPage'))
-const MenuManagementPage = lazy(() => import('./pages/MenuManagementPage'))
-const AccessDeniedPage = lazy(() => import('./pages/AccessDeniedPage'))
-const ReleaseBranchSetupPage = lazy(() => import('./pages/ReleaseBranchSetupPage'))
+// Everything else: lazyWithRetry — auto-reloads once on chunk-load failure after deployment
+const DynamicDashboardPage = lazyWithRetry(() => import('./pages/DynamicDashboardPage'))
+const DynamicPageRenderer = lazyNamedWithRetry(() => import('./components/dynamic'), 'DynamicPageRenderer')
+const EngineeringDashboardV2 = lazyWithRetry(() => import('./pages/EngineeringDashboardV2'))
+const PullRequestsPage = lazyWithRetry(() => import('./pages/PullRequestsPage'))
+const DevOpsOverviewPage = lazyWithRetry(() => import('./pages/DevOpsOverviewPage'))
+const DeveloperToolkitPage = lazyWithRetry(() => import('./pages/DeveloperToolkitPage'))
+const EngineeringCommandCenter = lazyWithRetry(() => import('./pages/EngineeringCommandCenter'))
+const ReleaseManagement = lazyWithRetry(() => import('./pages/ReleaseManagement'))
+const QualityDashboardV2 = lazyWithRetry(() => import('./pages/QualityDashboardV2'))
+const BugAnalyticsPage = lazyWithRetry(() => import('./pages/BugAnalyticsPage'))
+const Production = lazyWithRetry(() => import('./pages/Production'))
+const CustomerDashboardV2 = lazyWithRetry(() => import('./pages/CustomerDashboardV2'))
+const LogsDashboard = lazyWithRetry(() => import('./pages/LogsDashboard'))
+const AzureDashboard = lazyWithRetry(() => import('./pages/AzureDashboard'))
+const AIChatPage = lazyWithRetry(() => import('./pages/AIChatPage'))
+const AiQueryAssistantPage = lazyWithRetry(() => import('./pages/AiQueryAssistantPage'))
+const JenkinsPipelinePage = lazyWithRetry(() => import('./pages/JenkinsPipelinePage'))
+const JenkinsSetupPage = lazyWithRetry(() => import('./pages/JenkinsSetupPage'))
+const RancherPage = lazyWithRetry(() => import('./pages/RancherPage'))
+const RancherSetupPage = lazyWithRetry(() => import('./pages/RancherSetupPage'))
+const ObservabilityQueryPage = lazyWithRetry(() => import('./pages/ObservabilityQueryPage'))
+const ObservabilityDashboardPage = lazyWithRetry(() => import('./pages/ObservabilityDashboardPage'))
+const AutomationJobsPage = lazyWithRetry(() => import('./pages/AutomationJobsPage'))
+const OverviewPage = lazyWithRetry(() => import('./pages/OverviewPage'))
+const McpToolsPage = lazyWithRetry(() => import('./pages/McpToolsPage'))
+const ToolsPage = lazyWithRetry(() => import('./pages/ToolsPage'))
+const HrSetupPage = lazyWithRetry(() => import('./pages/HrSetupPage'))
+const ProductionCustomersPage = lazyWithRetry(() => import('./pages/ProductionCustomersPage'))
+const DataFeedPage = lazyWithRetry(() => import('./pages/DataFeedPage'))
+const SalesforcePage = lazyWithRetry(() => import('./pages/SalesforcePage'))
+const ManagerSettingsPage = lazyWithRetry(() => import('./pages/ManagerSettings'))
+const UserManagement = lazyWithRetry(() => import('./pages/UserManagement'))
+const TenantAdminPage = lazyWithRetry(() => import('./pages/TenantAdminPage'))
+const MenuManagementPage = lazyWithRetry(() => import('./pages/MenuManagementPage'))
+const AccessDeniedPage = lazyWithRetry(() => import('./pages/AccessDeniedPage'))
+const ReleaseBranchSetupPage = lazyWithRetry(() => import('./pages/ReleaseBranchSetupPage'))
 
 // ---------------------------------------------------------------------------
 // Routes

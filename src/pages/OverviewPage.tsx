@@ -95,7 +95,7 @@ export default function OverviewPage({ isAdminView = true }: OverviewPageProps) 
   const [realTimeCommitData, setRealTimeCommitData] = useState<CommitStatsResponse | null>(null);
   const [realTimeBuildsData, setRealTimeBuildsData] = useState<TodayBuildsResponse | null>(null);
   const [daysFilter, setDaysFilter] = useState(7);
-  const [userScope, setUserScope] = useState<'mine' | 'all'>('mine');
+  const [userScope, setUserScope] = useState<'mine' | 'all'>('all');
   
   // ── Metric Detail Modal State ──
   const [metricDetailModal, setMetricDetailModal] = useState<{
@@ -1660,7 +1660,7 @@ function LazyWidgetRenderer({ config, summary, expandedWidget, setExpandedWidget
     case 'builds':    return <TodayBuildsWidget builds={buildsData?.builds ?? summary?.devops?.todayBuilds?.builds ?? []} />;
     case 'jenkinsBuilds': return <LazyJenkinsBuilds expanded={expandedWidget === 'jenkinsBuilds'} toggle={() => setExpandedWidget(expandedWidget === 'jenkinsBuilds' ? null : 'jenkinsBuilds')} onBuildClick={onBuildClick} />;
     case 'prs':       return <LazyPRs expanded={expandedWidget === 'prs'} toggle={() => setExpandedWidget(expandedWidget === 'prs' ? null : 'prs')} onViewAll={onViewAllPRs} userScope={userScope} preloadedData={prData} />;
-    case 'commits':   return <LazyCommitStats onViewAll={onViewAllCommits} preloadedData={commitData} />;
+    case 'commits':   return <LazyCommitStats onViewAll={onViewAllCommits} preloadedData={commitData} userScope={userScope} daysFilter={config.size === 'large' ? 30 : undefined} />;
     case 'customers': return <LazyCustomers onRefresh={onRefresh} />;
     case 'support':   return <LazySupportWidget onRefresh={onRefresh} />;
     case 'apiCatalog': return <LazyApiCatalog onRefresh={onRefresh} />;
@@ -1740,8 +1740,10 @@ function LazyJenkinsBuilds({ expanded, toggle, onBuildClick }: { expanded: boole
   );
 }
 
-function LazyCommitStats({ onViewAll, preloadedData }: { onViewAll?: () => void; preloadedData?: CommitStatsResponse | null }) {
-  const fetcher = useCallback(() => getCommitStats(undefined, 30), []);
+function LazyCommitStats({ onViewAll, preloadedData, userScope, daysFilter }: { onViewAll?: () => void; preloadedData?: CommitStatsResponse | null; userScope?: 'mine' | 'all'; daysFilter?: number }) {
+  const myOnly = userScope === 'mine';
+  const days = daysFilter ?? 30;
+  const fetcher = useCallback(() => getCommitStats(undefined, days, myOnly), [days, myOnly]);
   const { ref, data: fetchedData, loading, error } = useLazyWidget(fetcher);
   
   // Use preloaded data if available, otherwise use fetched data
