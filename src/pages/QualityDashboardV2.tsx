@@ -100,7 +100,7 @@ const QualityDashboardV2: React.FC = () => {
       setSelectedConnectionId(connId);
 
       if (!connId) {
-        setError('No Azure DevOps connection configured. Go to Release Notes → Connections to set one up.');
+        setError('No Azure DevOps connection configured. Go to Settings → DevOps Connections to set one up.');
         return;
       }
 
@@ -311,7 +311,7 @@ const QualityDashboardV2: React.FC = () => {
           <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">Connection Required</h3>
           <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 leading-relaxed">{error}</p>
           <p className="text-xs text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3">
-            Set up an Azure DevOps connection in <span className="font-medium text-blue-600 dark:text-blue-400">Release Notes → Connections</span> first.
+            Set up an Azure DevOps connection in <span className="font-medium text-blue-600 dark:text-blue-400">Settings → DevOps Connections</span> first.
           </p>
         </div>
       </div>

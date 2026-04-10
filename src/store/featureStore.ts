@@ -5,7 +5,6 @@ export interface FeatureFlags {
   enableAI: boolean
   enableAzure: boolean
   enableJenkins: boolean
-  enableReleaseNotes: boolean
   enableCommandCenter: boolean
 }
 
@@ -20,7 +19,6 @@ const defaultFeatures: FeatureFlags = {
   enableAI: false,
   enableAzure: true,
   enableJenkins: true,
-  enableReleaseNotes: true,
   enableCommandCenter: true,
 }
 
@@ -41,7 +39,6 @@ export const useFeatureStore = create<FeatureState>((set, get) => ({
             enableAI: data.enableAI ?? false,
             enableAzure: data.enableAzure ?? true,
             enableJenkins: data.enableJenkins ?? true,
-            enableReleaseNotes: data.enableReleaseNotes ?? true,
             enableCommandCenter: data.enableCommandCenter ?? true,
           },
           isLoaded: true,

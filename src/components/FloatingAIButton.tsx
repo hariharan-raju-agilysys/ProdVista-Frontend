@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
 Bot, Database, Sparkles, X,
-  Zap, Search, Activity, FileText, Rocket,
+  Zap, Search, Activity, Rocket,
   MessageCircle, Shield
 } from 'lucide-react'
 import clsx from 'clsx'
@@ -28,7 +28,6 @@ const quickActions: QuickAction[] = [
   { id: 'ai-query', label: 'AI Query', icon: Database, path: '/ai-query', color: 'from-blue-500 to-indigo-600', description: 'SQL from text' },
   { id: 'observability-query', label: 'KQL Explorer', icon: Zap, path: '/observability-query', color: 'from-emerald-500 to-teal-600', description: 'Query logs' },
   { id: 'command-center', label: 'Command Center', icon: Activity, path: '/command-center', color: 'from-cyan-500 to-blue-600', description: 'App Insights' },
-  { id: 'release-notes', label: 'Release Notes', icon: FileText, path: '/release-notes', color: 'from-amber-500 to-orange-600', description: 'Generate docs' },
   { id: 'internal', label: 'Internal', icon: Rocket, path: '/internal', color: 'from-rose-500 to-pink-600', description: 'System health' },
 ]
 

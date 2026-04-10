@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import {
-  Activity, Bug, FileText, Workflow, Zap, Settings, Search, Bot, Database,
+  Activity, Bug, Workflow, Zap, Settings, Search, Bot, Database,
   Wrench, ChevronRight, Users, GitBranch, Building2
 } from 'lucide-react'
 import { useFeatureStore } from '../store/featureStore'
@@ -68,17 +68,6 @@ const tools: ToolCard[] = [
     color: 'text-red-600',
     bgColor: 'bg-red-50 border-red-200',
     category: 'devops',
-  },
-  {
-    id: 'release-notes',
-    name: 'Release Notes',
-    description: 'Generate automated release notes from Azure DevOps work items',
-    icon: FileText,
-    path: '/release-notes',
-    color: 'text-amber-600',
-    bgColor: 'bg-amber-50 border-amber-200',
-    category: 'devops',
-    featureFlag: 'enableReleaseNotes',
   },
   {
     id: 'jenkins',

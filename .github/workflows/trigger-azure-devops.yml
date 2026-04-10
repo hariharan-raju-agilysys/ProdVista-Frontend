@@ -1,0 +1,59 @@
+# =============================================================================
+# Trigger Azure DevOps Pipeline on GitHub Push
+# =============================================================================
+# Calls the Azure DevOps REST API to queue pipeline 437 (UI CICD)
+# whenever code is pushed to main.
+#
+# Required secrets:
+#   AZDO_PAT — Azure DevOps Personal Access Token with "Build (Read & Execute)" scope
+# =============================================================================
+
+name: Trigger Azure DevOps UI Pipeline
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  trigger:
+    name: Queue Azure DevOps Build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Trigger Pipeline 437 (UI CICD)
+        env:
+          AZDO_PAT: ${{ secrets.AZDO_PAT }}
+          AZDO_ORG: AGYS-VisualOne
+          AZDO_PROJECT: PMS
+          PIPELINE_ID: "437"
+        run: |
+          if [ -z "$AZDO_PAT" ]; then
+            echo "::warning::AZDO_PAT secret not configured — skipping Azure DevOps trigger"
+            exit 0
+          fi
+
+          ENCODED_PAT=$(echo -n ":${AZDO_PAT}" | base64)
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "https://dev.azure.com/${AZDO_ORG}/${AZDO_PROJECT}/_apis/build/builds?api-version=7.1" \
+            -H "Authorization: Basic ${ENCODED_PAT}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"definition\": { \"id\": ${PIPELINE_ID} },
+              \"sourceBranch\": \"refs/heads/main\",
+              \"reason\": \"triggered\",
+              \"parameters\": \"{\\\"triggeredBy\\\": \\\"GitHub Actions\\\", \\\"commitSha\\\": \\\"${{ github.sha }}\\\"}\"
+            }")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            BUILD_ID=$(echo "$BODY" | jq -r '.id // "unknown"')
+            BUILD_NUM=$(echo "$BODY" | jq -r '.buildNumber // "unknown"')
+            echo "✅ Azure DevOps pipeline triggered — Build #${BUILD_ID} (${BUILD_NUM})"
+            echo "   URL: https://dev.azure.com/${AZDO_ORG}/${AZDO_PROJECT}/_build/results?buildId=${BUILD_ID}"
+          else
+            echo "::warning::Azure DevOps trigger returned HTTP ${HTTP_CODE}"
+            echo "$BODY" | head -5
+          fi

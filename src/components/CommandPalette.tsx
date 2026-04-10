@@ -46,7 +46,6 @@ const allCommands: CommandItem[] = [
   { id: 'command-center', label: 'Command Center', description: 'App Insights & observability', icon: Activity, path: '/command-center', category: 'tools', keywords: ['insights', 'azure', 'monitor'] },
   { id: 'observability', label: 'Observability', description: 'System observability dashboard', icon: Eye, path: '/observability', category: 'tools', keywords: ['metrics', 'health', 'slo'] },
   { id: 'observability-query', label: 'Query Explorer', description: 'KQL query explorer', icon: Zap, path: '/observability-query', category: 'tools', keywords: ['kql', 'kusto', 'app insights'] },
-  { id: 'release-notes', label: 'Release Notes', description: 'Generate release notes', icon: FileText, path: '/release-notes', category: 'tools', keywords: ['notes', 'changelog', 'devops'] },
   { id: 'jenkins', label: 'Jenkins Pipelines', description: 'CI/CD pipeline management', icon: Workflow, path: '/jenkins', category: 'tools', keywords: ['ci', 'cd', 'build', 'pipeline'] },
   { id: 'azure', label: 'Azure Dashboard', description: 'Azure resources & services', icon: Cloud, path: '/azure', category: 'tools', keywords: ['cloud', 'resource', 'subscription'] },
   { id: 'internal', label: 'Internal Dashboard', description: 'System internals & API catalog', icon: Rocket, path: '/internal', category: 'tools', keywords: ['api', 'system', 'health'] },

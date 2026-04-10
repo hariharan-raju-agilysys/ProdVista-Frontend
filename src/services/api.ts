@@ -112,9 +112,6 @@ export const getLongRunningBugs = (minAgeDays: number = 30) =>
 export const getReleases = (status?: string) =>
   api.get('/releases', { params: { status } })
 
-export const getReleaseNotes = (version: string) =>
-  api.get(`/releases/${version}/notes`)
-
 // Customers
 export const getCustomerDeployments = (customerId?: string) =>
   api.get('/customers/deployments', { params: { customerId } })

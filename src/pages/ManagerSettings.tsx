@@ -583,7 +583,7 @@ export function ManagerSettingsPage() {
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="text-blue-400 mt-0.5">3.</span>
-                        Save the connection — Engineering Dashboard, Bug Analytics, and Release Notes will use it
+                        Save the connection — Engineering Dashboard and Bug Analytics will use it
                       </li>
                     </ul>
                   </div>
