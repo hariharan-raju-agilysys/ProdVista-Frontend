@@ -339,14 +339,15 @@ export default function OverviewPage({ isAdminView = true }: OverviewPageProps) 
     setEditingWidget(null);
   }, []);
 
-  // Group widgets by column
+  // Group widgets by column, then sort within each column
   const columns = useMemo(() => {
-    const enabled = widgets.filter(w => w.enabled).sort((a, b) => a.order - b.order);
+    const enabled = widgets.filter(w => w.enabled);
     const cols: WidgetConfig[][] = [[], [], []];
     enabled.forEach(w => {
       const col = Math.min(w.column, 2);
       cols[col].push(w);
     });
+    cols.forEach(c => c.sort((a, b) => a.order - b.order));
     return cols;
   }, [widgets]);
 
