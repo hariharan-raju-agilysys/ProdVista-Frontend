@@ -11,6 +11,7 @@ import {
   Building2, Loader2, ArrowRight, Terminal, Shield,
   BarChart3, Zap, Globe, Lock, Info, UserCheck,
 } from 'lucide-react';
+import BrandedSplash from '../components/BrandedSplash';
 
 const basePath = import.meta.env.VITE_BASE_PATH || '';
 const isDev = import.meta.env.DEV;
@@ -19,74 +20,11 @@ const isDev = import.meta.env.DEV;
 /*  Animated connecting screen — shown while SSO processes            */
 /* ------------------------------------------------------------------ */
 function ConnectingScreen({ orgName }: { orgName?: string }) {
-  const dots = ['Authenticating', 'Acquiring tokens', 'Loading workspace'];
-  const [active, setActive] = useState(0);
-
-  useEffect(() => {
-    const t = setInterval(() => setActive((p) => (p + 1) % dots.length), 2200);
-    return () => clearInterval(t);
-  }, [dots.length]);
-
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-white to-blue-50/40">
-      {/* Logo */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="flex items-center gap-3 mb-12"
-      >
-        <img
-          src={`${basePath}/favicon.svg`}
-          alt="ProdVista"
-          className="w-10 h-10 rounded-xl shadow-md"
-        />
-        <span className="text-xl font-bold text-gray-900 tracking-tight">ProdVista</span>
-      </motion.div>
-
-      {/* Animated ring */}
-      <div className="relative mb-10">
-        <motion.div
-          className="w-16 h-16 rounded-full border-[3px] border-blue-100"
-          style={{ borderTopColor: '#3b82f6' }}
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-        />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <Shield className="w-6 h-6 text-blue-500" />
-        </div>
-      </div>
-
-      {/* Status text */}
-      <AnimatePresence mode="wait">
-        <motion.p
-          key={active}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
-          transition={{ duration: 0.3 }}
-          className="text-sm font-medium text-gray-500"
-        >
-          {dots[active]}
-          <motion.span
-            animate={{ opacity: [0, 1, 0] }}
-            transition={{ duration: 1.4, repeat: Infinity }}
-          >
-            ...
-          </motion.span>
-        </motion.p>
-      </AnimatePresence>
-
-      {orgName && (
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="mt-3 text-xs text-gray-400"
-        >
-          Signing in to <span className="font-semibold text-gray-500">{orgName}</span>
-        </motion.p>
-      )}
-    </div>
+    <BrandedSplash
+      statusDots={['Authenticating', 'Acquiring tokens', 'Loading workspace']}
+      subMessage={orgName ? `Signing in to ${orgName}` : undefined}
+    />
   );
 }
 

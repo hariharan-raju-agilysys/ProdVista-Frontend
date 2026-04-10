@@ -2,8 +2,7 @@ import { useAuth } from '../../context/AuthContext'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useMsal } from '@azure/msal-react'
 import { InteractionStatus } from '@azure/msal-browser'
-
-const basePath = import.meta.env.VITE_BASE_PATH || '';
+import BrandedSplash from '../BrandedSplash'
 
 interface OrgRouteProps {
   children: React.ReactNode
@@ -24,16 +23,7 @@ export function OrgRoute({ children }: OrgRouteProps) {
 
   // Wait for auth context AND any MSAL interaction to finish
   if (isLoading || inProgress !== InteractionStatus.None) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
-        <div className="flex items-center gap-3 mb-10">
-          <img src={`${basePath}/favicon.svg`} alt="ProdVista" className="w-10 h-10 rounded-xl shadow-md" />
-          <span className="text-xl font-bold text-gray-900 tracking-tight">ProdVista</span>
-        </div>
-        <div className="w-12 h-12 rounded-full border-[3px] border-blue-100 animate-spin" style={{ borderTopColor: '#3b82f6' }} />
-        <p className="mt-6 text-sm text-gray-400">Loading workspace...</p>
-      </div>
-    );
+    return <BrandedSplash message="Loading workspace..." />;
   }
 
   // No valid token — redirect to login for SSO / manual login

@@ -1,6 +1,7 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { ShieldAlert, Loader2 } from 'lucide-react'
+import { ShieldAlert } from 'lucide-react'
+import BrandedSplash from '../BrandedSplash'
 
 interface ManagerRouteProps {
   children: React.ReactNode
@@ -15,11 +16,7 @@ export function ManagerRoute({ children, fallback }: ManagerRouteProps) {
   const { isAuthenticated, isManager, isLoading, user } = useAuth()
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
-    )
+    return <BrandedSplash message="Verifying access..." />;
   }
 
   if (!isAuthenticated) {
