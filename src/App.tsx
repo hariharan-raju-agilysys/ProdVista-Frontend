@@ -243,12 +243,17 @@ function MsalTokenRefreshRegistrar({ children }: { children: React.ReactNode }) 
 
 /**
  * Blocks all routing while MSAL processes a redirect return from Microsoft login.
- * Prevents the visual "wobble" of multiple loading screens flashing in sequence.
+ * Only blocks on HandleRedirect/Startup — silent flows (SsoSilent, AcquireToken)
+ * use hidden iframes and must NOT block, otherwise LoginPage gets unmounted/remounted
+ * which resets its useRef guards and creates infinite ssoSilent loops.
  */
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { inProgress } = useMsal();
 
-  if (inProgress !== InteractionStatus.None) {
+  if (
+    inProgress === InteractionStatus.HandleRedirect ||
+    inProgress === InteractionStatus.Startup
+  ) {
     return <BrandedSplash message="Authenticating..." />;
   }
 

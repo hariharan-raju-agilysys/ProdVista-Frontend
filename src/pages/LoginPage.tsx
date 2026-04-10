@@ -16,6 +16,12 @@ import BrandedSplash from '../components/BrandedSplash';
 const basePath = import.meta.env.VITE_BASE_PATH || '';
 const isDev = import.meta.env.DEV;
 
+// Module-level flags — survive component unmount/remount cycles caused by
+// AuthGate blocking during MSAL status transitions. Without these, useRef
+// guards reset on each remount, creating infinite ssoSilent API call loops.
+let _ssoAttempted = false;
+let _hasNavigated = false;
+
 /* ------------------------------------------------------------------ */
 /*  Animated connecting screen — shown while SSO processes            */
 /* ------------------------------------------------------------------ */
@@ -43,10 +49,28 @@ const features = [
 /* ------------------------------------------------------------------ */
 export default function LoginPage() {
   const navigate = useNavigate();
-  const hasNavigated = useRef(false);
-  const ssoAttempted = useRef(false);
+  const hasNavigated = useRef(_hasNavigated);
+  const ssoAttempted = useRef(_ssoAttempted);
   const { instance: msalInstance, inProgress, accounts } = useMsal();
   const { setUserFromLocal, updateOrgInfo } = useAuth();
+
+  // On first real mount (not a remount), reset module-level flags if the user
+  // is not authenticated — this means they explicitly navigated to /login
+  // (e.g. after logout) and SSO should be attempted fresh.
+  useEffect(() => {
+    if (!authService.isAuthenticated() && !sessionStorage.getItem('msal_pending_tenant')) {
+      _hasNavigated = false;
+      _ssoAttempted = false;
+      hasNavigated.current = false;
+      ssoAttempted.current = false;
+    }
+    return () => {
+      // Sync ref values to module-level flags on unmount so they survive remounts
+      _hasNavigated = hasNavigated.current;
+      _ssoAttempted = ssoAttempted.current;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const hasPendingMsal = !!sessionStorage.getItem('msal_pending_tenant');
   const storedOrgCode = getStoredOrgCode();
