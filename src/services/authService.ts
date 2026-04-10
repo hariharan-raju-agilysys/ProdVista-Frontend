@@ -20,6 +20,7 @@ export interface AuthUser {
   birthMonth?: number | null;
   birthDay?: number | null;
   bio?: string | null;
+  theme?: string;
 }
 
 export interface TenantInfo {
@@ -238,7 +239,7 @@ export const authService = {
     return token ? { Authorization: `Bearer ${token}` } : {};
   },
 
-  async updateProfile(data: { birthMonth?: number; birthDay?: number; bio?: string }): Promise<AuthUser | null> {
+  async updateProfile(data: { birthMonth?: number; birthDay?: number; bio?: string; theme?: string }): Promise<AuthUser | null> {
     try {
       const response = await fetch(`${API_BASE}/auth/profile`, {
         method: 'PUT',

@@ -14,6 +14,7 @@ export interface User {
   birthMonth?: number | null
   birthDay?: number | null
   bio?: string | null
+  theme?: string
 }
 
 export interface LoginResponse {

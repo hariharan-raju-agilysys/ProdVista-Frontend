@@ -54,6 +54,8 @@ import FloatingAIButton from './FloatingAIButton'
 import PersistentChatWidget from './PersistentChatWidget'
 import FunLoader from './FunLoader'
 import { getTodayNotifications, markAsRead, markAllAsRead, dismissNotification, getUnreadCount, type UserNotification } from '../services/notificationService'
+import { useSettingsStore } from '../store/settingsStore'
+import { authService } from '../services/authService'
 
 // Icon mapping for dynamic icons
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -76,6 +78,33 @@ export default function Layout() {
   const [isInitializing, setIsInitializing] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
+
+  // Theme
+  const { settings, updateSettings } = useSettingsStore()
+  const currentTheme = settings.theme
+
+  const handleThemeChange = useCallback((theme: 'light' | 'dark' | 'system') => {
+    updateSettings({ theme })
+    // Persist to backend (fire-and-forget)
+    authService.updateProfile({ theme }).catch(() => {})
+  }, [updateSettings])
+
+  // Apply dark mode class to <html> based on theme preference
+  useEffect(() => {
+    const root = document.documentElement
+    if (currentTheme === 'dark') {
+      root.classList.add('dark')
+    } else if (currentTheme === 'light') {
+      root.classList.remove('dark')
+    } else {
+      // system: follow OS preference
+      const mq = window.matchMedia('(prefers-color-scheme: dark)')
+      const apply = () => mq.matches ? root.classList.add('dark') : root.classList.remove('dark')
+      apply()
+      mq.addEventListener('change', apply)
+      return () => mq.removeEventListener('change', apply)
+    }
+  }, [currentTheme])
 
   // Notification state
   const [notifications, setNotifications] = useState<UserNotification[]>([])
@@ -741,13 +770,25 @@ export default function Layout() {
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-gray-500 font-medium">APPEARANCE</span>
                       <div className="flex items-center gap-1 p-1 bg-gray-200 rounded-lg">
-                        <button className="p-1.5 rounded-md bg-white shadow-sm text-gray-700">
+                        <button
+                          onClick={() => handleThemeChange('light')}
+                          className={`p-1.5 rounded-md transition-all ${currentTheme === 'light' ? 'bg-white shadow-sm text-gray-700' : 'text-gray-400 hover:text-gray-600'}`}
+                          title="Light"
+                        >
                           <Sun className="w-3.5 h-3.5" />
                         </button>
-                        <button className="p-1.5 rounded-md text-gray-400 hover:text-gray-600">
+                        <button
+                          onClick={() => handleThemeChange('dark')}
+                          className={`p-1.5 rounded-md transition-all ${currentTheme === 'dark' ? 'bg-white shadow-sm text-gray-700' : 'text-gray-400 hover:text-gray-600'}`}
+                          title="Dark"
+                        >
                           <Moon className="w-3.5 h-3.5" />
                         </button>
-                        <button className="p-1.5 rounded-md text-gray-400 hover:text-gray-600">
+                        <button
+                          onClick={() => handleThemeChange('system')}
+                          className={`p-1.5 rounded-md transition-all ${currentTheme === 'system' ? 'bg-white shadow-sm text-gray-700' : 'text-gray-400 hover:text-gray-600'}`}
+                          title="System"
+                        >
                           <Monitor className="w-3.5 h-3.5" />
                         </button>
                       </div>

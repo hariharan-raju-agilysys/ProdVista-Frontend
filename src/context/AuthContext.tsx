@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { authApi, type User, type LoginResponse } from '../services/authApi'
 import { authService, TenantInfo } from '../services/authService'
+import { useSettingsStore } from '../store/settingsStore'
 
 // Organization storage keys
 const ORG_CODE_KEY = 'prodvista_org_code'
@@ -132,6 +133,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setOrgInfoState(getStoredOrgInfo())
     setIsLoading(false)
   }, [])
+
+  // Sync user's theme preference from backend profile to settingsStore
+  useEffect(() => {
+    if (user) {
+      const userTheme = (user as User & { theme?: string }).theme
+      if (userTheme && ['light', 'dark', 'system'].includes(userTheme)) {
+        useSettingsStore.getState().updateSettings({ theme: userTheme as 'light' | 'dark' | 'system' })
+      }
+    }
+  }, [user])
 
   // Listen for storage changes (e.g. LoginPage setting user)
   useEffect(() => {

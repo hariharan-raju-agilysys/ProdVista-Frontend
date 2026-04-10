@@ -10,6 +10,7 @@ import AzureResourceManager from '../components/AzureResourceManager'
 import AzureResourceSetup from '../components/AzureResourceSetup'
 import { devopsService, AzureDevOpsOrganization } from '../services/devopsService'
 import engineeringService, { EngineeringConfig } from '../services/engineeringService'
+import { authService } from '../services/authService'
 
 type TabId = 'general' | 'llm' | 'azure-setup' | 'azure' | 'devops' | 'regions' | 'users'
 
@@ -289,7 +290,7 @@ export function ManagerSettingsPage() {
                           {(['light', 'dark', 'system'] as const).map((theme) => (
                             <button
                               key={theme}
-                              onClick={() => updateSettings({ theme })}
+                              onClick={() => { updateSettings({ theme }); authService.updateProfile({ theme }).catch(() => {}) }}
                               className={`flex-1 p-3 rounded-lg border-2 capitalize transition-all ${
                                 settings.theme === theme
                                   ? 'border-purple-500 bg-purple-500/10'
