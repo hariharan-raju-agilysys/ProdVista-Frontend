@@ -169,13 +169,15 @@ export default function LoginPage() {
         if (response.user) setUserFromLocal(response.user as any);
         updateOrgInfo(storedOrgCode, { code: storedOrgCode, name: response.user?.tenantName || storedOrgInfo?.name || storedOrgCode });
 
-        // Acquire optional tokens (ARM & DevOps)
+        // Acquire optional tokens (ARM & DevOps) — fall back to popup for consent
         try {
-          const armRes = await msalInstance.acquireTokenSilent({ ...armScopes, account }).catch(() => null);
+          let armRes = await msalInstance.acquireTokenSilent({ ...armScopes, account }).catch(() => null);
+          if (!armRes) armRes = await msalInstance.acquireTokenPopup({ ...armScopes, account }).catch(() => null);
           if (armRes?.accessToken) sessionStorage.setItem('prodvista_azure_token', armRes.accessToken);
         } catch { /* optional */ }
         try {
-          const devRes = await msalInstance.acquireTokenSilent({ ...devopsScopes, account }).catch(() => null);
+          let devRes = await msalInstance.acquireTokenSilent({ ...devopsScopes, account }).catch(() => null);
+          if (!devRes) devRes = await msalInstance.acquireTokenPopup({ ...devopsScopes, account }).catch(() => null);
           if (devRes?.accessToken) sessionStorage.setItem('prodvista_devops_token', devRes.accessToken);
         } catch { /* optional */ }
 
@@ -235,15 +237,17 @@ export default function LoginPage() {
           if (response.user) setUserFromLocal(response.user as any);
           updateOrgInfo(savedTenant, { code: savedTenant, name: response.user?.tenantName || savedTenant });
 
-          // Acquire ARM token (optional)
+          // Acquire ARM token (optional) — fall back to popup for consent
           try {
-            const armRes = await msalInstance.acquireTokenSilent({ ...armScopes, account: accounts[0] }).catch(() => null);
+            let armRes = await msalInstance.acquireTokenSilent({ ...armScopes, account: accounts[0] }).catch(() => null);
+            if (!armRes) armRes = await msalInstance.acquireTokenPopup({ ...armScopes, account: accounts[0] }).catch(() => null);
             if (armRes?.accessToken) sessionStorage.setItem('prodvista_azure_token', armRes.accessToken);
           } catch { /* optional */ }
 
-          // Acquire DevOps token (optional)
+          // Acquire DevOps token (optional) — fall back to popup for consent
           try {
-            const devRes = await msalInstance.acquireTokenSilent({ ...devopsScopes, account: accounts[0] }).catch(() => null);
+            let devRes = await msalInstance.acquireTokenSilent({ ...devopsScopes, account: accounts[0] }).catch(() => null);
+            if (!devRes) devRes = await msalInstance.acquireTokenPopup({ ...devopsScopes, account: accounts[0] }).catch(() => null);
             if (devRes?.accessToken) sessionStorage.setItem('prodvista_devops_token', devRes.accessToken);
           } catch { /* optional */ }
 
@@ -291,11 +295,13 @@ export default function LoginPage() {
             updateOrgInfo(info.code, { code: info.code, name: response.user?.tenantName || info.name });
 
             try {
-              const armRes = await msalInstance.acquireTokenSilent({ ...armScopes, account }).catch(() => null);
+              let armRes = await msalInstance.acquireTokenSilent({ ...armScopes, account }).catch(() => null);
+              if (!armRes) armRes = await msalInstance.acquireTokenPopup({ ...armScopes, account }).catch(() => null);
               if (armRes?.accessToken) sessionStorage.setItem('prodvista_azure_token', armRes.accessToken);
             } catch { /* optional */ }
             try {
-              const devRes = await msalInstance.acquireTokenSilent({ ...devopsScopes, account }).catch(() => null);
+              let devRes = await msalInstance.acquireTokenSilent({ ...devopsScopes, account }).catch(() => null);
+              if (!devRes) devRes = await msalInstance.acquireTokenPopup({ ...devopsScopes, account }).catch(() => null);
               if (devRes?.accessToken) sessionStorage.setItem('prodvista_devops_token', devRes.accessToken);
             } catch { /* optional */ }
 
