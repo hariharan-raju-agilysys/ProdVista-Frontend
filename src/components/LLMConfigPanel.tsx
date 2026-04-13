@@ -119,26 +119,30 @@ export function LLMConfigPanel() {
     try {
       const response = await api.get('/llm/settings')
       if (response.data) {
+        // Normalize provider string (backend may return 'azureopenai' instead of 'azure-openai')
+        const rawProvider = (response.data.provider || '').toLowerCase().replace(/[^a-z]/g, '')
+        const provider: LLMConfig['provider'] = rawProvider === 'openai' ? 'openai' : 'azure-openai'
+
         const serverConfig: LLMConfig = {
-          provider: response.data.provider as LLMConfig['provider'],
-          baseUrl: response.data.baseUrl,
-          model: response.data.model,
-          temperature: response.data.temperature,
-          maxTokens: response.data.maxTokens,
+          provider,
+          baseUrl: response.data.baseUrl || '',
+          model: response.data.model || '',
+          temperature: response.data.temperature ?? 0.7,
+          maxTokens: response.data.maxTokens ?? 2048,
         }
         
         // Always update with server data on initial load
         updateLLMConfig(serverConfig)
         setConfig(serverConfig)
         
-        if (response.data.useAzureTokenAuth !== undefined) {
-          setAzureConfig(prev => ({
-            ...prev,
-            useTokenAuth: response.data.useAzureTokenAuth,
-            endpoint: response.data.baseUrl || prev.endpoint,
-            deployment: response.data.model || prev.deployment
-          }))
-        }
+        // Load Azure-specific config from server
+        setAzureConfig(prev => ({
+          ...prev,
+          useTokenAuth: response.data.useAzureTokenAuth ?? prev.useTokenAuth,
+          endpoint: response.data.baseUrl || prev.endpoint,
+          deployment: response.data.model || prev.deployment,
+          apiVersion: response.data.azureApiVersion || prev.apiVersion,
+        }))
         
         // Mark that we've loaded from server
         hasLoadedFromServer.current = true
