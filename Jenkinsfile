@@ -39,7 +39,7 @@ pipeline {
 
     environment {
         // ── Application ──────────────────────────────────────────────────────
-        IMAGE_NAME          = 'prodvista-frontend'
+        IMAGE_NAME          = 'prodvistaui'
         VITE_APP_TITLE      = 'ProdVista Dashboard'
         VITE_API_TIMEOUT    = '30000'
         VITE_ENABLE_DEVTOOLS = 'false'
@@ -61,6 +61,17 @@ pipeline {
             steps {
                 checkout scm
                 sh 'node --version && npm --version'
+            }
+        }
+
+        // ── 1b. Version Stamp ────────────────────────────────────────────────
+        stage('Version Stamp') {
+            steps {
+                script {
+                    def pkgVersion = sh(script: "node -p \"require('./package.json').version\"", returnStdout: true).trim()
+                    env.IMAGE_VERSION = "${pkgVersion}.${BUILD_NUMBER}"
+                    currentBuild.displayName = env.IMAGE_VERSION
+                }
             }
         }
 
@@ -120,7 +131,6 @@ pipeline {
             }
             steps {
                 script {
-                    def shortSha  = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
                     def fullImage = "${ACR_LOGIN_SERVER}/${IMAGE_NAME}"
 
                     // Login to ACR — single-quote shell string so credentials are
@@ -137,17 +147,36 @@ pipeline {
                             --build-arg VITE_AZURE_TENANT_ID="\${VITE_AZURE_TENANT_ID}" \\
                             --build-arg VITE_REDIRECT_URI="\${VITE_REDIRECT_URI}" \\
                             --build-arg VITE_ENABLE_DEVTOOLS="\${VITE_ENABLE_DEVTOOLS}" \\
-                            -t "${fullImage}:${shortSha}" \\
+                            -t "${fullImage}:${env.IMAGE_VERSION}" \\
                             -t "${fullImage}:latest" \\
                             -f Dockerfile .
                     """
 
                     // Push
-                    sh "docker push '${fullImage}:${shortSha}'"
+                    sh "docker push '${fullImage}:${env.IMAGE_VERSION}'"
                     sh "docker push '${fullImage}:latest'"
 
                     // Cleanup local images to save disk space
-                    sh "docker rmi '${fullImage}:${shortSha}' '${fullImage}:latest' || true"
+                    sh "docker rmi '${fullImage}:${env.IMAGE_VERSION}' '${fullImage}:latest' || true"
+                }
+            }
+        }
+
+        // ── 7. Deploy to AKS via V1 Promote ─────────────────────────────────
+        stage('Deploy') {
+            when {
+                branch 'main'
+            }
+            agent {
+                label 'docker'
+            }
+            steps {
+                script {
+                    build job: 'V1 Promote Images from V1DevACR to Appl-utils',
+                        parameters: [
+                            string(name: 'IMAGE_NAME', value: "${env.IMAGE_NAME}"),
+                            string(name: 'IMAGE_VERSION', value: "${env.IMAGE_VERSION}")
+                        ]
                 }
             }
         }

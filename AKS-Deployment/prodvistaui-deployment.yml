@@ -15,13 +15,13 @@ spec:
     metadata:
       labels:
         app: prodvistaui
-        version: IMAGE_TAG
+        version: 0.0.0.0
     spec:
       nodeSelector:
         product: fiscal
       containers:
       - name: prodvistaui
-        image: v1registrydev.azurecr.io/prodvistaui:IMAGE_TAG
+        image: v1registrydev.azurecr.io/prodvistaui:0.0.0.0
         ports:
         - containerPort: 80
           name: http-web
