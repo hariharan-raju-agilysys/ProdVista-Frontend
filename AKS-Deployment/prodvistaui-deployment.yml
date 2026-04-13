@@ -17,8 +17,6 @@ spec:
         app: prodvistaui
         version: 0.0.0.0
     spec:
-      nodeSelector:
-        product: fiscal
       containers:
       - name: prodvistaui
         image: v1registrydev.azurecr.io/prodvistaui:0.0.0.0
