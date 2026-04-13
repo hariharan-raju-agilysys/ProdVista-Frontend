@@ -195,9 +195,6 @@ export default function DevOpsConnectionSetup({ onConnectionChange, mode = 'badg
       >
         <span className={`w-1.5 h-1.5 rounded-full ${status?.configured ? 'bg-green-500' : 'bg-amber-500 animate-pulse'}`} />
         Azure DevOps {status?.configured ? '✓' : '— Setup'}
-        {status?.configured && status.maskedPat && (
-          <span className="text-[9px] font-mono opacity-60">{status.maskedPat}</span>
-        )}
       </button>
     );
   }

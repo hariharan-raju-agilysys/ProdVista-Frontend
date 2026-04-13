@@ -75,11 +75,25 @@ export default function LoginPage() {
   const hasPendingMsal = !!sessionStorage.getItem('msal_pending_tenant');
   const storedOrgCode = getStoredOrgCode();
   const storedOrgInfo = getStoredOrgInfo();
+  // Check if SSO cooldown is active (set after session expiry to prevent
+  // auto-SSO from immediately re-logging the user in)
+  const ssoCooldownActive = (() => {
+    const ts = localStorage.getItem('prodvista_sso_cooldown');
+    if (!ts) return false;
+    const elapsed = Date.now() - parseInt(ts, 10);
+    if (elapsed >= 3 * 60 * 1000) { // 3-minute cooldown
+      localStorage.removeItem('prodvista_sso_cooldown');
+      return false;
+    }
+    return true;
+  })();
   // If we have a stored org code and MSAL is likely available,
   // start in 'connecting' phase so the user sees the connecting
   // screen immediately instead of a brief flash of the form.
+  // Skip if SSO cooldown is active (e.g. after session expiry).
   const [phase, setPhase] = useState<'tenant' | 'connecting'>(
-    hasPendingMsal || (storedOrgCode && isMsalConfigured()) ? 'connecting' : 'tenant'
+    ssoCooldownActive ? 'tenant'
+      : (hasPendingMsal || (storedOrgCode && isMsalConfigured()) ? 'connecting' : 'tenant')
   );
   const [tenantCode, setTenantCode] = useState(storedOrgCode || '');
   const [connectingOrg, setConnectingOrg] = useState<string | undefined>(
@@ -128,6 +142,13 @@ export default function LoginPage() {
     if (!isMsalConfigured()) return;
 
     ssoAttempted.current = true;
+
+    // Skip auto-SSO if cooldown is active (session just expired)
+    const cooldownTs = localStorage.getItem('prodvista_sso_cooldown');
+    if (cooldownTs && (Date.now() - parseInt(cooldownTs, 10)) < 3 * 60 * 1000) {
+      setPhase('tenant');
+      return;
+    }
 
     const detectExistingSession = async () => {
       // 1. Check MSAL cache first (e.g. previous login in this browser session)
@@ -339,6 +360,8 @@ export default function LoginPage() {
   const handleTenantSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    // Clear SSO cooldown — user is explicitly choosing to log in
+    localStorage.removeItem('prodvista_sso_cooldown');
 
     const code = tenantCode.trim().toLowerCase();
     if (!code) { setError('Please enter your organization code'); return; }

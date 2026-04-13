@@ -27,10 +27,9 @@ export function SessionExpiredModal({
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center">
-      {/* Backdrop */}
+      {/* Backdrop — no dismiss on click; user must click Log In Again */}
       <div 
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
       />
       
       {/* Modal */}

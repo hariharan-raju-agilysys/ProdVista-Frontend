@@ -173,6 +173,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sessionStorage.clear()
       authApi.clearToken()
       authService.logout()
+      // Set cooldown so LoginPage auto-SSO doesn't immediately re-login
+      localStorage.setItem('prodvista_sso_cooldown', Date.now().toString())
       // Show session expired modal (no jarring redirect)
       setIsSessionExpired(true)
     }

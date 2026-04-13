@@ -423,7 +423,8 @@ export default function OverviewPage({ isAdminView = true }: OverviewPageProps) 
         ))}
       </div>}
 
-      {/* ── Data Source Status Bar ── */}
+      {/* ── Data Source Status Bar (admin/manager only) ── */}
+      {isAdminView && (
       <div className="space-y-3">
         <div className="flex items-center gap-3 text-[10px]">
           <span className="font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Data Sources:</span>
@@ -438,6 +439,7 @@ export default function OverviewPage({ isAdminView = true }: OverviewPageProps) 
           </span>
         </div>
       </div>
+      )}
 
       {/* ── Edit Mode: Widget/Metric Config Panel (admin only) ── */}
       {isAdminView && editMode && (

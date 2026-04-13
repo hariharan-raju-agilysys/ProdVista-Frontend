@@ -153,16 +153,20 @@ function MsalTokenRefreshRegistrar({ children }: { children: React.ReactNode }) 
     if (!account) return false;
 
     try {
-      // Try silent refresh first; fall back to popup on interaction-required (AADSTS70043)
+      // Silent refresh only — no popup fallback.
+      // COOP headers from login.microsoftonline.com block window.closed detection,
+      // causing MSAL PopupClient to hang. If silent fails with InteractionRequired,
+      // trigger a full-page redirect instead of a broken popup.
       let tokenResponse;
       try {
         tokenResponse = await instance.acquireTokenSilent({ ...graphScopes, account, forceRefresh: true });
       } catch (silentErr) {
         if (silentErr instanceof InteractionRequiredAuthError) {
-          tokenResponse = await instance.acquireTokenPopup({ ...graphScopes, account });
-        } else {
-          throw silentErr;
+          // Redirect to Microsoft login — will return to app after re-auth
+          await instance.acquireTokenRedirect({ ...graphScopes, account });
+          return false; // Redirect started; page will reload
         }
+        throw silentErr;
       }
 
       if (!tokenResponse?.accessToken) return false;
