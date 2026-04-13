@@ -169,15 +169,15 @@ export default function LoginPage() {
         if (response.user) setUserFromLocal(response.user as any);
         updateOrgInfo(storedOrgCode, { code: storedOrgCode, name: response.user?.tenantName || storedOrgInfo?.name || storedOrgCode });
 
-        // Acquire optional tokens (ARM & DevOps) — fall back to popup for consent
+        // Acquire optional tokens (ARM & DevOps) — silent only; skip if not consented.
+        // Popup is not used here because the tenant requires admin consent for these scopes.
+        // Server-side credentials provide fallback for Azure/DevOps features.
         try {
-          let armRes = await msalInstance.acquireTokenSilent({ ...armScopes, account }).catch(() => null);
-          if (!armRes) armRes = await msalInstance.acquireTokenPopup({ ...armScopes, account }).catch(() => null);
+          const armRes = await msalInstance.acquireTokenSilent({ ...armScopes, account }).catch(() => null);
           if (armRes?.accessToken) sessionStorage.setItem('prodvista_azure_token', armRes.accessToken);
         } catch { /* optional */ }
         try {
-          let devRes = await msalInstance.acquireTokenSilent({ ...devopsScopes, account }).catch(() => null);
-          if (!devRes) devRes = await msalInstance.acquireTokenPopup({ ...devopsScopes, account }).catch(() => null);
+          const devRes = await msalInstance.acquireTokenSilent({ ...devopsScopes, account }).catch(() => null);
           if (devRes?.accessToken) sessionStorage.setItem('prodvista_devops_token', devRes.accessToken);
         } catch { /* optional */ }
 
@@ -237,17 +237,15 @@ export default function LoginPage() {
           if (response.user) setUserFromLocal(response.user as any);
           updateOrgInfo(savedTenant, { code: savedTenant, name: response.user?.tenantName || savedTenant });
 
-          // Acquire ARM token (optional) — fall back to popup for consent
+          // Acquire ARM token (optional) — silent only; no popup to avoid admin consent prompt
           try {
-            let armRes = await msalInstance.acquireTokenSilent({ ...armScopes, account: accounts[0] }).catch(() => null);
-            if (!armRes) armRes = await msalInstance.acquireTokenPopup({ ...armScopes, account: accounts[0] }).catch(() => null);
+            const armRes = await msalInstance.acquireTokenSilent({ ...armScopes, account: accounts[0] }).catch(() => null);
             if (armRes?.accessToken) sessionStorage.setItem('prodvista_azure_token', armRes.accessToken);
           } catch { /* optional */ }
 
-          // Acquire DevOps token (optional) — fall back to popup for consent
+          // Acquire DevOps token (optional) — silent only; no popup to avoid admin consent prompt
           try {
-            let devRes = await msalInstance.acquireTokenSilent({ ...devopsScopes, account: accounts[0] }).catch(() => null);
-            if (!devRes) devRes = await msalInstance.acquireTokenPopup({ ...devopsScopes, account: accounts[0] }).catch(() => null);
+            const devRes = await msalInstance.acquireTokenSilent({ ...devopsScopes, account: accounts[0] }).catch(() => null);
             if (devRes?.accessToken) sessionStorage.setItem('prodvista_devops_token', devRes.accessToken);
           } catch { /* optional */ }
 
@@ -295,13 +293,11 @@ export default function LoginPage() {
             updateOrgInfo(info.code, { code: info.code, name: response.user?.tenantName || info.name });
 
             try {
-              let armRes = await msalInstance.acquireTokenSilent({ ...armScopes, account }).catch(() => null);
-              if (!armRes) armRes = await msalInstance.acquireTokenPopup({ ...armScopes, account }).catch(() => null);
+              const armRes = await msalInstance.acquireTokenSilent({ ...armScopes, account }).catch(() => null);
               if (armRes?.accessToken) sessionStorage.setItem('prodvista_azure_token', armRes.accessToken);
             } catch { /* optional */ }
             try {
-              let devRes = await msalInstance.acquireTokenSilent({ ...devopsScopes, account }).catch(() => null);
-              if (!devRes) devRes = await msalInstance.acquireTokenPopup({ ...devopsScopes, account }).catch(() => null);
+              const devRes = await msalInstance.acquireTokenSilent({ ...devopsScopes, account }).catch(() => null);
               if (devRes?.accessToken) sessionStorage.setItem('prodvista_devops_token', devRes.accessToken);
             } catch { /* optional */ }
 

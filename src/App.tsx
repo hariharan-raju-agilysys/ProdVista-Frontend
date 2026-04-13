@@ -167,20 +167,11 @@ function MsalTokenRefreshRegistrar({ children }: { children: React.ReactNode }) 
 
       if (!tokenResponse?.accessToken) return false;
 
-      // Refresh Azure Management (ARM) token too
+      // Refresh Azure Management (ARM) token too — silent only (no popup to avoid admin consent prompt)
       try {
-        let armResponse;
-        try {
-          armResponse = await instance.acquireTokenSilent({
-            ...armScopes, account, forceRefresh: true
-          });
-        } catch (armSilentErr) {
-          if (armSilentErr instanceof InteractionRequiredAuthError) {
-            armResponse = await instance.acquireTokenPopup({
-              ...armScopes, account
-            });
-          }
-        }
+        const armResponse = await instance.acquireTokenSilent({
+          ...armScopes, account, forceRefresh: true
+        }).catch(() => null);
         if (armResponse?.accessToken) {
           sessionStorage.setItem('prodvista_azure_token', armResponse.accessToken);
         }
@@ -188,20 +179,11 @@ function MsalTokenRefreshRegistrar({ children }: { children: React.ReactNode }) 
         // ARM token is optional
       }
 
-      // Refresh Azure DevOps token too
+      // Refresh Azure DevOps token too — silent only (no popup to avoid admin consent prompt)
       try {
-        let devopsResponse;
-        try {
-          devopsResponse = await instance.acquireTokenSilent({
-            ...devopsScopes, account, forceRefresh: true
-          });
-        } catch (devopsSilentErr) {
-          if (devopsSilentErr instanceof InteractionRequiredAuthError) {
-            devopsResponse = await instance.acquireTokenPopup({
-              ...devopsScopes, account
-            });
-          }
-        }
+        const devopsResponse = await instance.acquireTokenSilent({
+          ...devopsScopes, account, forceRefresh: true
+        }).catch(() => null);
         if (devopsResponse?.accessToken) {
           sessionStorage.setItem('prodvista_devops_token', devopsResponse.accessToken);
         }
