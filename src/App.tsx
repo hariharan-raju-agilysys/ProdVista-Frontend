@@ -206,6 +206,24 @@ function MsalTokenRefreshRegistrar({ children }: { children: React.ReactNode }) 
     return () => registerTokenRefresh(null);
   }, [refreshTokens]);
 
+  // Proactively acquire Azure ARM token on mount if missing (covers existing sessions)
+  useEffect(() => {
+    const ensureAzureToken = async () => {
+      if (sessionStorage.getItem('prodvista_azure_token')) return;
+      const account = accounts[0] || instance.getActiveAccount();
+      if (!account) return;
+      try {
+        const response = await instance.acquireTokenSilent({ ...armScopes, account });
+        if (response?.accessToken) {
+          sessionStorage.setItem('prodvista_azure_token', response.accessToken);
+        }
+      } catch {
+        // Silent failed — server credentials provide fallback for Azure features
+      }
+    };
+    ensureAzureToken();
+  }, [instance, accounts]);
+
   // Proactively acquire DevOps token on mount if missing (covers existing sessions)
   useEffect(() => {
     const ensureDevOpsToken = async () => {

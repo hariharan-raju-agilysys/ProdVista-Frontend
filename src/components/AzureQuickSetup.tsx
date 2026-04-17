@@ -5,7 +5,7 @@ import {
   Search, Monitor, Database, Activity, FileText, RefreshCw,
   Zap, Clock, Play, Eye, Heart, Pin, Save, AlertCircle, Terminal
 } from 'lucide-react'
-import { API_BASE_PATH } from '../services/api'
+import api from '../services/api'
 import {
   getResourceGraphSubscriptions,
   getResourceGraphWorkspaces,
@@ -130,8 +130,7 @@ export default function AzureQuickSetup({
   const checkAuthStatus = async () => {
     setLoading(true)
     try {
-      const response = await fetch(`${API_BASE_PATH}/azure/auth-status`)
-      const status = await response.json()
+      const { data: status } = await api.get(`/azure/auth-status`)
       setAuthStatus(status)
       
       if (status.authenticated) {
@@ -142,7 +141,7 @@ export default function AzureQuickSetup({
         authenticated: false,
         method: 'Unknown',
         message: 'Failed to check authentication',
-        instructions: 'Run "az login" in your terminal'
+        instructions: 'Run "az login" in your terminal or sign in with Microsoft SSO'
       })
     }
     setLoading(false)
@@ -153,7 +152,7 @@ export default function AzureQuickSetup({
       // Use Resource Graph for fast subscription discovery (single API call)
       const { data } = await getResourceGraphSubscriptions()
       const subs = (data.subscriptions || []).map((s: any) => ({
-        id: s.id,
+        id: s.id || `/subscriptions/${s.subscriptionId}`,
         subscriptionId: s.subscriptionId,
         displayName: s.name || s.displayName,
         state: s.state || 'Enabled'
@@ -162,7 +161,11 @@ export default function AzureQuickSetup({
       if (subs.length > 0 && !selectedSub) {
         setSelectedSub(subs[0].subscriptionId)
       }
-      console.log(`Loaded ${subs.length} subscriptions via Resource Graph in ${data.queryTimeMs}ms`)
+      if (subs.length === 0) {
+        console.warn('No subscriptions found. The Azure credential may not have Reader access on any subscriptions.')
+      } else {
+        console.log(`Loaded ${subs.length} subscriptions via Resource Graph in ${data.queryTimeMs}ms`)
+      }
     } catch (err) {
       console.error('Failed to load subscriptions:', err)
     }
@@ -462,6 +465,9 @@ export default function AzureQuickSetup({
             onChange={(e) => setSelectedSub(e.target.value)}
             className="text-sm bg-transparent border-none focus:ring-0 text-green-700 dark:text-green-300 font-medium"
           >
+            {subscriptions.length === 0 && (
+              <option value="">No subscriptions found</option>
+            )}
             {subscriptions.map(sub => (
               <option key={sub.subscriptionId} value={sub.subscriptionId}>
                 {sub.displayName}
@@ -515,6 +521,9 @@ export default function AzureQuickSetup({
               onChange={(e) => setSelectedSub(e.target.value)}
               className="px-3 py-2 bg-white dark:bg-slate-800 border border-green-300 dark:border-green-700 rounded-lg text-sm font-medium focus:ring-2 focus:ring-green-500"
             >
+              {subscriptions.length === 0 && (
+                <option value="">No subscriptions found</option>
+              )}
               {subscriptions.map(sub => (
                 <option key={sub.subscriptionId} value={sub.subscriptionId}>
                   {sub.displayName}

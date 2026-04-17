@@ -181,8 +181,13 @@ export function AzureResourceSetup() {
     setLoadingStep('subscriptions');
     try {
       const response = await api.get('/azure/subscriptions');
-      setAvailableSubscriptions(response.data.subscriptions || []);
-      setError(null);
+      const subs = response.data.subscriptions || [];
+      setAvailableSubscriptions(subs);
+      if (subs.length === 0) {
+        setError('No subscriptions found. The Azure credential may not have Reader access on any subscriptions. Check App Registration RBAC assignments or sign in with Azure SSO.');
+      } else {
+        setError(null);
+      }
     } catch (err) {
       setError('Failed to load subscriptions. Please check Azure authentication.');
       console.error('Error loading subscriptions:', err);
