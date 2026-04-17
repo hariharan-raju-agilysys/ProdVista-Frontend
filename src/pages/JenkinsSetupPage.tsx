@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus, RefreshCw, CheckCircle2, XCircle, Link2, Server,
   Zap, Eye, EyeOff, Sparkles, ArrowRight, Loader2, Globe, Shield, Info,
-  Wrench, Activity, HardDrive, GitBranch, ChevronRight, ExternalLink, Trash2
+  Wrench, Activity, HardDrive, GitBranch, ChevronRight, ExternalLink, Trash2, Pencil
 } from 'lucide-react'
 import clsx from 'clsx'
 import jenkinsService, {
@@ -14,7 +14,7 @@ import jenkinsService, {
   type JenkinsSyncResult
 } from '../services/jenkinsService'
 
-type ViewMode = 'list' | 'add' | 'detail'
+type ViewMode = 'list' | 'add' | 'edit' | 'detail'
 
 interface AISuggestion {
   field: string
@@ -27,7 +27,7 @@ export default function JenkinsSetupPage() {
   const [connections, setConnections] = useState<JenkinsConnection[]>([])
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>('list')
-  const [_selectedConnection, _setSelectedConnection] = useState<JenkinsConnection | null>(null)
+  const [editingConnectionId, setEditingConnectionId] = useState<string | null>(null)
 
   // Add connection form
   const [serverUrl, setServerUrl] = useState('')
@@ -123,6 +123,16 @@ export default function JenkinsSetupPage() {
     setAiSuggestions(prev => prev.filter(s => s.field !== suggestion.field))
   }
 
+  const buildConnectionPayload = () => ({
+    connectionName,
+    serverUrl,
+    username: username || undefined,
+    password: password || undefined,
+    apiToken: apiToken || undefined,
+    useCrumbIssuer,
+    verifySsl
+  })
+
   // Test connection
   const handleTest = async () => {
     if (!serverUrl) return
@@ -170,15 +180,17 @@ export default function JenkinsSetupPage() {
     try {
       setSaving(true)
       setError(null)
-      await jenkinsService.createConnection({
-        connectionName,
-        serverUrl,
-        username: username || undefined,
-        password: password || undefined,
-        apiToken: apiToken || undefined,
-        useCrumbIssuer,
-        verifySsl
-      })
+      const payload = buildConnectionPayload()
+      const isEditMode = viewMode === 'edit'
+
+      if (isEditMode) {
+        if (!editingConnectionId) {
+          throw new Error('Missing connection ID for edit operation')
+        }
+        await jenkinsService.updateConnection(editingConnectionId, payload)
+      } else {
+        await jenkinsService.createConnection(payload)
+      }
       resetForm()
       setViewMode('list')
       await loadConnections()
@@ -186,6 +198,30 @@ export default function JenkinsSetupPage() {
       setError(err instanceof Error ? err.message : 'Failed to save connection')
     } finally {
       setSaving(false)
+    }
+  }
+
+  // Edit existing connection
+  const handleEdit = async (connId: string) => {
+    try {
+      setLoading(true)
+      setError(null)
+      const detail = await jenkinsService.getConnection(connId)
+      resetForm()
+      setEditingConnectionId(connId)
+      setConnectionName(detail.connectionName)
+      setServerUrl(detail.serverUrl)
+      setUsername(detail.username || '')
+      setUseCrumbIssuer(detail.useCrumbIssuer)
+      setVerifySsl(detail.verifySsl)
+      // Keep secret fields empty on edit so users can retain existing secrets unless they provide new ones.
+      setPassword('')
+      setApiToken('')
+      setViewMode('edit')
+    } catch {
+      setError('Failed to load Jenkins connection details')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -233,6 +269,7 @@ export default function JenkinsSetupPage() {
   }
 
   const resetForm = () => {
+    setEditingConnectionId(null)
     setServerUrl('')
     setConnectionName('')
     setUsername('')
@@ -262,6 +299,8 @@ export default function JenkinsSetupPage() {
     if (status.startsWith('Failed')) return <XCircle className="w-4 h-4 text-red-400" />
     return <Info className="w-4 h-4 text-amber-400" />
   }
+
+  const isEditMode = viewMode === 'edit' && !!editingConnectionId
 
   return (
     <div className="min-h-screen bg-gray-950 p-6">
@@ -400,6 +439,13 @@ export default function JenkinsSetupPage() {
                             Open
                           </a>
                           <button
+                            onClick={() => handleEdit(conn.id)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            Edit
+                          </button>
+                          <button
                             onClick={() => handleDelete(conn.id, conn.connectionName)}
                             disabled={deleting === conn.id}
                             className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-gray-800 hover:bg-red-900/50 text-gray-400 hover:text-red-300 rounded-lg transition-colors disabled:opacity-50"
@@ -440,10 +486,10 @@ export default function JenkinsSetupPage() {
           )}
 
           {/* ==========================================
-              ADD NEW CONNECTION (AI-powered)
+              ADD / EDIT CONNECTION (AI-powered)
              ========================================== */}
-          {viewMode === 'add' && (
-            <motion.div key="add" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}>
+          {(viewMode === 'add' || viewMode === 'edit') && (
+            <motion.div key={viewMode} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}>
               <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
                 {/* AI Header */}
                 <div className="p-6 bg-gradient-to-r from-orange-950/40 to-red-950/40 border-b border-gray-800">
@@ -452,8 +498,14 @@ export default function JenkinsSetupPage() {
                       <Sparkles className="w-5 h-5" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-bold text-white">AI-Powered Setup</h2>
-                      <p className="text-sm text-gray-400">Enter your Jenkins URL and AI will auto-detect & fill everything</p>
+                      <h2 className="text-lg font-bold text-white">
+                        {isEditMode ? 'Edit Jenkins Connection' : 'AI-Powered Setup'}
+                      </h2>
+                      <p className="text-sm text-gray-400">
+                        {isEditMode
+                          ? 'Update your Jenkins settings. Leave password/token blank to keep existing secrets.'
+                          : 'Enter your Jenkins URL and AI will auto-detect & fill everything'}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -662,7 +714,7 @@ export default function JenkinsSetupPage() {
                       className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white font-medium rounded-xl transition-all shadow-lg shadow-orange-500/20 disabled:opacity-40 disabled:shadow-none"
                     >
                       {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                      Save Connection
+                      {isEditMode ? 'Update Connection' : 'Save Connection'}
                     </button>
                   </div>
 
