@@ -420,8 +420,7 @@ export function WidgetConfigModal({ isOpen, widget, onClose, onSave, onAiSuggest
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
                 <option value={0}>Left</option>
-                <option value={1}>Center</option>
-                <option value={2}>Right</option>
+                <option value={1}>Right</option>
               </select>
             </div>
             <div>

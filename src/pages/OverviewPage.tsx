@@ -343,9 +343,9 @@ export default function OverviewPage({ isAdminView = true }: OverviewPageProps) 
   // Group widgets by column, then sort within each column
   const columns = useMemo(() => {
     const enabled = widgets.filter(w => w.enabled);
-    const cols: WidgetConfig[][] = [[], [], []];
+    const cols: WidgetConfig[][] = [[], []];
     enabled.forEach(w => {
-      const col = Math.min(w.column, 2);
+      const col = Math.min(w.column, 1);
       cols[col].push(w);
     });
     cols.forEach(c => c.sort((a, b) => a.order - b.order));
@@ -585,7 +585,7 @@ export default function OverviewPage({ isAdminView = true }: OverviewPageProps) 
 
       {/* ── Row 3: Config-driven Widget Grid (Developer Toolkit Layout) ── */}
       {configLoaded && (
-        <div className="grid grid-cols-1 lg:grid-cols-[5fr_4fr_3fr] gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {columns.map((col, ci) => (
             <div key={ci} className="space-y-4">
               {col.map(w => (
