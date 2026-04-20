@@ -133,6 +133,8 @@ export interface PRSummaryResponse {
   toReviewCount?: number;
   scope?: string;
   currentUserEmail?: string;
+  notConfigured?: boolean;
+  message?: string;
   prs: PRInfo[];
 }
 
@@ -422,6 +424,17 @@ function getDevOpsToken(): string | null {
   return sessionStorage.getItem('prodvista_devops_token');
 }
 
+function getCurrentUserEmailFromSession(): string {
+  try {
+    const raw = sessionStorage.getItem('prodvista_auth_user');
+    if (!raw) return '';
+    const parsed = JSON.parse(raw) as { email?: string };
+    return (parsed.email || '').toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
 interface DevOpsRawPR {
   pullRequestId: number;
   title: string;
@@ -444,6 +457,11 @@ interface DevOpsRawPR {
 export async function fetchPRsDirectFromDevOps(): Promise<PRSummaryResponse | null> {
   const token = getDevOpsToken();
   if (!token) return null;
+
+  const currentUserEmail = getCurrentUserEmailFromSession();
+  const currentUserNamePrefix = currentUserEmail.includes('@')
+    ? currentUserEmail.split('@')[0]
+    : '';
 
   const allPrs: PRInfo[] = [];
 
@@ -490,11 +508,32 @@ export async function fetchPRsDirectFromDevOps(): Promise<PRSummaryResponse | nu
 
   if (allPrs.length === 0) return null;
 
+  const myCreatedCount = currentUserEmail
+    ? allPrs.filter(p => (p.createdByEmail || '').toLowerCase().includes(currentUserEmail)).length
+    : 0;
+
+  const toReviewCount = currentUserEmail
+    ? allPrs.filter(p =>
+        (p.reviewers || []).some(r =>
+          r.vote === 0 &&
+          (
+            currentUserNamePrefix.length > 0 &&
+            (r.displayName || '').toLowerCase().includes(currentUserNamePrefix)
+          )
+        )
+      ).length
+    : 0;
+
   return {
     totalActive: allPrs.length,
+    totalActiveAll: allPrs.length,
     waitingApproval: allPrs.filter(p => !p.isApproved && !p.isDraft).length,
     approved: allPrs.filter(p => p.isApproved).length,
     drafts: allPrs.filter(p => p.isDraft).length,
+    myCreatedCount,
+    toReviewCount,
+    currentUserEmail,
+    notConfigured: false,
     prs: allPrs.sort((a, b) => new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()),
   };
 }
@@ -506,15 +545,36 @@ export async function getPRSummaryWithFallback(connectionId?: string, scope: 'al
   try {
     const backend = await getPRSummary(connectionId, scope, hoursBack);
     if (backend && backend.totalActive > 0) return backend;
-    // Backend returned 0 PRs — try direct
+
+    const shouldTryDirect = !!backend?.notConfigured || (backend?.totalActiveAll ?? backend?.totalActive ?? 0) === 0;
+    if (!shouldTryDirect) return backend;
+
+    // Backend not configured or no data — try direct DevOps API via user token
     const direct = await fetchPRsDirectFromDevOps();
     if (direct) return direct;
-    return backend; // Return the original (empty) if direct also fails
+
+    // Return backend payload when direct fallback is unavailable.
+    return {
+      ...backend,
+      totalActiveAll: backend?.totalActiveAll ?? backend?.totalActive ?? 0,
+      myCreatedCount: backend?.myCreatedCount ?? 0,
+      toReviewCount: backend?.toReviewCount ?? 0,
+      prs: backend?.prs ?? [],
+    };
   } catch {
     // Backend failed entirely — try direct
     const direct = await fetchPRsDirectFromDevOps();
     if (direct) return direct;
-    return { totalActive: 0, waitingApproval: 0, approved: 0, drafts: 0, prs: [] };
+    return {
+      totalActive: 0,
+      totalActiveAll: 0,
+      waitingApproval: 0,
+      approved: 0,
+      drafts: 0,
+      myCreatedCount: 0,
+      toReviewCount: 0,
+      prs: [],
+    };
   }
 }
 
