@@ -12,6 +12,9 @@ import DevOpsConnectionSetup from '../components/DevOpsConnectionSetup'
 import { devopsService, AzureDevOpsOrganization } from '../services/devopsService'
 import engineeringService, { EngineeringConfig } from '../services/engineeringService'
 import { authService } from '../services/authService'
+import { useMsal } from '@azure/msal-react'
+import { InteractionRequiredAuthError } from '@azure/msal-browser'
+import { devopsScopes, isMsalConfigured } from '../config/msalConfig'
 
 type TabId = 'general' | 'llm' | 'azure-setup' | 'azure' | 'devops' | 'regions' | 'users'
 
@@ -36,6 +39,37 @@ export function ManagerSettingsPage() {
   const { settings, updateSettings, userRole, setUserRole, toggleRegion } = useSettingsStore()
   const [activeTab, setActiveTab] = useState<TabId>('general')
   const [isSaving, setIsSaving] = useState(false)
+  const { instance, accounts } = useMsal()
+
+  /** Ensure a DevOps SSO token is in sessionStorage, acquiring one if necessary. */
+  const ensureDevOpsToken = async (): Promise<boolean> => {
+    if (sessionStorage.getItem('prodvista_devops_token')) return true
+    if (!isMsalConfigured()) return false
+    const account = accounts[0] || instance.getActiveAccount()
+    if (!account) return false
+    try {
+      const response = await instance.acquireTokenSilent({ ...devopsScopes, account })
+      if (response?.accessToken) {
+        sessionStorage.setItem('prodvista_devops_token', response.accessToken)
+        return true
+      }
+    } catch (err) {
+      if (err instanceof InteractionRequiredAuthError) {
+        try {
+          const response = await instance.acquireTokenPopup({ ...devopsScopes, account })
+          if (response?.accessToken) {
+            sessionStorage.setItem('prodvista_devops_token', response.accessToken)
+            return true
+          }
+        } catch (popupErr) {
+          console.warn('[MSAL] DevOps token popup failed:', popupErr)
+        }
+      } else {
+        console.warn('[MSAL] DevOps token silent failed:', err)
+      }
+    }
+    return false
+  }
 
   // DevOps config state
   const [devopsOrgs, setDevopsOrgs] = useState<AzureDevOpsOrganization[]>([])
@@ -61,13 +95,14 @@ export function ManagerSettingsPage() {
     setDevopsIsDiscovering(true)
     setDevopsError(null)
     try {
+      await ensureDevOpsToken()
       const orgs = await devopsService.discoverOrganizations()
       setDevopsOrgs(orgs)
       if (orgs.length > 0 && !devopsSelectedOrg) {
         setDevopsSelectedOrg(orgs[0].accountUri)
       }
     } catch {
-      setDevopsError('Failed to discover organizations. Ensure Azure CLI is logged in.')
+      setDevopsError('Failed to discover organizations. Ensure you are signed in with Azure SSO or Azure CLI is logged in.')
     } finally {
       setDevopsIsDiscovering(false)
     }
@@ -78,6 +113,7 @@ export function ManagerSettingsPage() {
     setDevopsIsDiscovering(true)
     setDevopsError(null)
     try {
+      await ensureDevOpsToken()
       const projs = await devopsService.discoverProjects(orgUrl)
       setDevopsProjects(projs)
       if (projs.length > 0 && devopsSelectedProjects.length === 0) {
@@ -101,6 +137,7 @@ export function ManagerSettingsPage() {
     setDevopsIsDiscovering(true)
     setDevopsTestResult(null)
     try {
+      await ensureDevOpsToken()
       const result = await devopsService.testDiscoveredConnection(devopsSelectedOrg, devopsSelectedProjects[0])
       setDevopsTestResult(result)
     } catch {
