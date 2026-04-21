@@ -25,7 +25,7 @@ import {
   AlertTriangle, BarChart3, Target, ArrowUpDown,
   TrendingUp, TrendingDown, Activity, Shield, GitBranch, Layers,
   FileText, Link2, CheckCircle2, Minus, Cake, GitPullRequest, GitCommitHorizontal, FolderGit2,
-  Image, Copy, ClipboardList
+  Image, Copy, ClipboardList, UserCircle
 } from 'lucide-react';
 
 // ============================================================================
@@ -67,6 +67,13 @@ const QualityDashboardV2: React.FC = () => {
   // Today Activity (PRs + Commits grouped by Repo)
   const [todayActivity, setTodayActivity] = useState<TodayActivity | null>(null);
   const [userScope, setUserScope] = useState<'mine' | 'all'>('mine');
+
+  // User tracker — select any team member to view their work items
+  const [selectedUser, setSelectedUser] = useState<string>('');
+  const [userWorkItems, setUserWorkItems] = useState<QualityWorkItemDto[]>([]);
+  const [userWorkItemsLoading, setUserWorkItemsLoading] = useState(false);
+  const [userPickerOpen, setUserPickerOpen] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
 
   // HR Portal - Department & Birthdays
   const [hrDepartments, setHrDepartments] = useState<HrDepartment[]>([]);
@@ -113,12 +120,14 @@ const QualityDashboardV2: React.FC = () => {
         return;
       }
 
-      const [areas, repos] = await Promise.all([
+      const [areas, repos, filterOpts] = await Promise.all([
         getAreaPaths(connId),
         getRepositories(connId),
+        getFilterOptions(connId).catch(() => null),
       ]);
       setAreaPaths(areas);
       setRepositories(repos);
+      if (filterOpts) setFilterOptions(filterOpts);
 
       // Load HR departments (non-blocking)
       getHrDepartments().then(setHrDepartments).catch(() => {});
@@ -216,11 +225,24 @@ const QualityDashboardV2: React.FC = () => {
     }
   }, [selectedBugId, selectedConnectionId]);
 
+  // User tracker — load work items when a user is selected
+  useEffect(() => {
+    if (selectedUser && selectedConnectionId) {
+      setUserWorkItemsLoading(true);
+      getBugs({ assignedTo: selectedUser }, selectedConnectionId)
+        .then(setUserWorkItems)
+        .catch(() => setUserWorkItems([]))
+        .finally(() => setUserWorkItemsLoading(false));
+    } else {
+      setUserWorkItems([]);
+    }
+  }, [selectedUser, selectedConnectionId]);
+
   // Lazy tab loading
   const loadTabData = useCallback(async (tab: TabType) => {
     if (!selectedConnectionId) return;
     try {
-      if (tab === 'my-bugs') {
+      if (tab === 'my-bugs' && !selectedUser) {
         const data = await getMyBugs(selectedConnectionId);
         setMyBugs(data);
       }
@@ -239,7 +261,7 @@ const QualityDashboardV2: React.FC = () => {
     } catch (err) {
       console.error('Failed to load tab data:', err);
     }
-  }, [selectedConnectionId, releases, filterOptions]);
+  }, [selectedConnectionId, releases, filterOptions, selectedUser]);
 
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
@@ -295,6 +317,20 @@ const QualityDashboardV2: React.FC = () => {
     window.addEventListener('click', close);
     return () => window.removeEventListener('click', close);
   }, [contextMenu]);
+
+  // Close user picker on click outside
+  useEffect(() => {
+    if (!userPickerOpen) return;
+    const close = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-user-picker]')) {
+        setUserPickerOpen(false);
+        setUserSearch('');
+      }
+    };
+    window.addEventListener('mousedown', close);
+    return () => window.removeEventListener('mousedown', close);
+  }, [userPickerOpen]);
 
   // Sort helper
   const sortedBugs = (list: QualityWorkItemDto[]) => {
@@ -367,123 +403,196 @@ const QualityDashboardV2: React.FC = () => {
       <div className="flex">
         {/* Main Content */}
         <div className="flex-1 transition-all duration-300">
-          {/* Azure-style top command bar */}
+          {/* Redesigned Command Bar */}
           <div className="sticky top-0 z-30 bg-white dark:bg-[#1f1f23] border-b border-slate-200 dark:border-slate-700/50 shadow-sm">
-            <div className="max-w-[1440px] mx-auto px-6 py-3">
-              <div className="flex items-center justify-between">
+            <div className="max-w-[1440px] mx-auto px-6">
+              {/* Row 1: Title + Primary Controls */}
+              <div className="flex items-center justify-between py-3">
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shadow-sm">
-                      <Bug className="w-4.5 h-4.5 text-white" />
-                    </div>
-                    <div>
-                      <h1 className="text-lg font-semibold text-slate-900 dark:text-white leading-tight">Quality Command Center</h1>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {connections.find(c => c.id === selectedConnectionId)?.projectName ?? 'Azure DevOps'}
-                      </p>
-                    </div>
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shadow-md shadow-rose-200 dark:shadow-rose-900/30">
+                    <Bug className="w-5 h-5 text-white" />
                   </div>
-                  {/* Breadcrumb divider */}
-                  <div className="hidden md:flex items-center gap-2 ml-4 pl-4 border-l border-slate-200 dark:border-slate-700">
-                    {connections.length > 1 && (
-                      <select
-                        value={selectedConnectionId ?? ''}
-                        onChange={e => { setSelectedConnectionId(e.target.value); setMyBugs([]); setOwnerEfficiency([]); }}
-                        className="bg-transparent text-sm text-slate-700 dark:text-slate-300 border-0 focus:outline-none focus:ring-0 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 pr-6"
-                      >
-                        {connections.map(c => <option key={c.id} value={c.id}>{c.connectionName}</option>)}
-                      </select>
-                    )}
-                    <div className="flex items-center gap-1.5">
-                      <Layers className="w-3.5 h-3.5 text-slate-400" />
-                      <select
-                        value={selectedAreaPath ?? ''}
-                        onChange={e => { setSelectedAreaPath(e.target.value || undefined); setMyBugs([]); setOwnerEfficiency([]); }}
-                        className="bg-transparent text-sm text-slate-700 dark:text-slate-300 border-0 focus:outline-none focus:ring-0 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 min-w-[180px] pr-6"
-                      >
-                        <option value="">All Areas</option>
-                        {areaPaths.map(a => (
-                          <option key={a.id} value={a.path}>{a.shortName}</option>
-                        ))}
-                      </select>
-                    </div>
-                    {selectedAreaPath && (
-                      <button
-                        onClick={() => setSelectedAreaPath(undefined)}
-                        className="text-xs text-slate-400 hover:text-red-500 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                        title="Clear area filter"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                    {hrDepartments.length > 0 && (
-                      <div className="flex items-center gap-1.5 ml-2 pl-2 border-l border-slate-200 dark:border-slate-700">
-                        <Users className="w-3.5 h-3.5 text-slate-400" />
-                        <select
-                          value={selectedDepartment}
-                          onChange={e => handleDepartmentChange(e.target.value)}
-                          className="bg-transparent text-sm text-slate-700 dark:text-slate-300 border-0 focus:outline-none focus:ring-0 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 pr-6"
-                        >
-                          <option value="">All Departments</option>
-                          {hrDepartments.map(d => (
-                            <option key={d.departmentCode} value={d.departmentCode}>
-                              {d.departmentName} ({d.actualCount})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
+                  <div>
+                    <h1 className="text-lg font-bold text-slate-900 dark:text-white leading-tight tracking-tight">Quality Command Center</h1>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
+                      {connections.find(c => c.id === selectedConnectionId)?.projectName ?? 'Azure DevOps'}
+                      {selectedAreaPath && <span className="ml-1 text-blue-500">· {areaPaths.find(a => a.path === selectedAreaPath)?.shortName}</span>}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
-                    <button
-                      onClick={() => setUserScope('mine')}
-                      className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
-                        userScope === 'mine'
-                          ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                          : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-                      }`}
-                    >
-                      <User className="w-3 h-3" /> My
-                    </button>
-                    <button
-                      onClick={() => setUserScope('all')}
-                      className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
-                        userScope === 'all'
-                          ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                          : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-                      }`}
-                    >
-                      <Users className="w-3 h-3" /> All
-                    </button>
-                  </div>
                   {loading && (
-                    <span className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2.5 py-1 rounded-full">
+                    <span className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2.5 py-1 rounded-full animate-pulse">
                       <Loader2 className="w-3 h-3 animate-spin" /> Syncing
                     </span>
                   )}
                   <button
                     onClick={handleRefresh}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-lg transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-lg transition-colors"
+                    title="Refresh data"
                   >
-                    <RefreshCw className="w-3.5 h-3.5" /> Refresh
+                    <RefreshCw className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* Repository selector strip */}
-          {repositories.length > 0 && (
-            <div className="sticky top-[57px] z-20 bg-white/80 dark:bg-[#1f1f23]/80 backdrop-blur-sm border-b border-slate-200/60 dark:border-slate-700/30">
-              <div className="max-w-[1440px] mx-auto px-6 py-2">
-                <div className="flex items-center gap-2 overflow-x-auto">
-                  <FolderGit2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider shrink-0">Repos:</span>
+              {/* Row 2: Filters + User Picker */}
+              <div className="flex items-center gap-2 pb-3 -mt-1 overflow-x-auto">
+                {/* Connection selector (only if multiple) */}
+                {connections.length > 1 && (
+                  <select
+                    value={selectedConnectionId ?? ''}
+                    onChange={e => { setSelectedConnectionId(e.target.value); setMyBugs([]); setOwnerEfficiency([]); }}
+                    className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500/30 cursor-pointer"
+                  >
+                    {connections.map(c => <option key={c.id} value={c.id}>{c.connectionName}</option>)}
+                  </select>
+                )}
+
+                {/* Area path filter */}
+                <div className="flex items-center gap-1">
+                  <select
+                    value={selectedAreaPath ?? ''}
+                    onChange={e => { setSelectedAreaPath(e.target.value || undefined); setMyBugs([]); setOwnerEfficiency([]); }}
+                    className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500/30 cursor-pointer min-w-[140px]"
+                  >
+                    <option value="">All Areas</option>
+                    {areaPaths.map(a => <option key={a.id} value={a.path}>{a.shortName}</option>)}
+                  </select>
+                  {selectedAreaPath && (
+                    <button onClick={() => setSelectedAreaPath(undefined)} className="text-slate-400 hover:text-red-500 p-0.5 rounded transition-colors" title="Clear area">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* HR Department filter */}
+                {hrDepartments.length > 0 && (
+                  <select
+                    value={selectedDepartment}
+                    onChange={e => handleDepartmentChange(e.target.value)}
+                    className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500/30 cursor-pointer"
+                  >
+                    <option value="">All Departments</option>
+                    {hrDepartments.map(d => <option key={d.departmentCode} value={d.departmentCode}>{d.departmentName} ({d.actualCount})</option>)}
+                  </select>
+                )}
+
+                {/* Scope toggle */}
+                <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 ml-auto shrink-0">
+                  <button
+                    onClick={() => setUserScope('mine')}
+                    className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
+                      userScope === 'mine' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
+                    }`}
+                  >
+                    <User className="w-3 h-3" /> My
+                  </button>
+                  <button
+                    onClick={() => setUserScope('all')}
+                    className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
+                      userScope === 'all' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
+                    }`}
+                  >
+                    <Users className="w-3 h-3" /> All
+                  </button>
+                </div>
+
+                {/* Divider */}
+                <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 shrink-0" />
+
+                {/* User Tracker Picker */}
+                <div className="relative shrink-0" data-user-picker>
+                  <button
+                    onClick={() => setUserPickerOpen(!userPickerOpen)}
+                    className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
+                      selectedUser
+                        ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300'
+                        : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-blue-300 dark:hover:border-blue-700'
+                    }`}
+                  >
+                    {selectedUser ? (
+                      <>
+                        <div className="w-5 h-5 rounded-full bg-indigo-500 text-white flex items-center justify-center text-[10px] font-bold">
+                          {selectedUser.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="max-w-[120px] truncate">{selectedUser.split(' <')[0]}</span>
+                        <button
+                          onClick={e => { e.stopPropagation(); setSelectedUser(''); setUserPickerOpen(false); }}
+                          className="ml-0.5 hover:text-red-500 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <UserCircle className="w-4 h-4" />
+                        Track User
+                        <ChevronDown className="w-3 h-3" />
+                      </>
+                    )}
+                  </button>
+
+                  {/* User Picker Dropdown */}
+                  {userPickerOpen && (
+                    <div className="absolute top-full right-0 mt-1.5 w-72 bg-white dark:bg-[#292929] border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 overflow-hidden">
+                      <div className="p-2 border-b border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 rounded-lg px-3 py-2">
+                          <Search className="w-3.5 h-3.5 text-slate-400" />
+                          <input
+                            value={userSearch}
+                            onChange={e => setUserSearch(e.target.value)}
+                            placeholder="Search team members..."
+                            className="bg-transparent text-sm text-slate-900 dark:text-white border-0 focus:outline-none w-full placeholder-slate-400"
+                            autoFocus
+                          />
+                        </div>
+                      </div>
+                      <div className="max-h-64 overflow-y-auto p-1">
+                        {filterOptions?.assignedToUsers
+                          ?.filter(u => u.toLowerCase().includes(userSearch.toLowerCase()))
+                          .map(u => {
+                            const displayName = u.split(' <')[0];
+                            const isActive = selectedUser === u;
+                            return (
+                              <button
+                                key={u}
+                                onClick={() => { setSelectedUser(u); setUserPickerOpen(false); setUserSearch(''); setActiveTab('my-bugs'); }}
+                                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors ${
+                                  isActive ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                                }`}
+                              >
+                                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                                  isActive ? 'bg-indigo-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                                }`}>
+                                  {displayName.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">{displayName}</p>
+                                </div>
+                                {isActive && <CheckCircle2 className="w-4 h-4 text-indigo-500 shrink-0" />}
+                              </button>
+                            );
+                          })}
+                        {filterOptions?.assignedToUsers?.filter(u => u.toLowerCase().includes(userSearch.toLowerCase())).length === 0 && (
+                          <p className="text-xs text-slate-400 text-center py-4">No matching users</p>
+                        )}
+                        {!filterOptions?.assignedToUsers && (
+                          <p className="text-xs text-slate-400 text-center py-4">Loading users...</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Row 3: Repo chips (compact) */}
+              {repositories.length > 0 && (
+                <div className="flex items-center gap-1.5 pb-2.5 overflow-x-auto border-t border-slate-100 dark:border-slate-800/50 pt-2">
+                  <FolderGit2 className="w-3 h-3 text-slate-400 shrink-0" />
                   <button
                     onClick={clearRepoSelection}
-                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors shrink-0 ${
+                    className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors shrink-0 ${
                       selectedRepoIds.length === 0
                         ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 font-semibold'
                         : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
@@ -497,24 +606,59 @@ const QualityDashboardV2: React.FC = () => {
                       <button
                         key={repo.id}
                         onClick={() => toggleRepoSelection(repo.id)}
-                        className={`text-xs px-2.5 py-1 rounded-full border transition-colors shrink-0 flex items-center gap-1.5 ${
+                        className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors shrink-0 flex items-center gap-1 ${
                           isSelected
                             ? 'bg-purple-50 dark:bg-purple-900/30 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 font-semibold'
                             : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
                         }`}
                       >
-                        <GitBranch className="w-3 h-3" />
+                        <GitBranch className="w-2.5 h-2.5" />
                         {repo.name}
-                        {isSelected && <X className="w-3 h-3 ml-0.5" />}
+                        {isSelected && <X className="w-2.5 h-2.5 ml-0.5" />}
                       </button>
                     );
                   })}
-                  {selectedRepoIds.length > 0 && (
-                    <span className="text-[10px] text-slate-400 shrink-0 ml-1">
-                      {selectedRepoIds.length} of {repositories.length} selected
-                    </span>
-                  )}
                 </div>
+              )}
+            </div>
+          </div>
+
+          {/* User Tracker Banner — shows when tracking a specific user */}
+          {selectedUser && (
+            <div className="max-w-[1440px] mx-auto px-6 pt-4">
+              <div className="flex items-center gap-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800/40 rounded-xl px-4 py-3">
+                <div className="w-9 h-9 rounded-full bg-indigo-500 text-white flex items-center justify-center text-sm font-bold shadow-sm">
+                  {selectedUser.split(' <')[0].charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-indigo-900 dark:text-indigo-200">
+                    Tracking: {selectedUser.split(' <')[0]}
+                  </p>
+                  <p className="text-xs text-indigo-600/70 dark:text-indigo-400/70">
+                    {userWorkItemsLoading ? 'Loading work items...' : `${userWorkItems.length} work items assigned`}
+                  </p>
+                </div>
+                <div className="flex items-center gap-4 text-xs shrink-0">
+                  <div className="text-center">
+                    <p className="text-indigo-900 dark:text-indigo-200 font-bold text-base">{userWorkItems.filter(w => w.state === 'Active' || w.state === 'New').length}</p>
+                    <p className="text-indigo-600/60 dark:text-indigo-400/60">Active</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-emerald-600 dark:text-emerald-400 font-bold text-base">{userWorkItems.filter(w => w.state === 'Resolved' || w.state === 'Closed').length}</p>
+                    <p className="text-indigo-600/60 dark:text-indigo-400/60">Resolved</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-amber-600 dark:text-amber-400 font-bold text-base">{userWorkItems.filter(w => w.ageDays > 14).length}</p>
+                    <p className="text-indigo-600/60 dark:text-indigo-400/60">Aging</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedUser('')}
+                  className="text-indigo-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-white/50 dark:hover:bg-slate-800/50 transition-colors ml-2"
+                  title="Stop tracking"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             </div>
           )}
@@ -598,7 +742,7 @@ const QualityDashboardV2: React.FC = () => {
             <div className="flex gap-1 mb-5 bg-white dark:bg-[#292929] rounded-xl p-1 shadow-sm border border-slate-200 dark:border-slate-700/50">
               {([
                 { id: 'overview' as TabType, label: 'Overview', icon: BarChart3 },
-                { id: 'my-bugs' as TabType, label: 'My Items', icon: User },
+                { id: 'my-bugs' as TabType, label: selectedUser ? `${selectedUser.split(' <')[0].split(' ')[0]}'s Items` : 'My Items', icon: selectedUser ? UserCircle : User, badge: selectedUser ? userWorkItems.length : 0 },
                 { id: 'sprints' as TabType, label: 'Sprints', icon: Target },
                 { id: 'team' as TabType, label: 'Team', icon: Users },
                 { id: 'query' as TabType, label: 'Search', icon: Search },
@@ -608,12 +752,19 @@ const QualityDashboardV2: React.FC = () => {
                   onClick={() => handleTabChange(tab.id)}
                   className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
                     activeTab === tab.id
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
+                      ? selectedUser && tab.id === 'my-bugs' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25' : 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
                       : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50 hover:text-slate-700 dark:hover:text-slate-200'
                   }`}
                 >
                   <tab.icon className="w-4 h-4" />
                   {tab.label}
+                  {'badge' in tab && (tab as any).badge > 0 && (
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                      activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+                    }`}>
+                      {(tab as any).badge}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -627,7 +778,20 @@ const QualityDashboardV2: React.FC = () => {
               onBugClick={handleBugClick} selectedBugId={selectedBugId}
               onContextMenu={handleContextMenu}
             />}
-            {activeTab === 'my-bugs' && <MyBugsTab bugs={sortedBugs(myBugs)} userEmail={user?.email ?? ''} sortField={sortField} sortDir={sortDir} toggleSort={toggleSort} onBugClick={handleBugClick} selectedBugId={selectedBugId} onContextMenu={handleContextMenu} />}
+            {activeTab === 'my-bugs' && (
+              selectedUser ? (
+                <MyBugsTab
+                  bugs={sortedBugs(userWorkItemsLoading ? [] : userWorkItems)}
+                  userEmail={selectedUser.split(' <')[0]}
+                  sortField={sortField} sortDir={sortDir} toggleSort={toggleSort}
+                  onBugClick={handleBugClick} selectedBugId={selectedBugId}
+                  onContextMenu={handleContextMenu}
+                  isLoading={userWorkItemsLoading}
+                />
+              ) : (
+                <MyBugsTab bugs={sortedBugs(myBugs)} userEmail={user?.email ?? ''} sortField={sortField} sortDir={sortDir} toggleSort={toggleSort} onBugClick={handleBugClick} selectedBugId={selectedBugId} onContextMenu={handleContextMenu} />
+              )
+            )}
             {activeTab === 'sprints' && <SprintsTab
               releases={releases} expandedRelease={expandedRelease}
               releaseWorkItems={releaseWorkItems} onExpand={handleExpandRelease}
@@ -1641,7 +1805,19 @@ const MyBugsTab: React.FC<{
   sortField: string; sortDir: string; toggleSort: (f: string) => void;
   onBugClick: (id: number) => void; selectedBugId: number | null;
   onContextMenu?: (e: React.MouseEvent, bug: QualityWorkItemDto) => void;
-}> = ({ bugs, userEmail, sortField, sortDir, toggleSort, onBugClick, selectedBugId, onContextMenu }) => {
+  isLoading?: boolean;
+}> = ({ bugs, userEmail, sortField, sortDir, toggleSort, onBugClick, selectedBugId, onContextMenu, isLoading }) => {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="flex items-center gap-3 text-indigo-600 dark:text-indigo-400">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          <span className="text-sm font-medium">Loading work items for {userEmail}...</span>
+        </div>
+      </div>
+    );
+  }
+
   const activeBugs = bugs.filter(b => b.state === 'Active' || b.state === 'New' || b.state === 'In Progress');
   const resolvedBugs = bugs.filter(b => b.state === 'Resolved' || b.state === 'Done' || b.state === 'Closed');
   const oldBugs = activeBugs.filter(b => b.ageDays > 14);
