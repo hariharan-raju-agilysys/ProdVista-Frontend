@@ -171,7 +171,7 @@ function MsalTokenRefreshRegistrar({ children }: { children: React.ReactNode }) 
 
       if (!tokenResponse?.accessToken) return false;
 
-      // Refresh Azure Management (ARM) token too — silent only (no popup to avoid admin consent prompt)
+      // Refresh Azure Management (ARM) token
       try {
         const armResponse = await instance.acquireTokenSilent({
           ...armScopes, account, forceRefresh: true
@@ -179,11 +179,11 @@ function MsalTokenRefreshRegistrar({ children }: { children: React.ReactNode }) 
         if (armResponse?.accessToken) {
           sessionStorage.setItem('prodvista_azure_token', armResponse.accessToken);
         }
-      } catch {
-        // ARM token is optional
+      } catch (err) {
+        console.warn('[MSAL] ARM token refresh failed:', err);
       }
 
-      // Refresh Azure DevOps token too — silent only (no popup to avoid admin consent prompt)
+      // Refresh Azure DevOps token
       try {
         const devopsResponse = await instance.acquireTokenSilent({
           ...devopsScopes, account, forceRefresh: true
@@ -191,8 +191,8 @@ function MsalTokenRefreshRegistrar({ children }: { children: React.ReactNode }) 
         if (devopsResponse?.accessToken) {
           sessionStorage.setItem('prodvista_devops_token', devopsResponse.accessToken);
         }
-      } catch {
-        // DevOps token is optional
+      } catch (err) {
+        console.warn('[MSAL] DevOps token refresh failed:', err);
       }
 
       return true;
@@ -217,8 +217,12 @@ function MsalTokenRefreshRegistrar({ children }: { children: React.ReactNode }) 
         if (response?.accessToken) {
           sessionStorage.setItem('prodvista_azure_token', response.accessToken);
         }
-      } catch {
-        // Silent failed — server credentials provide fallback for Azure features
+      } catch (err) {
+        if (err instanceof InteractionRequiredAuthError) {
+          console.warn('[MSAL] ARM token requires consent — will be granted on next login');
+        } else {
+          console.warn('[MSAL] ARM token silent acquisition failed:', err);
+        }
       }
     };
     ensureAzureToken();
@@ -235,8 +239,12 @@ function MsalTokenRefreshRegistrar({ children }: { children: React.ReactNode }) 
         if (response?.accessToken) {
           sessionStorage.setItem('prodvista_devops_token', response.accessToken);
         }
-      } catch {
-        // Silent failed — will be resolved on next login (extraScopesToConsent)
+      } catch (err) {
+        if (err instanceof InteractionRequiredAuthError) {
+          console.warn('[MSAL] DevOps token requires consent — will be granted on next login');
+        } else {
+          console.warn('[MSAL] DevOps token silent acquisition failed:', err);
+        }
       }
     };
     ensureDevOpsToken();

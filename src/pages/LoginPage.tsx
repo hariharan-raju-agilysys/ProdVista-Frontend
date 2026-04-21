@@ -190,17 +190,15 @@ export default function LoginPage() {
         if (response.user) setUserFromLocal(response.user as any);
         updateOrgInfo(storedOrgCode, { code: storedOrgCode, name: response.user?.tenantName || storedOrgInfo?.name || storedOrgCode });
 
-        // Acquire optional tokens (ARM & DevOps) — silent only; skip if not consented.
-        // Popup is not used here because the tenant requires admin consent for these scopes.
-        // Server-side credentials provide fallback for Azure/DevOps features.
+        // Acquire optional tokens (ARM & DevOps) — silent only, consent granted via login extraScopesToConsent
         try {
-          const armRes = await msalInstance.acquireTokenSilent({ ...armScopes, account }).catch(() => null);
+          const armRes = await msalInstance.acquireTokenSilent({ ...armScopes, account }).catch((e: unknown) => { console.warn('[MSAL] ARM token silent failed:', e); return null; });
           if (armRes?.accessToken) sessionStorage.setItem('prodvista_azure_token', armRes.accessToken);
-        } catch { /* optional */ }
+        } catch (err) { console.warn('[MSAL] ARM token acquisition error:', err); }
         try {
-          const devRes = await msalInstance.acquireTokenSilent({ ...devopsScopes, account }).catch(() => null);
+          const devRes = await msalInstance.acquireTokenSilent({ ...devopsScopes, account }).catch((e: unknown) => { console.warn('[MSAL] DevOps token silent failed:', e); return null; });
           if (devRes?.accessToken) sessionStorage.setItem('prodvista_devops_token', devRes.accessToken);
-        } catch { /* optional */ }
+        } catch (err) { console.warn('[MSAL] DevOps token acquisition error:', err); }
 
         hasNavigated.current = true;
         navigate('/', { replace: true });
@@ -258,17 +256,17 @@ export default function LoginPage() {
           if (response.user) setUserFromLocal(response.user as any);
           updateOrgInfo(savedTenant, { code: savedTenant, name: response.user?.tenantName || savedTenant });
 
-          // Acquire ARM token (optional) — silent only; no popup to avoid admin consent prompt
+          // Acquire ARM token — silent (consent granted via login extraScopesToConsent)
           try {
-            const armRes = await msalInstance.acquireTokenSilent({ ...armScopes, account: accounts[0] }).catch(() => null);
+            const armRes = await msalInstance.acquireTokenSilent({ ...armScopes, account: accounts[0] }).catch((e: unknown) => { console.warn('[MSAL] ARM token silent failed:', e); return null; });
             if (armRes?.accessToken) sessionStorage.setItem('prodvista_azure_token', armRes.accessToken);
-          } catch { /* optional */ }
+          } catch (err) { console.warn('[MSAL] ARM token acquisition error:', err); }
 
-          // Acquire DevOps token (optional) — silent only; no popup to avoid admin consent prompt
+          // Acquire DevOps token — silent (consent granted via login extraScopesToConsent)
           try {
-            const devRes = await msalInstance.acquireTokenSilent({ ...devopsScopes, account: accounts[0] }).catch(() => null);
+            const devRes = await msalInstance.acquireTokenSilent({ ...devopsScopes, account: accounts[0] }).catch((e: unknown) => { console.warn('[MSAL] DevOps token silent failed:', e); return null; });
             if (devRes?.accessToken) sessionStorage.setItem('prodvista_devops_token', devRes.accessToken);
-          } catch { /* optional */ }
+          } catch (err) { console.warn('[MSAL] DevOps token acquisition error:', err); }
 
           hasNavigated.current = true;
           navigate('/', { replace: true });
@@ -314,13 +312,13 @@ export default function LoginPage() {
             updateOrgInfo(info.code, { code: info.code, name: response.user?.tenantName || info.name });
 
             try {
-              const armRes = await msalInstance.acquireTokenSilent({ ...armScopes, account }).catch(() => null);
+              const armRes = await msalInstance.acquireTokenSilent({ ...armScopes, account }).catch((e: unknown) => { console.warn('[MSAL] ARM token silent failed:', e); return null; });
               if (armRes?.accessToken) sessionStorage.setItem('prodvista_azure_token', armRes.accessToken);
-            } catch { /* optional */ }
+            } catch (err) { console.warn('[MSAL] ARM token acquisition error:', err); }
             try {
-              const devRes = await msalInstance.acquireTokenSilent({ ...devopsScopes, account }).catch(() => null);
+              const devRes = await msalInstance.acquireTokenSilent({ ...devopsScopes, account }).catch((e: unknown) => { console.warn('[MSAL] DevOps token silent failed:', e); return null; });
               if (devRes?.accessToken) sessionStorage.setItem('prodvista_devops_token', devRes.accessToken);
-            } catch { /* optional */ }
+            } catch (err) { console.warn('[MSAL] DevOps token acquisition error:', err); }
 
             hasNavigated.current = true;
             navigate('/', { replace: true });
@@ -339,14 +337,17 @@ export default function LoginPage() {
     }
 
     // No existing session — redirect to Microsoft login
-    // NOTE: Do NOT include extraScopesToConsent for DevOps scopes here.
-    // The Agilysys tenant requires admin consent for DevOps API access,
-    // so we only request basic Graph scopes on initial login.
-    // DevOps tokens are acquired incrementally via acquireTokenSilent later.
+    // Include DevOps and ARM scopes in extraScopesToConsent so the user grants
+    // consent upfront. This allows subsequent acquireTokenSilent calls to succeed
+    // without requiring separate interactive prompts.
     try {
       await msalInstance.loginRedirect({
         ...graphScopes,
         prompt: 'select_account',
+        extraScopesToConsent: [
+          ...armScopes.scopes,
+          ...devopsScopes.scopes,
+        ],
       });
     } catch (err: any) {
       sessionStorage.removeItem('msal_pending_tenant');
