@@ -40,6 +40,12 @@
   background-color: #f8fafc;
 }
 
+.dark {
+  color-scheme: dark;
+  color: #e2e8f0;
+  background-color: #0f172a;
+}
+
 body {
   margin: 0;
   min-width: 320px;
@@ -48,7 +54,7 @@ body {
 
 @layer components {
   .card {
-    @apply bg-white rounded-lg shadow-md p-4 border border-gray-100;
+    @apply bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 border border-gray-100 dark:border-gray-700;
   }
   
   .btn-primary {
@@ -56,7 +62,7 @@ body {
   }
   
   .btn-secondary {
-    @apply bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 transition-colors;
+    @apply bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors;
   }
 
   /* Modal Components */
@@ -65,23 +71,23 @@ body {
   }
 
   .modal-container {
-    @apply bg-white rounded-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col;
+    @apply bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col;
   }
 
   .modal-header {
-    @apply px-6 py-4 border-b flex items-center justify-between;
+    @apply px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between;
   }
 
   .modal-title {
-    @apply text-xl font-bold;
+    @apply text-xl font-bold text-gray-900 dark:text-white;
   }
 
   .modal-close-btn {
-    @apply p-2 hover:bg-gray-100 rounded-lg transition-colors;
+    @apply p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-500 dark:text-gray-400;
   }
 
   .modal-footer {
-    @apply px-6 py-4 border-t flex justify-between;
+    @apply px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-between;
   }
 
   .modal-content {
@@ -90,19 +96,19 @@ body {
 
   /* Form Components */
   .form-label {
-    @apply block text-sm font-medium text-gray-700 mb-2;
+    @apply block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2;
   }
 
   .form-input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all;
+    @apply w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 dark:text-white transition-all;
   }
 
   .form-select {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition-all;
+    @apply w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 dark:text-white transition-all;
   }
 
   .form-hint {
-    @apply text-xs text-gray-500 mt-1;
+    @apply text-xs text-gray-500 dark:text-gray-400 mt-1;
   }
 
   .form-group {
@@ -115,15 +121,15 @@ body {
   }
 
   .selection-btn-active {
-    @apply border-blue-500 bg-blue-50;
+    @apply border-blue-500 bg-blue-50 dark:bg-blue-900/30;
   }
 
   .selection-btn-inactive {
-    @apply border-gray-200 hover:border-gray-300;
+    @apply border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500;
   }
 
   .selection-btn-text {
-    @apply font-medium;
+    @apply font-medium text-gray-900 dark:text-white;
   }
 
   /* Size Selection */
@@ -133,7 +139,7 @@ body {
 
   /* Step Indicator */
   .step-container {
-    @apply px-6 py-3 border-b bg-gray-50;
+    @apply px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50;
   }
 
   .step-indicator {
@@ -153,7 +159,7 @@ body {
   }
 
   .step-btn-pending {
-    @apply bg-gray-200 text-gray-600;
+    @apply bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400;
   }
 
   .step-connector {
@@ -165,20 +171,20 @@ body {
   }
 
   .step-connector-pending {
-    @apply bg-gray-200;
+    @apply bg-gray-200 dark:bg-gray-700;
   }
 
   .step-title {
-    @apply text-center mt-2 text-sm text-gray-600;
+    @apply text-center mt-2 text-sm text-gray-600 dark:text-gray-400;
   }
 
   /* Summary Card */
   .summary-card {
-    @apply bg-gray-50 rounded-lg p-4;
+    @apply bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4;
   }
 
   .summary-title {
-    @apply font-medium text-gray-700 mb-2;
+    @apply font-medium text-gray-700 dark:text-gray-300 mb-2;
   }
 
   .summary-list {
@@ -190,7 +196,7 @@ body {
   }
 
   .summary-label {
-    @apply text-gray-500;
+    @apply text-gray-500 dark:text-gray-400;
   }
 
   .summary-value {
@@ -207,7 +213,7 @@ body {
   }
 
   .data-source-icon {
-    @apply w-5 h-5 text-gray-600;
+    @apply w-5 h-5 text-gray-600 dark:text-gray-400;
   }
 
   .data-source-label {
@@ -215,12 +221,12 @@ body {
   }
 
   .data-source-desc {
-    @apply text-xs text-gray-500;
+    @apply text-xs text-gray-500 dark:text-gray-400;
   }
 
   /* Action Buttons */
   .btn-nav {
-    @apply px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors;
+    @apply px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors;
   }
 
   .btn-action {

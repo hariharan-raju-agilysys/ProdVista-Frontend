@@ -285,25 +285,25 @@ export default function DataFeedPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
+    <div className="p-6">
       {/* Header */}
-      <header className="border-b border-slate-700/50 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-40">
+      <header className="border-b border-gray-200 dark:border-slate-700/50 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm sticky top-0 z-40 rounded-lg mb-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => navigate('/tools')}
-                className="p-2 hover:bg-slate-700/50 rounded-lg transition"
+                className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700/50 rounded-lg transition"
               >
-                <ChevronLeft className="w-5 h-5" />
+                <ChevronLeft className="w-5 h-5 text-gray-600 dark:text-white" />
               </button>
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg">
-                  <Database className="w-5 h-5" />
+                  <Database className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold">AI Data Feed</h1>
-                  <p className="text-xs text-slate-400">Context for AI Assistant</p>
+                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">AI Data Feed</h1>
+                  <p className="text-xs text-gray-500 dark:text-slate-400">Context for AI Assistant</p>
                 </div>
               </div>
             </div>

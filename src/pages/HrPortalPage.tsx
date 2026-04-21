@@ -270,17 +270,17 @@ export default function HrPortalPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <Users className="w-6 h-6 text-blue-600" /> HR Portal
           </h1>
-          <p className="text-xs text-gray-500 mt-0.5">Employee directory, birthdays, department overview</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Employee directory, birthdays, department overview</p>
         </div>
         <div className="flex items-center gap-2">
           {/* Department Filter — Global */}
           <select
             value={selectedDept}
             onChange={e => setSelectedDept(e.target.value)}
-            className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:ring-2 focus:ring-blue-500"
+            className="text-xs border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
           >
             <option value="">All Departments</option>
             {departments.map(d => (

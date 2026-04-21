@@ -418,7 +418,7 @@ export default function LoginPage() {
   /*  Tenant entry — light, professional, single-step                 */
   /* ================================================================ */
   return (
-    <div className="min-h-screen flex bg-gradient-to-br from-slate-50 via-white to-blue-50/40">
+    <div className="min-h-screen flex bg-gradient-to-br from-slate-50 via-white to-blue-50/40 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       {/* ============================================================ */}
       {/*  LEFT PANEL — Branding (desktop only)                       */}
       {/* ============================================================ */}
@@ -513,7 +513,7 @@ export default function LoginPage() {
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center justify-center gap-3 mb-10">
             <img src={`${basePath}/favicon.svg`} alt="ProdVista" className="w-10 h-10 rounded-xl shadow-md" />
-            <span className="text-xl font-bold text-gray-900 tracking-tight">ProdVista</span>
+            <span className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">ProdVista</span>
           </div>
 
           {/* Card */}
@@ -521,7 +521,7 @@ export default function LoginPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className="bg-white rounded-2xl shadow-xl shadow-gray-200/50 border border-gray-100 overflow-hidden"
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl shadow-gray-200/50 dark:shadow-gray-900/50 border border-gray-100 dark:border-gray-700 overflow-hidden"
           >
             {/* Accent bar */}
             <div className="h-1 w-full bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500" />
@@ -536,8 +536,8 @@ export default function LoginPage() {
                 >
                   <Building2 className="w-7 h-7 text-white" />
                 </motion.div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-1.5">Welcome back</h2>
-                <p className="text-sm text-gray-500">Enter your organization code to sign in</p>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1.5">Welcome back</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Enter your organization code to sign in</p>
               </div>
 
               {/* Detected SSO session hint */}

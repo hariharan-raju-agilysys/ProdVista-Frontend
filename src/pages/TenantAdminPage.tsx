@@ -117,12 +117,12 @@ export default function TenantAdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 p-6">
+    <div className="p-6">
       <div className="max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">Tenant Administration</h1>
-        <p className="text-slate-400 mt-1">Configure adapters, manage tenants, and customize branding</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Tenant Administration</h1>
+        <p className="text-gray-500 dark:text-slate-400 mt-1">Configure adapters, manage tenants, and customize branding</p>
       </div>
 
       {/* Status Messages */}
@@ -142,7 +142,7 @@ export default function TenantAdminPage() {
       </AnimatePresence>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-slate-800/50 rounded-lg p-1">
+      <div className="flex gap-1 mb-6 bg-gray-100 dark:bg-slate-800/50 rounded-lg p-1">
         {tabs.map(tab => (
           <button
             key={tab.id}
@@ -150,7 +150,7 @@ export default function TenantAdminPage() {
             className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
               activeTab === tab.id
                 ? 'bg-blue-600 text-white shadow-lg'
-                : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                : 'text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-slate-700/50'
             }`}
           >
             <tab.icon className="w-4 h-4" />

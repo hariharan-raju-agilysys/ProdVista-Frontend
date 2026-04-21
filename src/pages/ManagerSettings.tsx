@@ -80,6 +80,8 @@ export function ManagerSettingsPage() {
   const [devopsSavedConfig, setDevopsSavedConfig] = useState<EngineeringConfig | null>(null)
   const [devopsTestResult, setDevopsTestResult] = useState<{ success: boolean; message: string } | null>(null)
   const [devopsError, setDevopsError] = useState<string | null>(null)
+  const [devDevOpsToken, setDevDevOpsToken] = useState('')
+  const msalAvailable = isMsalConfigured() && accounts.length > 0
 
   // Load saved DevOps config
   useEffect(() => {
@@ -95,7 +97,12 @@ export function ManagerSettingsPage() {
     setDevopsIsDiscovering(true)
     setDevopsError(null)
     try {
-      await ensureDevOpsToken()
+      // If user pasted a dev token, store it so the axios interceptor sends it
+      if (devDevOpsToken.trim()) {
+        sessionStorage.setItem('prodvista_devops_token', devDevOpsToken.trim())
+      } else {
+        await ensureDevOpsToken()
+      }
       const orgs = await devopsService.discoverOrganizations()
       setDevopsOrgs(orgs)
       if (orgs.length > 0 && !devopsSelectedOrg) {
@@ -113,7 +120,11 @@ export function ManagerSettingsPage() {
     setDevopsIsDiscovering(true)
     setDevopsError(null)
     try {
-      await ensureDevOpsToken()
+      if (devDevOpsToken.trim()) {
+        sessionStorage.setItem('prodvista_devops_token', devDevOpsToken.trim())
+      } else {
+        await ensureDevOpsToken()
+      }
       const projs = await devopsService.discoverProjects(orgUrl)
       setDevopsProjects(projs)
       if (projs.length > 0 && devopsSelectedProjects.length === 0) {
@@ -137,7 +148,11 @@ export function ManagerSettingsPage() {
     setDevopsIsDiscovering(true)
     setDevopsTestResult(null)
     try {
-      await ensureDevOpsToken()
+      if (devDevOpsToken.trim()) {
+        sessionStorage.setItem('prodvista_devops_token', devDevOpsToken.trim())
+      } else {
+        await ensureDevOpsToken()
+      }
       const result = await devopsService.testDiscoveredConnection(devopsSelectedOrg, devopsSelectedProjects[0])
       setDevopsTestResult(result)
     } catch {
@@ -214,7 +229,7 @@ export function ManagerSettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 p-8">
+    <div className="p-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <motion.div
@@ -224,11 +239,11 @@ export function ManagerSettingsPage() {
         >
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
                 <Settings className="w-8 h-8 text-purple-400" />
                 Manager Settings
               </h1>
-              <p className="text-gray-400 mt-1">Configure application settings and integrations</p>
+              <p className="text-gray-500 dark:text-gray-400 mt-1">Configure application settings and integrations</p>
             </div>
             <button
               onClick={handleSave}
@@ -266,7 +281,7 @@ export function ManagerSettingsPage() {
             animate={{ opacity: 1, x: 0 }}
             className="w-64 flex-shrink-0"
           >
-            <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
               {tabs.map((tab) => {
                 const Icon = tab.icon
                 const isActive = activeTab === tab.id
@@ -278,7 +293,7 @@ export function ManagerSettingsPage() {
                     className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${
                       isActive
                         ? 'bg-purple-500/20 text-purple-400 border-l-2 border-purple-500'
-                        : 'text-gray-400 hover:bg-gray-700/50 hover:text-white border-l-2 border-transparent'
+                        : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white border-l-2 border-transparent'
                     }`}
                   >
                     <Icon className="w-5 h-5" />
@@ -300,18 +315,18 @@ export function ManagerSettingsPage() {
                   exit={{ opacity: 0, y: -20 }}
                   className="space-y-6"
                 >
-                  <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-                    <h3 className="text-lg font-semibold text-white mb-4">General Settings</h3>
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">General Settings</h3>
                     
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                        <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">
                           Dashboard Refresh Interval
                         </label>
                         <select
                           value={settings.dashboardRefreshInterval}
                           onChange={(e) => updateSettings({ dashboardRefreshInterval: Number(e.target.value) })}
-                          className="w-full p-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:border-purple-500 outline-none"
+                          className="w-full p-3 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:border-purple-500 outline-none"
                         >
                           <option value={10000}>10 seconds</option>
                           <option value={30000}>30 seconds</option>
@@ -321,7 +336,7 @@ export function ManagerSettingsPage() {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                        <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">
                           Theme
                         </label>
                         <div className="flex gap-3">
@@ -332,24 +347,24 @@ export function ManagerSettingsPage() {
                               className={`flex-1 p-3 rounded-lg border-2 capitalize transition-all ${
                                 settings.theme === theme
                                   ? 'border-purple-500 bg-purple-500/10'
-                                  : 'border-gray-700 hover:border-gray-600'
+                                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                               }`}
                             >
-                              <span className="text-white">{theme}</span>
+                              <span className="text-gray-900 dark:text-white">{theme}</span>
                             </button>
                           ))}
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                        <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">
                           Enabled Features
                         </label>
                         <div className="grid grid-cols-2 gap-3">
                           {Object.entries(settings.enabledFeatures).map(([feature, enabled]) => (
                             <label
                               key={feature}
-                              className="flex items-center gap-3 p-3 bg-gray-900 rounded-lg cursor-pointer"
+                              className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg cursor-pointer"
                             >
                               <input
                                 type="checkbox"
@@ -362,7 +377,7 @@ export function ManagerSettingsPage() {
                                 })}
                                 className="w-4 h-4 accent-purple-500"
                               />
-                              <span className="text-gray-300 capitalize">{feature.replace(/([A-Z])/g, ' $1')}</span>
+                              <span className="text-gray-700 dark:text-gray-300 capitalize">{feature.replace(/([A-Z])/g, ' $1')}</span>
                             </label>
                           ))}
                         </div>
@@ -406,8 +421,8 @@ export function ManagerSettingsPage() {
                     <div className="flex items-center gap-3 mb-4">
                       <Cloud className="w-6 h-6 text-blue-400" />
                       <div>
-                        <h3 className="text-lg font-semibold text-white">Azure Resources</h3>
-                        <p className="text-sm text-gray-400">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Azure Resources</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
                           Auto-discover and configure Azure resources via CLI/SSO - no manual IDs required
                         </p>
                       </div>
@@ -430,18 +445,18 @@ export function ManagerSettingsPage() {
 
                   {/* Separator */}
                   <div className="flex items-center gap-3">
-                    <div className="flex-1 border-t border-gray-700" />
+                    <div className="flex-1 border-t border-gray-200 dark:border-gray-700" />
                     <span className="text-xs text-gray-500 uppercase tracking-wider">or use Azure SSO</span>
-                    <div className="flex-1 border-t border-gray-700" />
+                    <div className="flex-1 border-t border-gray-200 dark:border-gray-700" />
                   </div>
 
                   {/* SSO-based connection (secondary/alternative) */}
-                  <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
                     <div className="flex items-center gap-3 mb-6">
                       <GitBranch className="w-6 h-6 text-blue-400" />
                       <div>
-                        <h3 className="text-lg font-semibold text-white">Azure SSO Discovery</h3>
-                        <p className="text-sm text-gray-400">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Azure SSO Discovery</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
                           Auto-discover organizations and projects using your Azure SSO session.
                         </p>
                       </div>
@@ -477,6 +492,24 @@ export function ManagerSettingsPage() {
                     )}
 
                     <div className="space-y-4">
+                      {/* Dev token input — shown when MSAL/SSO is not available (local dev) */}
+                      {!msalAvailable && (
+                        <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg space-y-2">
+                          <p className="text-xs text-amber-400">
+                            SSO not available (local dev). Paste a DevOps Bearer token to use discovery:
+                          </p>
+                          <code className="block text-[10px] text-gray-500 bg-gray-900 p-2 rounded select-all">
+                            az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 --query accessToken -o tsv
+                          </code>
+                          <input
+                            type="password"
+                            value={devDevOpsToken}
+                            onChange={e => setDevDevOpsToken(e.target.value)}
+                            placeholder="Paste Bearer token here..."
+                            className="w-full px-3 py-2 text-xs bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-amber-500 outline-none"
+                          />
+                        </div>
+                      )}
                       <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">
                           Organization

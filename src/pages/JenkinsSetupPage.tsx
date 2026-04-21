@@ -303,7 +303,7 @@ export default function JenkinsSetupPage() {
   const isEditMode = viewMode === 'edit' && !!editingConnectionId
 
   return (
-    <div className="min-h-screen bg-gray-950 p-6">
+    <div className="p-6">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
@@ -313,8 +313,8 @@ export default function JenkinsSetupPage() {
                 <Wrench className="w-6 h-6" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-white">Jenkins Integration</h1>
-                <p className="text-gray-400 text-sm">Connect your Jenkins servers to track pipelines, builds, and deployments</p>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Jenkins Integration</h1>
+                <p className="text-gray-500 dark:text-gray-400 text-sm">Connect your Jenkins servers to track pipelines, builds, and deployments</p>
               </div>
             </div>
             {viewMode === 'list' && (
@@ -329,7 +329,7 @@ export default function JenkinsSetupPage() {
             {viewMode !== 'list' && (
               <button
                 onClick={() => { resetForm(); setViewMode('list') }}
-                className="flex items-center gap-2 px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                className="flex items-center gap-2 px-4 py-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
               >
                 <ArrowRight className="w-4 h-4 rotate-180" />
                 Back to List

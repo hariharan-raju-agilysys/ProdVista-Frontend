@@ -213,7 +213,7 @@ export function UserManagement() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 p-8">
+    <div className="p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <motion.div
@@ -223,15 +223,15 @@ export function UserManagement() {
         >
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
                 <Users className="w-8 h-8 text-purple-400" />
                 User Management
               </h1>
-              <p className="text-gray-400 mt-1">Manage user access and roles</p>
+              <p className="text-gray-500 dark:text-gray-400 mt-1">Manage user access and roles</p>
             </div>
             <button
               onClick={() => { fetchUsers(); fetchStats(); }}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white rounded-lg transition-colors border border-gray-200 dark:border-gray-700"
             >
               <RefreshCw className="w-4 h-4" />
               Refresh
@@ -254,11 +254,11 @@ export function UserManagement() {
               { label: 'Active Today', value: stats.activeToday, icon: Clock, color: 'green' },
               { label: 'New Today', value: stats.newUsersToday, icon: UserPlus, color: 'emerald' },
             ].map((stat) => (
-              <div key={stat.label} className="bg-gray-800 rounded-xl p-5 border border-gray-700">
+              <div key={stat.label} className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-gray-400 text-sm">{stat.label}</p>
-                    <p className="text-2xl font-bold text-white mt-1">{stat.value}</p>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">{stat.label}</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{stat.value}</p>
                   </div>
                   <div className={`p-3 rounded-lg bg-${stat.color}-500/20`}>
                     <stat.icon className={`w-6 h-6 text-${stat.color}-400`} />
@@ -294,7 +294,7 @@ export function UserManagement() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-gray-800 rounded-xl p-4 border border-gray-700 mb-6"
+          className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 mb-6"
         >
           <div className="flex items-center gap-4">
             <div className="flex-1 relative">
@@ -304,14 +304,14 @@ export function UserManagement() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search by name, email or department..."
-                className="w-full pl-10 pr-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-purple-500 outline-none"
+                className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 focus:border-purple-500 outline-none"
               />
             </div>
             
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:border-purple-500 outline-none"
+              className="px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:border-purple-500 outline-none"
             >
               <option value="">All Roles</option>
               <option value="admin">Admins</option>
@@ -323,7 +323,7 @@ export function UserManagement() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:border-purple-500 outline-none"
+              className="px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:border-purple-500 outline-none"
             >
               <option value="">All Status</option>
               <option value="active">Active</option>
@@ -337,29 +337,29 @@ export function UserManagement() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden"
+          className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
         >
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <div className="w-8 h-8 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
             </div>
           ) : users.length === 0 ? (
-            <div className="text-center py-12 text-gray-400">
+            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
               <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p>No users found</p>
             </div>
           ) : (
             <table className="w-full">
-              <thead className="bg-gray-900/50">
+              <thead className="bg-gray-50 dark:bg-gray-900/50">
                 <tr>
-                  <th className="text-left px-6 py-4 text-sm font-medium text-gray-400">User</th>
-                  <th className="text-left px-6 py-4 text-sm font-medium text-gray-400">Role</th>
-                  <th className="text-left px-6 py-4 text-sm font-medium text-gray-400">Status</th>
-                  <th className="text-left px-6 py-4 text-sm font-medium text-gray-400">Last Active</th>
-                  <th className="text-right px-6 py-4 text-sm font-medium text-gray-400">Actions</th>
+                  <th className="text-left px-6 py-4 text-sm font-medium text-gray-600 dark:text-gray-400">User</th>
+                  <th className="text-left px-6 py-4 text-sm font-medium text-gray-600 dark:text-gray-400">Role</th>
+                  <th className="text-left px-6 py-4 text-sm font-medium text-gray-600 dark:text-gray-400">Status</th>
+                  <th className="text-left px-6 py-4 text-sm font-medium text-gray-600 dark:text-gray-400">Last Active</th>
+                  <th className="text-right px-6 py-4 text-sm font-medium text-gray-600 dark:text-gray-400">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-700">
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {users.map((user, index) => {
                   const role = roleConfig[user.role] || roleConfig['user']
                   const RoleIcon = role.icon
@@ -371,7 +371,7 @@ export function UserManagement() {
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.05 }}
-                      className="hover:bg-gray-700/30 transition-colors"
+                      className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -394,12 +394,12 @@ export function UserManagement() {
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <p className="text-white font-medium">{user.displayName}</p>
+                              <p className="text-gray-900 dark:text-white font-medium">{user.displayName}</p>
                               {isCurrentUser && (
                                 <span className="text-xs px-1.5 py-0.5 bg-blue-500/20 text-blue-400 rounded">You</span>
                               )}
                             </div>
-                            <div className="flex items-center gap-3 text-sm text-gray-400">
+                            <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
                               <span className="flex items-center gap-1">
                                 <Mail className="w-3 h-3" />
                                 {user.email}
@@ -432,7 +432,7 @@ export function UserManagement() {
                                 initial={{ opacity: 0, y: -10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -10 }}
-                                className="absolute top-full mt-1 left-0 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-10 overflow-hidden"
+                                className="absolute top-full mt-1 left-0 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-10 overflow-hidden"
                               >
                                 {Object.entries(roleConfig).map(([roleKey, config]) => {
                                   const Icon = config.icon
@@ -443,8 +443,8 @@ export function UserManagement() {
                                       disabled={roleKey === user.role}
                                       className={`w-full flex items-center gap-2 px-4 py-2 text-left transition-colors ${
                                         roleKey === user.role 
-                                          ? 'bg-gray-800 text-gray-500 cursor-not-allowed' 
-                                          : 'hover:bg-gray-800 text-gray-300'
+                                          ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 cursor-not-allowed' 
+                                          : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
                                       }`}
                                     >
                                       <Icon className={`w-4 h-4 ${config.textColor}`} />
@@ -482,7 +482,7 @@ export function UserManagement() {
                       
                       <td className="px-6 py-4">
                         <div className="text-sm">
-                          <p className="text-white">
+                          <p className="text-gray-900 dark:text-white">
                             {new Date(user.lastLoginAt).toLocaleDateString()}
                           </p>
                           <p className="text-gray-500">
@@ -494,7 +494,7 @@ export function UserManagement() {
                       <td className="px-6 py-4 text-right">
                         <button
                           onClick={() => setSelectedUser(user)}
-                          className="p-2 hover:bg-gray-700 rounded-lg transition-colors text-gray-400 hover:text-white"
+                          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-400 hover:text-gray-900 dark:hover:text-white"
                         >
                           <MoreVertical className="w-4 h-4" />
                         </button>
@@ -508,8 +508,8 @@ export function UserManagement() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-700">
-              <p className="text-sm text-gray-400">
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 Page {page} of {totalPages}
               </p>
               <div className="flex items-center gap-2">
@@ -547,7 +547,7 @@ export function UserManagement() {
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.95, opacity: 0 }}
                 onClick={(e) => e.stopPropagation()}
-                className="bg-gray-800 rounded-xl p-6 border border-gray-700 w-full max-w-md"
+                className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 w-full max-w-md"
               >
                 <div className="flex items-start justify-between mb-6">
                   <div className="flex items-center gap-4">

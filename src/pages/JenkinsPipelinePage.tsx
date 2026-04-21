@@ -343,7 +343,7 @@ export default function JenkinsPipelinePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 p-6">
+    <div className="p-6">
       <div className="max-w-[1600px] mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -352,8 +352,8 @@ export default function JenkinsPipelinePage() {
               <GitBranch className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white">Jenkins Pipelines</h1>
-              <p className="text-sm text-gray-400">Monitor builds, track pipelines, and view deployment status</p>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Jenkins Pipelines</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Monitor builds, track pipelines, and view deployment status</p>
             </div>
           </div>
 
@@ -362,21 +362,21 @@ export default function JenkinsPipelinePage() {
             <div className="relative">
               <button
                 onClick={() => setShowConnectionPicker(!showConnectionPicker)}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-900 border border-gray-700 rounded-xl text-sm text-gray-300 hover:border-gray-600 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
               >
                 <Server className="w-3.5 h-3.5 text-orange-400" />
                 {activeConn?.connectionName ?? 'Select Server'}
                 <ChevronDown className="w-3.5 h-3.5" />
               </button>
               {showConnectionPicker && (
-                <div className="absolute right-0 top-full mt-1 w-64 bg-gray-900 border border-gray-700 rounded-xl shadow-xl z-50 py-1">
+                <div className="absolute right-0 top-full mt-1 w-64 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 py-1">
                   {connections.map(c => (
                     <button
                       key={c.id}
                       onClick={() => { setSelectedConnection(c.id); setShowConnectionPicker(false) }}
                       className={clsx(
-                        'w-full text-left px-4 py-2.5 text-sm hover:bg-gray-800 transition-colors',
-                        c.id === selectedConnection ? 'text-orange-400' : 'text-gray-300'
+                        'w-full text-left px-4 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors',
+                        c.id === selectedConnection ? 'text-orange-400' : 'text-gray-700 dark:text-gray-300'
                       )}
                     >
                       <div className="font-medium">{c.connectionName}</div>
@@ -390,7 +390,7 @@ export default function JenkinsPipelinePage() {
             <button
               onClick={() => selectedConnection && loadData(selectedConnection)}
               disabled={refreshing}
-              className="flex items-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl transition-colors disabled:opacity-50 border border-gray-200 dark:border-gray-700"
             >
               <RefreshCw className={clsx('w-4 h-4', refreshing && 'animate-spin')} />
             </button>

@@ -96,7 +96,7 @@ export default function AzureDashboard() {
 
   return (
     <AzureAuthGuard featureName="Azure Explorer" redirectOnFailure={true}>
-    <div className="min-h-screen bg-gray-900 p-6">
+    <div className="p-6">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -108,12 +108,12 @@ export default function AzureDashboard() {
             {viewMode !== 'setup' && (
               <button
                 onClick={goBack}
-                className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-gray-400 hover:text-white transition-colors"
+                className="p-2 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors border border-gray-200 dark:border-gray-700"
               >
                 ← Back
               </button>
             )}
-            <h1 className="text-2xl font-bold text-white">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
               {viewMode === 'setup' && '☁️ Azure Explorer'}
               {viewMode === 'traces' && '📊 Distributed Traces'}
               {viewMode === 'logs' && '📦 Storage Logs'}
@@ -121,7 +121,7 @@ export default function AzureDashboard() {
               {viewMode === 'query-results' && '🔍 Query Results'}
             </h1>
           </div>
-          <p className="text-gray-400">
+          <p className="text-gray-500 dark:text-gray-400">
             {viewMode === 'setup' && 'Quick access to your Azure resources, workspaces, and data'}
             {viewMode === 'traces' && (selectedWorkspace?.name || selectedAppInsights?.name || 'View application traces and telemetry')}
             {viewMode === 'logs' && (selectedStorage?.name || 'Browse and search storage logs')}
@@ -140,7 +140,7 @@ export default function AzureDashboard() {
               Azure
             </button>
             <span className="text-gray-600">/</span>
-            <span className="text-gray-400">
+            <span className="text-gray-500 dark:text-gray-400">
               {viewMode === 'traces' && (selectedWorkspace?.name || selectedAppInsights?.name || 'Traces')}
               {viewMode === 'logs' && (selectedStorage?.name || 'Logs')}
               {viewMode === 'log-analytics' && 'Log Analytics Query'}
@@ -239,12 +239,12 @@ export default function AzureDashboard() {
               className="space-y-4"
             >
               {/* Query Info */}
-              <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-400">Executed Query</h3>
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Executed Query</h3>
                   <span className="text-xs text-gray-500">{queryResult.rows.length} rows</span>
                 </div>
-                <pre className="text-sm text-green-400 bg-gray-900 p-3 rounded overflow-x-auto">
+                <pre className="text-sm text-green-400 bg-gray-50 dark:bg-gray-900 p-3 rounded overflow-x-auto">
                   {queryResult.query}
                 </pre>
               </div>

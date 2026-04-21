@@ -1011,9 +1011,9 @@ export default function EngineeringCommandCenter() {
     : slowOperations;
 
   return (
-    <div className="min-h-screen bg-slate-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
       {/* Header */}
-      <div className="bg-slate-800 border-b border-slate-700">
+      <div className="bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
         <div className="max-w-[1800px] mx-auto px-6 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
@@ -1021,19 +1021,19 @@ export default function EngineeringCommandCenter() {
                 <Activity className="w-6 h-6 text-blue-400" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-slate-200">Engineering Command Center</h1>
-                <p className="text-sm text-slate-400">Azure Application Insights • AI-Powered Diagnostics</p>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-slate-200">Engineering Command Center</h1>
+                <p className="text-sm text-gray-500 dark:text-slate-400">Azure Application Insights • AI-Powered Diagnostics</p>
               </div>
             </div>
 
             <div className="flex items-center gap-4">
               {/* Resource Selector */}
               <div className="flex items-center gap-2">
-                <Database className="w-4 h-4 text-slate-400" />
+                <Database className="w-4 h-4 text-gray-400 dark:text-slate-400" />
                 <select
                   value={workspaceId}
                   onChange={(e) => setWorkspaceId(e.target.value)}
-                  className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="bg-gray-50 dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select Resource</option>
                   {appInsightsInstances.length > 0 && (
@@ -1055,11 +1055,11 @@ export default function EngineeringCommandCenter() {
 
               {/* Time Range */}
               <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-slate-400" />
+                <Clock className="w-4 h-4 text-gray-400 dark:text-slate-400" />
                 <select
                   value={timeRange}
                   onChange={(e) => setTimeRange(e.target.value)}
-                  className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="bg-gray-50 dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {TIME_RANGES.map(tr => (
                     <option key={tr.value} value={tr.value}>{tr.label}</option>

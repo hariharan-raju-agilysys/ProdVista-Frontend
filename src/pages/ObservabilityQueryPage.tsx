@@ -345,7 +345,7 @@ export default function ObservabilityQueryPage() {
   // ════════════════════════════════════════════════════════════════════════
 
   return (
-    <div className="h-full flex flex-col bg-slate-950">
+    <div className="h-full flex flex-col bg-gray-50 dark:bg-slate-950">
       {/* ═══════════ Header ═══════════ */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -374,11 +374,11 @@ export default function ObservabilityQueryPage() {
                   initial={{ opacity: 0, y: -5 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -5 }}
-                  className="absolute right-0 top-full mt-1 w-96 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden"
+                  className="absolute right-0 top-full mt-1 w-96 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden"
                 >
                   {resources.appInsights.length > 0 && (
                     <div>
-                      <div className="px-3 py-2 text-[10px] uppercase text-slate-500 font-semibold bg-slate-800/80">
+                      <div className="px-3 py-2 text-[10px] uppercase text-gray-500 dark:text-slate-500 font-semibold bg-gray-50 dark:bg-slate-800/80">
                         Application Insights
                       </div>
                       {resources.appInsights.map(r => (
@@ -386,8 +386,8 @@ export default function ObservabilityQueryPage() {
                           key={r.id}
                           onClick={() => { setSelectedResource(r.id); setShowResourcePicker(false) }}
                           className={clsx(
-                            'w-full text-left px-3 py-2 text-sm hover:bg-slate-700 transition-colors flex items-center gap-2',
-                            selectedResource === r.id ? 'text-blue-400 bg-slate-700/50' : 'text-slate-300'
+                            'w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-2',
+                            selectedResource === r.id ? 'text-blue-400 bg-gray-100 dark:bg-slate-700/50' : 'text-gray-700 dark:text-slate-300'
                           )}
                         >
                           <Activity className="w-3.5 h-3.5 shrink-0" />

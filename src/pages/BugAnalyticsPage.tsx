@@ -84,19 +84,19 @@ export default function BugAnalyticsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <Bug className="w-7 h-7 text-red-500" />
             Bug Analytics
           </h1>
-          <p className="text-sm text-gray-500 mt-0.5">Deep drill-down into bugs, team efficiency, and feature health</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Deep drill-down into bugs, team efficiency, and feature health</p>
         </div>
       </div>
 
       {/* Global Filters */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
         <div className="flex items-center gap-2 mb-3">
           <Filter className="w-4 h-4 text-gray-400" />
-          <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Filters</span>
+          <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Filters</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
           {/* Connection */}
@@ -153,7 +153,7 @@ export default function BugAnalyticsPage() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex gap-1 bg-white rounded-xl border border-gray-200 p-1.5 shadow-sm overflow-x-auto">
+      <div className="flex gap-1 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-1.5 shadow-sm overflow-x-auto">
         {TABS.map(tab => {
           const Icon = tab.icon
           return (
@@ -162,7 +162,7 @@ export default function BugAnalyticsPage() {
                 'flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap',
                 activeTab === tab.id
                   ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-md shadow-red-500/20'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
               )}>
               <Icon className="w-4 h-4" />
               {tab.label}

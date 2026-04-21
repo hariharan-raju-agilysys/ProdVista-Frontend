@@ -250,14 +250,14 @@ export default function HrSetupPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/tools')} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500">
+          <button onClick={() => navigate('/tools')} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400">
             <ChevronLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <Settings className="w-6 h-6 text-blue-600" /> HR Integration Setup
             </h1>
-            <p className="text-xs text-gray-500 mt-0.5">Configure HR provider connections to pull employee data for dashboard widgets</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Configure HR provider connections to pull employee data for dashboard widgets</p>
           </div>
         </div>
         {stats && (

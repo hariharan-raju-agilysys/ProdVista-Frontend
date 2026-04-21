@@ -160,7 +160,7 @@ export function LogsDashboard() {
   const enabledRegions = settings.azure.regions.filter(r => r.isEnabled)
 
   return (
-    <div className="min-h-screen bg-gray-900 p-8">
+    <div className="p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <motion.div
@@ -170,11 +170,11 @@ export function LogsDashboard() {
         >
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
                 <FileText className="w-8 h-8 text-blue-400" />
                 Logs & Traces Dashboard
               </h1>
-              <p className="text-gray-400 mt-1">
+              <p className="text-gray-500 dark:text-gray-400 mt-1">
                 Real-time monitoring across {enabledRegions.length} Azure region{enabledRegions.length !== 1 ? 's' : ''}
               </p>
             </div>
@@ -184,7 +184,7 @@ export function LogsDashboard() {
               
               {/* Time Range */}
               <div className="relative">
-                <button className="flex items-center gap-2 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white">
+                <button className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white">
                   <Clock className="w-4 h-4 text-gray-400" />
                   <span>Last {timeRange}</span>
                   <ChevronDown className="w-4 h-4 text-gray-400" />
@@ -197,7 +197,7 @@ export function LogsDashboard() {
                 whileTap={{ scale: 0.95 }}
                 onClick={handleRefresh}
                 disabled={isRefreshing}
-                className="p-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-400 hover:text-white disabled:opacity-50"
+                className="p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white disabled:opacity-50"
               >
                 <motion.div
                   animate={isRefreshing ? { rotate: 360 } : {}}
@@ -227,7 +227,7 @@ export function LogsDashboard() {
           transition={{ delay: 0.1 }}
           className="mb-6"
         >
-          <div className="inline-flex bg-gray-800 rounded-xl p-1 border border-gray-700">
+          <div className="inline-flex bg-white dark:bg-gray-800 rounded-xl p-1 border border-gray-200 dark:border-gray-700">
             {([
               { id: 'overview', label: 'Overview', icon: BarChart3 },
               { id: 'logs', label: 'Storage Logs', icon: Database },
@@ -242,7 +242,7 @@ export function LogsDashboard() {
                   key={tab.id}
                   onClick={() => setViewMode(tab.id)}
                   className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive ? 'text-white' : 'text-gray-400 hover:text-white'
+                    isActive ? 'text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >
                   {isActive && (
@@ -313,10 +313,10 @@ export function LogsDashboard() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
-                className="bg-gray-800 rounded-xl p-6 border border-gray-700"
+                className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700"
               >
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <Globe className="w-5 h-5 text-blue-400" />
                     Activity by Region
                   </h3>
