@@ -96,7 +96,7 @@ export default function OverviewPage({ isAdminView = true }: OverviewPageProps) 
   const [realTimeCommitData, setRealTimeCommitData] = useState<CommitStatsResponse | null>(null);
   const [realTimeBuildsData, setRealTimeBuildsData] = useState<TodayBuildsResponse | null>(null);
   const [daysFilter, setDaysFilter] = useState(7);
-  const [userScope, setUserScope] = useState<'mine' | 'all'>('all');
+  const [userScope, setUserScope] = useState<'mine' | 'all'>('mine');
   
   // ── Metric Detail Modal State ──
   const [metricDetailModal, setMetricDetailModal] = useState<{
@@ -223,7 +223,7 @@ export default function OverviewPage({ isAdminView = true }: OverviewPageProps) 
       const [prData, commitData, buildsData] = await Promise.all([
         getPRSummaryWithFallback(undefined, userScope).catch(() => null),
         getCommitStats(undefined, daysFilter, userScope === 'mine').catch(() => null),
-        getTodayBuilds().catch(() => null)
+        getTodayBuilds(undefined, userScope === 'mine' ? 'mine' : 'default').catch(() => null)
       ]);
       if (prData) setRealTimePRData(prData);
       if (commitData) setRealTimeCommitData(commitData);
@@ -244,6 +244,9 @@ export default function OverviewPage({ isAdminView = true }: OverviewPageProps) 
         .then(data => setRealTimeCommitData(data))
         .catch(() => {});
     }
+    getTodayBuilds(undefined, userScope === 'mine' ? 'mine' : 'default')
+      .then(data => setRealTimeBuildsData(data))
+      .catch(() => {});
   }, [daysFilter, userScope]);
 
   // ── Fetch Jenkins build details when selected ──
