@@ -15,7 +15,7 @@ import {
   type KnowledgeShareInfo, type ProductionSupportResponse, type ApiCatalogInfo,
   type CustomersOverviewResponse, type WidgetConfig, type MetricConfig,
   type JenkinsBuildsResponse, type JenkinsBuildDetailResponse, type PRInfo, type CommitInfo,
-  type TodayBuildsResponse,
+  type TodayBuildsResponse, type ServiceBuildGroup,
 } from '../services/overviewService';
 import { AdvancedPRListModal } from '../components/AdvancedPRListModal';
 import { WidgetConfigModal } from '../components/WidgetConfigModal';
@@ -750,7 +750,9 @@ function ClickableMetric({
     },
     todayBuilds:   { 
       value: buildsData?.total ?? d?.todayBuilds?.total ?? '—', 
-      sub: buildsData ? `✅ ${buildsData.succeeded} · ❌ ${buildsData.failed} · ⏳ ${buildsData.inProgress}` : (d?.todayBuilds ? `✅ ${d.todayBuilds.succeeded} · ❌ ${d.todayBuilds.failed}` : undefined), 
+      sub: buildsData 
+        ? `✅ ${buildsData.succeeded} · ❌ ${buildsData.failed} · ⏳ ${buildsData.inProgress}${buildsData.scope === 'mine' ? ' · 👤 My' : buildsData.byService?.length ? ` · ${buildsData.byService.length} pipelines` : ''}` 
+        : (d?.todayBuilds ? `✅ ${d.todayBuilds.succeeded} · ❌ ${d.todayBuilds.failed}` : undefined), 
       dynColor: (buildsData?.failed || d?.todayBuilds?.failed) ? 'red' : 'green',
       clickType: 'builds'
     },
@@ -817,6 +819,225 @@ function getMetricBg(color: string): string {
     slate: 'bg-slate-50 dark:bg-slate-900/20 border-slate-300 dark:border-slate-600 text-slate-600',
   };
   return bg[color] || bg.blue;
+}
+
+// ─────────────────────────────────────────
+// Builds Detail Panel (Service Grouping + My/All)
+// ─────────────────────────────────────────
+
+function BuildsDetailPanel({ buildsData, summary }: { buildsData: TodayBuildsResponse | null; summary: DashboardSummary | null }) {
+  const [expandedService, setExpandedService] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'services' | 'list'>('services');
+
+  const data = buildsData;
+  const fallbackBuilds = summary?.devops?.todayBuilds;
+  const builds: BuildInfo[] = data?.builds ?? fallbackBuilds?.builds ?? [];
+  const byService: ServiceBuildGroup[] = data?.byService ?? (fallbackBuilds as any)?.byService ?? [];
+  const total = data?.total ?? fallbackBuilds?.total ?? 0;
+  const totalAll = (data as any)?.totalAll ?? total;
+  const succeeded = data?.succeeded ?? fallbackBuilds?.succeeded ?? 0;
+  const failed = data?.failed ?? fallbackBuilds?.failed ?? 0;
+  const inProgress = data?.inProgress ?? fallbackBuilds?.inProgress ?? 0;
+  const scope = data?.scope ?? 'all';
+  const myBuildsCount = data?.myBuildsCount ?? 0;
+
+  const getResultColor = (result: string, status: string) => {
+    if (status === 'inProgress') return 'bg-orange-500';
+    if (result === 'succeeded') return 'bg-green-500';
+    if (result === 'failed') return 'bg-red-500';
+    if (result === 'partiallySucceeded') return 'bg-yellow-500';
+    if (result === 'canceled') return 'bg-gray-400';
+    return 'bg-blue-500';
+  };
+
+  const getResultBadge = (result: string, status: string) => {
+    if (status === 'inProgress') return { text: 'Running', cls: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' };
+    if (result === 'succeeded') return { text: 'Passed', cls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' };
+    if (result === 'failed') return { text: 'Failed', cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' };
+    if (result === 'partiallySucceeded') return { text: 'Partial', cls: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' };
+    if (result === 'canceled') return { text: 'Canceled', cls: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400' };
+    return { text: result || status, cls: 'bg-blue-100 text-blue-700' };
+  };
+
+  const formatTime = (t: string) => {
+    if (!t) return '';
+    const d = new Date(t);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Summary Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-center">
+          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{total}</p>
+          <p className="text-[10px] text-gray-500">{scope === 'mine' ? 'My Builds' : 'Total Builds'}</p>
+        </div>
+        <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 text-center">
+          <p className="text-2xl font-bold text-green-600 dark:text-green-400">{succeeded}</p>
+          <p className="text-[10px] text-gray-500">Succeeded</p>
+        </div>
+        <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3 text-center">
+          <p className="text-2xl font-bold text-red-600 dark:text-red-400">{failed}</p>
+          <p className="text-[10px] text-gray-500">Failed</p>
+        </div>
+        <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-3 text-center">
+          <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{inProgress}</p>
+          <p className="text-[10px] text-gray-500">In Progress</p>
+        </div>
+        <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3 text-center">
+          <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{byService.length || '—'}</p>
+          <p className="text-[10px] text-gray-500">Pipelines</p>
+        </div>
+      </div>
+
+      {/* Scope indicator + view toggle */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {scope === 'mine' && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+              👤 My Builds ({myBuildsCount}) • All: {totalAll}
+            </span>
+          )}
+          {scope === 'all' && myBuildsCount > 0 && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">
+              All Builds • 👤 My: {myBuildsCount}
+            </span>
+          )}
+        </div>
+        <div className="flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
+          <button
+            onClick={() => setViewMode('services')}
+            className={`px-3 py-1 text-[10px] font-medium transition-colors ${viewMode === 'services' ? 'bg-blue-500 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'}`}
+          >
+            By Service
+          </button>
+          <button
+            onClick={() => setViewMode('list')}
+            className={`px-3 py-1 text-[10px] font-medium transition-colors ${viewMode === 'list' ? 'bg-blue-500 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'}`}
+          >
+            All Builds
+          </button>
+        </div>
+      </div>
+
+      {/* Service Grouping View */}
+      {viewMode === 'services' && byService.length > 0 && (
+        <div className="space-y-2 max-h-[400px] overflow-y-auto">
+          {byService.map(svc => {
+            const isExpanded = expandedService === svc.service;
+            const svcBuilds = builds.filter(b => (b.definitionName ?? '') === svc.service);
+            const successRate = svc.total > 0 ? Math.round((svc.succeeded / svc.total) * 100) : 0;
+
+            return (
+              <div key={svc.service} className="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
+                {/* Service Header — Clickable */}
+                <button
+                  onClick={() => setExpandedService(isExpanded ? null : svc.service)}
+                  className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm mr-1">{isExpanded ? '▾' : '▸'}</span>
+                    <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{svc.service}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300">{svc.total} builds</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {svc.succeeded > 0 && <span className="text-[10px] text-green-600 dark:text-green-400">✓{svc.succeeded}</span>}
+                    {svc.failed > 0 && <span className="text-[10px] text-red-600 dark:text-red-400">✗{svc.failed}</span>}
+                    {svc.inProgress > 0 && <span className="text-[10px] text-orange-600 dark:text-orange-400">⏳{svc.inProgress}</span>}
+                    {/* Success rate bar */}
+                    <div className="w-16 bg-gray-200 dark:bg-gray-600 rounded-full h-1.5 ml-2">
+                      <div
+                        className={`h-full rounded-full ${successRate >= 80 ? 'bg-green-500' : successRate >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                        style={{ width: `${successRate}%` }}
+                      />
+                    </div>
+                    <span className="text-[10px] text-gray-500 w-8 text-right">{successRate}%</span>
+                  </div>
+                </button>
+
+                {/* Expanded Build List */}
+                {isExpanded && (
+                  <div className="border-t border-gray-200 dark:border-gray-600">
+                    {svcBuilds.length === 0 ? (
+                      <p className="text-xs text-gray-400 p-3">No builds available</p>
+                    ) : (
+                      svcBuilds.map(b => {
+                        const badge = getResultBadge(b.result, b.status);
+                        return (
+                          <div key={b.id} className="flex items-center justify-between px-4 py-2 border-b border-gray-100 dark:border-gray-700 last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className={`w-2 h-2 rounded-full shrink-0 ${getResultColor(b.result, b.status)}`} />
+                              <a
+                                href={b.webUrl || b.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs font-mono text-blue-600 dark:text-blue-400 hover:underline shrink-0"
+                              >
+                                #{b.buildNumber}
+                              </a>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded ${badge.cls}`}>{badge.text}</span>
+                              {b.isMyBuild && <span className="text-[10px] px-1 py-0.5 rounded bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">You</span>}
+                              <span className="text-[10px] text-gray-400 truncate">{b.sourceBranch?.replace('refs/heads/', '')}</span>
+                            </div>
+                            <div className="flex items-center gap-3 shrink-0 ml-2">
+                              <span className="text-[10px] text-gray-500">{b.requestedBy?.split(' ')[0]}</span>
+                              <span className="text-[10px] text-gray-400">{formatTime(b.startTime)}</span>
+                              {b.durationMinutes != null && <span className="text-[10px] text-gray-400">{b.durationMinutes.toFixed(1)}m</span>}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Flat List View */}
+      {viewMode === 'list' && (
+        <div className="space-y-1 max-h-[400px] overflow-y-auto">
+          {builds.map(b => {
+            const badge = getResultBadge(b.result, b.status);
+            return (
+              <div key={b.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${getResultColor(b.result, b.status)}`} />
+                  <span className="text-xs font-medium text-gray-800 dark:text-gray-200 shrink-0">{b.definitionName}</span>
+                  <a
+                    href={b.webUrl || b.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] font-mono text-blue-600 dark:text-blue-400 hover:underline shrink-0"
+                  >
+                    #{b.buildNumber}
+                  </a>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${badge.cls}`}>{badge.text}</span>
+                  {b.isMyBuild && <span className="text-[10px] px-1 py-0.5 rounded bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">You</span>}
+                </div>
+                <div className="flex items-center gap-3 shrink-0 ml-2">
+                  <span className="text-[10px] text-gray-500">{b.requestedBy}</span>
+                  <span className="text-[10px] text-gray-400">{formatTime(b.startTime)}</span>
+                  {b.durationMinutes != null && <span className="text-[10px] text-gray-400">{b.durationMinutes.toFixed(1)}m</span>}
+                </div>
+              </div>
+            );
+          })}
+          {builds.length === 0 && (
+            <p className="text-xs text-gray-400 text-center py-4">No builds today</p>
+          )}
+        </div>
+      )}
+
+      {/* Service view empty state */}
+      {viewMode === 'services' && byService.length === 0 && (
+        <p className="text-xs text-gray-400 text-center py-4">No service grouping available</p>
+      )}
+    </div>
+  );
 }
 
 // ─────────────────────────────────────────
@@ -978,41 +1199,7 @@ function MetricDetailModal({
           )}
           
           {type === 'builds' && (buildsData || summary?.devops?.todayBuilds) && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-center">
-                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{buildsData?.total ?? summary?.devops?.todayBuilds?.total ?? 0}</p>
-                  <p className="text-[10px] text-gray-500">Total Builds</p>
-                </div>
-                <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 text-center">
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">{buildsData?.succeeded ?? summary?.devops?.todayBuilds?.succeeded ?? 0}</p>
-                  <p className="text-[10px] text-gray-500">Succeeded</p>
-                </div>
-                <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3 text-center">
-                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">{buildsData?.failed ?? summary?.devops?.todayBuilds?.failed ?? 0}</p>
-                  <p className="text-[10px] text-gray-500">Failed</p>
-                </div>
-                <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-3 text-center">
-                  <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{buildsData?.inProgress ?? summary?.devops?.todayBuilds?.inProgress ?? 0}</p>
-                  <p className="text-[10px] text-gray-500">In Progress</p>
-                </div>
-              </div>
-              
-              <div className="space-y-1 max-h-64 overflow-y-auto">
-                {(buildsData?.builds ?? summary?.devops?.todayBuilds?.builds ?? []).map(b => (
-                  <div key={b.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${b.result === 'succeeded' ? 'bg-green-500' : b.result === 'failed' ? 'bg-red-500' : 'bg-orange-500'}`} />
-                      <span className="text-xs font-medium text-gray-800 dark:text-gray-200">{b.definitionName}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-[10px] text-gray-500">{b.requestedBy}</span>
-                      <span className="text-[10px] text-gray-400">{b.durationMinutes?.toFixed(1)}m</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <BuildsDetailPanel buildsData={buildsData} summary={summary} />
           )}
           
           {type === 'tickets' && (

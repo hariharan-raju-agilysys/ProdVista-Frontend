@@ -43,6 +43,7 @@ export interface DashboardSummary {
       succeeded: number;
       failed: number;
       inProgress: number;
+      byService?: ServiceBuildGroup[];
       builds: BuildInfo[];
     };
   };
@@ -75,13 +76,39 @@ export interface BuildInfo {
   status: string;
   result: string;
   definitionName: string;
+  definitionId?: number;
   sourceBranch: string;
   requestedBy: string;
+  requestedByEmail?: string;
   startTime: string;
   finishTime: string;
   durationMinutes: number;
   url: string;
   webUrl?: string;
+  reason?: string;
+  isMyBuild?: boolean;
+}
+
+export interface ServiceBuildGroup {
+  service: string;
+  definitionId: number;
+  total: number;
+  succeeded: number;
+  failed: number;
+  inProgress: number;
+  partiallySucceeded?: number;
+  canceled?: number;
+  lastBuild?: {
+    id: number;
+    buildNumber: string;
+    status: string;
+    result: string;
+    requestedBy: string;
+    startTime: string;
+    finishTime: string;
+    durationMinutes: number;
+    webUrl: string;
+  };
 }
 
 export interface BranchInfo { name: string; objectId: string; }
@@ -264,10 +291,15 @@ export interface CustomersOverviewResponse {
 
 export interface TodayBuildsResponse {
   date: string;
+  scope: string;
+  currentUserEmail?: string;
   total: number;
+  totalAll: number;
   succeeded: number;
   failed: number;
   inProgress: number;
+  myBuildsCount: number;
+  byService: ServiceBuildGroup[];
   builds: BuildInfo[];
 }
 
@@ -280,8 +312,13 @@ const BASE = '/overview';
 export const getSummary = (connectionId?: string) =>
   api.get<DashboardSummary>(`${BASE}/summary${connectionId ? `?connectionId=${connectionId}` : ''}`).then(r => r.data);
 
-export const getTodayBuilds = (connectionId?: string) =>
-  api.get<TodayBuildsResponse>(`${BASE}/today-builds${connectionId ? `?connectionId=${connectionId}` : ''}`).then(r => r.data);
+export const getTodayBuilds = (connectionId?: string, scope: 'default' | 'mine' | 'all' = 'default') => {
+  const p = new URLSearchParams();
+  if (connectionId) p.append('connectionId', connectionId);
+  p.append('scope', scope);
+  const qs = p.toString();
+  return api.get<TodayBuildsResponse>(`${BASE}/today-builds${qs ? `?${qs}` : ''}`).then(r => r.data);
+};
 
 export const getBranches = (connectionId?: string, repositoryId?: string) => {
   const p = new URLSearchParams();
