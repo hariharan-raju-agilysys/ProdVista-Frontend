@@ -299,9 +299,9 @@ const CustomerDashboardV2: React.FC = () => {
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
           >
             <option value="">All Regions</option>
-            {filterOptions.regions.map(r => (
-              <option key={r} value={r}>{r}</option>
-            ))}
+            <option value="West US">West US</option>
+            <option value="West EU">West EU</option>
+            <option value="SE Asia">SE Asia</option>
           </select>
 
           {/* Priority Filter */}
