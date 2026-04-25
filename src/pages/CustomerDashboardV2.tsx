@@ -8,6 +8,7 @@ import {
   CustomerDetailDto,
   CustomerSummaryDto,
   CustomerFilterDto,
+  SyncAliasesResult,
   getStatusColor,
   getPriorityColor,
   getHealthScoreColor,
@@ -50,7 +51,7 @@ const CustomerDashboardV2: React.FC = () => {
 
   // Sync aliases state
   const [syncingAliases, setSyncingAliases] = useState(false);
-  const [syncResult, setSyncResult] = useState<{ updated: number; totalCustomers: number; totalAreaPaths: number; changes: any[]; message: string } | null>(null);
+  const [syncResult, setSyncResult] = useState<SyncAliasesResult | null>(null);
 
   // Load data on mount
   useEffect(() => {
@@ -1026,7 +1027,7 @@ const CustomerDashboardV2: React.FC = () => {
                 setSyncResult(result);
                 if (result.updated > 0) await loadData();
               } catch (err: any) {
-                setSyncResult({ updated: 0, totalCustomers: 0, totalAreaPaths: 0, changes: [], message: err?.response?.data?.error || 'Failed to sync aliases from DevOps' });
+                setSyncResult({ updated: 0, totalCustomers: 0, totalTags: 0, matchedInDevOps: 0, changes: [], message: err?.response?.data?.error || 'Failed to sync aliases from DevOps' });
               } finally {
                 setSyncingAliases(false);
               }
