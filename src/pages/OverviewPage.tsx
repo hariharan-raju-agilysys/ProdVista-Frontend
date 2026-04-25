@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useLazyWidget } from '../hooks/useLazyWidget';
 import { usePersistentChat } from '../context/PersistentChatContext';
 import { useOverviewHub } from '../hooks/useOverviewHub';
+import { useAuth } from '../context/AuthContext';
 import {
   getSummary, getBranches, getPRSummaryWithFallback, getCommitStats, getTodayBuilds,
   getKnowledgeShares, getProductionSupport, getApiCatalog,
@@ -17,6 +18,7 @@ import {
   type JenkinsBuildsResponse, type JenkinsBuildDetailResponse, type PRInfo, type CommitInfo,
   type TodayBuildsResponse, type ServiceBuildGroup,
 } from '../services/overviewService';
+import { getCustomers, type CustomerDetailDto } from '../services/customerService';
 import { AdvancedPRListModal } from '../components/AdvancedPRListModal';
 import { WidgetConfigModal } from '../components/WidgetConfigModal';
 import DevOpsConnectionSetup from '../components/DevOpsConnectionSetup';
@@ -77,6 +79,7 @@ interface OverviewPageProps {
 
 export default function OverviewPage({ isAdminView = true }: OverviewPageProps) {
   const navigate = useNavigate();
+  const { isManager, isAdmin } = useAuth();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [error, setError] = useState('');
@@ -96,7 +99,15 @@ export default function OverviewPage({ isAdminView = true }: OverviewPageProps) 
   const [realTimeCommitData, setRealTimeCommitData] = useState<CommitStatsResponse | null>(null);
   const [realTimeBuildsData, setRealTimeBuildsData] = useState<TodayBuildsResponse | null>(null);
   const [daysFilter, setDaysFilter] = useState(7);
-  const [userScope, setUserScope] = useState<'mine' | 'all'>('mine');
+  // Role-based default: Managers/Admins see "all", regular users see "mine"
+  const [userScope, setUserScope] = useState<'mine' | 'all'>(isManager || isAdmin ? 'all' : 'mine');
+
+  // ── Customer Search State ──
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [customerSearchResults, setCustomerSearchResults] = useState<CustomerDetailDto[]>([]);
+  const [customerSearchLoading, setCustomerSearchLoading] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // ── Metric Detail Modal State ──
   const [metricDetailModal, setMetricDetailModal] = useState<{
@@ -248,6 +259,29 @@ export default function OverviewPage({ isAdminView = true }: OverviewPageProps) 
       .then(data => setRealTimeBuildsData(data))
       .catch(() => {});
   }, [daysFilter, userScope]);
+
+  // ── Customer Search (debounced) ──
+  const handleCustomerSearch = useCallback((term: string) => {
+    setCustomerSearch(term);
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    if (!term.trim()) {
+      setCustomerSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+    setCustomerSearchLoading(true);
+    setShowSearchResults(true);
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const results = await getCustomers({ searchTerm: term.trim() });
+        setCustomerSearchResults(results);
+      } catch {
+        setCustomerSearchResults([]);
+      } finally {
+        setCustomerSearchLoading(false);
+      }
+    }, 350);
+  }, []);
 
   // ── Fetch Jenkins build details when selected ──
   useEffect(() => {
@@ -527,12 +561,15 @@ export default function OverviewPage({ isAdminView = true }: OverviewPageProps) 
         )}
       </div>
 
-      {/* ── Scope + Days Filter Controls ── */}
+      {/* ── Scope + Days Filter + Customer Search Controls ── */}
       <div className="flex items-center gap-3 flex-wrap">
-        {/* My / All Toggle */}
+        {/* My / All Toggle — Only show "All" option for Manager/Admin */}
         <div className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-700">
           <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">View:</span>
-          {(['mine', 'all'] as const).map(s => (
+          {(isManager || isAdmin
+            ? (['mine', 'all'] as const)
+            : (['mine'] as const)
+          ).map(s => (
             <button
               key={s}
               onClick={() => setUserScope(s)}
@@ -568,7 +605,98 @@ export default function OverviewPage({ isAdminView = true }: OverviewPageProps) 
             🔄
           </button>
         </div>
+
+        {/* Customer / Property Quick Search */}
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <div className="flex items-center bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-1.5">
+            <svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={customerSearch}
+              onChange={(e) => handleCustomerSearch(e.target.value)}
+              onFocus={() => customerSearchResults.length > 0 && setShowSearchResults(true)}
+              placeholder="Search customer, property ID, tenant ID..."
+              className="flex-1 text-[11px] bg-transparent border-none outline-none px-2 py-0.5 text-gray-800 dark:text-gray-200 placeholder-gray-400"
+            />
+            {customerSearch && (
+              <button onClick={() => { setCustomerSearch(''); setCustomerSearchResults([]); setShowSearchResults(false); }}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xs">✕</button>
+            )}
+          </div>
+
+          {/* Search Results Dropdown */}
+          {showSearchResults && (
+            <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl max-h-80 overflow-y-auto">
+              {customerSearchLoading ? (
+                <div className="p-4 text-center text-xs text-gray-400">
+                  <span className="animate-pulse">Searching...</span>
+                </div>
+              ) : customerSearchResults.length === 0 ? (
+                <div className="p-4 text-center text-xs text-gray-400">No results found</div>
+              ) : (
+                <>
+                  <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                    <span className="text-[10px] font-medium text-gray-500 uppercase">{customerSearchResults.length} Result{customerSearchResults.length !== 1 ? 's' : ''}</span>
+                    <button onClick={() => setShowSearchResults(false)} className="text-[10px] text-gray-400 hover:text-gray-600">Close</button>
+                  </div>
+                  {customerSearchResults.slice(0, 10).map(c => (
+                    <div key={c.id} className="px-3 py-2.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border-b border-gray-50 dark:border-gray-700/50 cursor-pointer transition-colors"
+                      onClick={() => navigate('/customers')}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-semibold text-gray-900 dark:text-white truncate">
+                          {c.customerNameAlias || c.customerName}
+                        </span>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded ${
+                          c.status === 'Active' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                        }`}>{c.status}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-[10px] text-gray-500 dark:text-gray-400">
+                        <span title="Tenant ID">🏢 {c.tenantId}</span>
+                        <span title="Property ID">📍 {c.propertyId}</span>
+                        {c.region && <span title="Region">🌐 {c.region}</span>}
+                        <span className={`px-1 py-0 rounded ${
+                          c.deploymentType === 'SaaS' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300' : 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-300'
+                        }`}>{c.deploymentType}</span>
+                      </div>
+                      {c.subProperties?.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {c.subProperties.slice(0, 4).map(sp => (
+                            <span key={sp.id} className="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                              {sp.name}{sp.propertyId ? ` (${sp.propertyId})` : ''}
+                            </span>
+                          ))}
+                          {c.subProperties.length > 4 && (
+                            <span className="text-[9px] text-gray-400">+{c.subProperties.length - 4} more</span>
+                          )}
+                        </div>
+                      )}
+                      <div className="mt-1 flex items-center gap-3 text-[10px] text-gray-400">
+                        {c.currentVersion && <span>v{c.currentVersion}</span>}
+                        {c.activeUsers > 0 && <span>{c.activeUsers} users</span>}
+                        {c.totalProperties > 0 && <span>{c.totalProperties} properties</span>}
+                      </div>
+                    </div>
+                  ))}
+                  {customerSearchResults.length > 10 && (
+                    <div className="px-3 py-2 text-center">
+                      <button onClick={() => navigate('/customers')} className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline">
+                        View all {customerSearchResults.length} results →
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Click-away for search results */}
+      {showSearchResults && (
+        <div className="fixed inset-0 z-40" onClick={() => setShowSearchResults(false)} />
+      )}
 
       {/* ── Row 2: Jenkins + Build Success ── */}
       {(j?.connected || d?.connected) && (
@@ -2359,11 +2487,20 @@ function PRWidget({ data, expanded, toggle, onViewAll }: { data: PRSummaryRespon
   if (!data) return (
     <Widget title="Pull Requests" icon="🔃" 
       actions={<FullViewButton />}
-      empty emptyText="No DevOps connection"><></></Widget>
+      empty emptyText="No DevOps connection configured. Set up Azure DevOps to see PR data."><></></Widget>
   );
 
-  const waiting = data.prs?.filter(pr => !pr.isApproved && !pr.isDraft) ?? [];
+  if (data.notConfigured) return (
+    <Widget title="Pull Requests" icon="🔃" 
+      actions={<FullViewButton />}
+      empty emptyText={data.message || "Azure DevOps connection not configured."}><></></Widget>
+  );
+
+  const allPrs = data.prs ?? [];
+  const waiting = allPrs.filter(pr => !pr.isApproved && !pr.isDraft);
+  const approved = allPrs.filter(pr => pr.isApproved);
   const maxShow = expanded ? 50 : 5;
+  const scopeLabel = data.scope === 'mine' ? 'My' : 'All';
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
@@ -2372,6 +2509,7 @@ function PRWidget({ data, expanded, toggle, onViewAll }: { data: PRSummaryRespon
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <span>🔃</span> Pull Requests
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 font-normal">{scopeLabel}</span>
           </h3>
           <FullViewButton />
         </div>
@@ -2379,11 +2517,14 @@ function PRWidget({ data, expanded, toggle, onViewAll }: { data: PRSummaryRespon
         <div className="grid grid-cols-4 gap-2">
           <div className="bg-white/60 dark:bg-gray-800/60 rounded-lg p-2 text-center">
             <p className="text-lg font-bold text-purple-600 dark:text-purple-400">{data.totalActive}</p>
-            <p className="text-[9px] text-gray-500 uppercase font-medium">Open PRs</p>
+            <p className="text-[9px] text-gray-500 uppercase font-medium">Active</p>
+            {data.totalActiveAll != null && data.totalActiveAll !== data.totalActive && (
+              <p className="text-[8px] text-gray-400">{data.totalActiveAll} total</p>
+            )}
           </div>
           <div className="bg-white/60 dark:bg-gray-800/60 rounded-lg p-2 text-center">
             <p className="text-lg font-bold text-orange-600 dark:text-orange-400">{data.waitingApproval}</p>
-            <p className="text-[9px] text-gray-500 uppercase font-medium">Waiting</p>
+            <p className="text-[9px] text-gray-500 uppercase font-medium">Needs Review</p>
           </div>
           <div className="bg-white/60 dark:bg-gray-800/60 rounded-lg p-2 text-center">
             <p className="text-lg font-bold text-green-600 dark:text-green-400">{data.approved}</p>
@@ -2394,83 +2535,59 @@ function PRWidget({ data, expanded, toggle, onViewAll }: { data: PRSummaryRespon
             <p className="text-[9px] text-gray-500 uppercase font-medium">Drafts</p>
           </div>
         </div>
+        {/* My Created / To Review summary */}
+        {(data.myCreatedCount != null || data.toReviewCount != null) && (
+          <div className="flex items-center gap-3 mt-2 text-[10px]">
+            {data.myCreatedCount != null && (
+              <span className="text-purple-600 dark:text-purple-400">📝 {data.myCreatedCount} created by me</span>
+            )}
+            {data.toReviewCount != null && data.toReviewCount > 0 && (
+              <span className="text-orange-600 dark:text-orange-400">👀 {data.toReviewCount} need my review</span>
+            )}
+          </div>
+        )}
       </div>
       
-      {/* PR List */}
+      {/* PR List — show all active PRs, grouped */}
       <div className="p-3">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-[10px] font-medium text-gray-500 uppercase">Waiting Approval ({waiting.length})</p>
-          {waiting.length > 5 && (
-            <button onClick={toggle} className="text-[10px] text-purple-500 hover:underline">
-              {expanded ? 'Show Less' : `+${waiting.length - 5} more`}
-            </button>
-          )}
-        </div>
-        {waiting.length === 0 ? (
-          <p className="text-xs text-gray-400 text-center py-4">✨ All PRs are reviewed!</p>
-        ) : (
-          <div className="space-y-1 max-h-60 overflow-y-auto">
-            {waiting.slice(0, maxShow).map(pr => (
-              <div key={pr.pullRequestId} className="flex items-start justify-between text-xs py-2 px-2 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 border border-transparent hover:border-purple-200 dark:hover:border-purple-800 transition-all cursor-pointer group" title={`${pr.createdBy || 'Unknown'}\n${pr.title}\n${pr.sourceBranch} → ${pr.targetBranch}`}>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <a href={getPrUrl(pr)} target="_blank" rel="noopener noreferrer"
-                      className="text-purple-600 dark:text-purple-400 hover:underline font-mono font-medium">
-                      #{pr.pullRequestId}
-                    </a>
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">{pr.repositoryName}</span>
-                    {/* Reviewer badges */}
-                    {pr.reviewers && pr.reviewers.length > 0 && (
-                      <div className="flex -space-x-1">
-                        {pr.reviewers.slice(0, 3).map((r, i) => (
-                          <div
-                            key={i}
-                            className={`w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold border border-white dark:border-gray-800 ${
-                              r.vote >= 5 ? 'bg-green-500 text-white' :
-                              r.vote < 0 ? 'bg-red-500 text-white' :
-                              'bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
-                            }`}
-                            title={`${r.displayName}: ${r.vote >= 5 ? 'Approved' : r.vote < 0 ? 'Rejected' : 'Pending'}`}
-                          >
-                            {r.displayName.charAt(0)}
-                          </div>
-                        ))}
-                        {pr.reviewers.length > 3 && (
-                          <div className="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-[7px] font-bold border border-white dark:border-gray-800">
-                            +{pr.reviewers.length - 3}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-gray-800 dark:text-gray-200 truncate font-medium">{pr.title}</p>
-                  <div className="flex items-center gap-2 mt-1 text-[10px] text-gray-400">
-                    <span className="text-purple-500" title={pr.createdBy}>{getFirstName(pr.createdBy)}</span>
-                    <span>•</span>
-                    <span className="font-mono">{pr.sourceBranch?.replace('refs/heads/', '')}</span>
-                    <span>→</span>
-                    <span className="font-mono text-green-500">{pr.targetBranch?.replace('refs/heads/', '')}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1 ml-2">
-                  <span className="text-[10px] text-gray-400 whitespace-nowrap">
-                    {new Date(pr.creationDate).toLocaleDateString()}
-                  </span>
-                  <a 
-                    href={getPrUrl(pr)} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 bg-purple-100 dark:bg-purple-900/50 hover:bg-purple-200 dark:hover:bg-purple-800 rounded-lg"
-                    title="Open in Azure DevOps"
-                  >
-                    <svg className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                  </a>
-                </div>
-              </div>
-            ))}
-          </div>
+        {/* Needs Review section */}
+        {waiting.length > 0 && (
+          <>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-medium text-orange-600 dark:text-orange-400 uppercase">Needs Review ({waiting.length})</p>
+              {waiting.length > 5 && (
+                <button onClick={toggle} className="text-[10px] text-purple-500 hover:underline">
+                  {expanded ? 'Show Less' : `+${waiting.length - 5} more`}
+                </button>
+              )}
+            </div>
+            <div className="space-y-1 max-h-60 overflow-y-auto mb-2">
+              {waiting.slice(0, maxShow).map(pr => (
+                <PRListItem key={pr.pullRequestId} pr={pr} />
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Approved section */}
+        {approved.length > 0 && (
+          <>
+            <div className="flex items-center justify-between mb-1 mt-2">
+              <p className="text-[10px] font-medium text-green-600 dark:text-green-400 uppercase">Approved ({approved.length})</p>
+            </div>
+            <div className="space-y-1 max-h-32 overflow-y-auto mb-2">
+              {approved.slice(0, 3).map(pr => (
+                <PRListItem key={pr.pullRequestId} pr={pr} />
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Empty state */}
+        {allPrs.length === 0 && (
+          <p className="text-xs text-gray-400 text-center py-4">
+            {data.scope === 'mine' ? '✨ No active PRs assigned to you!' : '✨ No active pull requests!'}
+          </p>
         )}
       </div>
       
@@ -2485,6 +2602,59 @@ function PRWidget({ data, expanded, toggle, onViewAll }: { data: PRSummaryRespon
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────
+// PR List Item (shared by PRWidget sections)
+// ─────────────────────────────────────────
+
+function PRListItem({ pr }: { pr: PRInfo }) {
+  return (
+    <div className="flex items-start justify-between text-xs py-2 px-2 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 border border-transparent hover:border-purple-200 dark:hover:border-purple-800 transition-all cursor-pointer group" title={`${pr.createdBy || 'Unknown'}\n${pr.title}\n${pr.sourceBranch} → ${pr.targetBranch}`}>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 mb-1">
+          <a href={getPrUrl(pr)} target="_blank" rel="noopener noreferrer"
+            className="text-purple-600 dark:text-purple-400 hover:underline font-mono font-medium">
+            #{pr.pullRequestId}
+          </a>
+          <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">{pr.repositoryName}</span>
+          {pr.isDraft && <span className="text-[8px] px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-400">DRAFT</span>}
+          {pr.isApproved && <span className="text-[8px] px-1 py-0.5 rounded bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400">✓</span>}
+          {pr.reviewers && pr.reviewers.length > 0 && (
+            <div className="flex -space-x-1">
+              {pr.reviewers.slice(0, 3).map((r, i) => (
+                <div key={i} className={`w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold border border-white dark:border-gray-800 ${
+                  r.vote >= 5 ? 'bg-green-500 text-white' : r.vote < 0 ? 'bg-red-500 text-white' : 'bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
+                }`} title={`${r.displayName}: ${r.vote >= 5 ? 'Approved' : r.vote < 0 ? 'Rejected' : 'Pending'}`}>
+                  {r.displayName.charAt(0)}
+                </div>
+              ))}
+              {pr.reviewers.length > 3 && (
+                <div className="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-[7px] font-bold border border-white dark:border-gray-800">+{pr.reviewers.length - 3}</div>
+              )}
+            </div>
+          )}
+        </div>
+        <p className="text-gray-800 dark:text-gray-200 truncate font-medium">{pr.title}</p>
+        <div className="flex items-center gap-2 mt-1 text-[10px] text-gray-400">
+          <span className="text-purple-500" title={pr.createdBy}>{getFirstName(pr.createdBy)}</span>
+          <span>•</span>
+          <span className="font-mono">{pr.sourceBranch?.replace('refs/heads/', '')}</span>
+          <span>→</span>
+          <span className="font-mono text-green-500">{pr.targetBranch?.replace('refs/heads/', '')}</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-1 ml-2">
+        <span className="text-[10px] text-gray-400 whitespace-nowrap">{new Date(pr.creationDate).toLocaleDateString()}</span>
+        <a href={getPrUrl(pr)} target="_blank" rel="noopener noreferrer"
+          className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 bg-purple-100 dark:bg-purple-900/50 hover:bg-purple-200 dark:hover:bg-purple-800 rounded-lg" title="Open in Azure DevOps">
+          <svg className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+        </a>
+      </div>
     </div>
   );
 }
@@ -2507,10 +2677,11 @@ function CommitStatsWidget({ data, onViewAll }: { data: CommitStatsResponse | nu
   if (!data) return (
     <Widget title="Commits + LOC" icon="📊" 
       actions={<FullViewButton />}
-      empty emptyText="No commit data"><></></Widget>
+      empty emptyText="No DevOps connection configured. Set up Azure DevOps to see commit data."><></></Widget>
   );
 
   const periodLabel = data.isAllTime ? 'All Time' : `${data.daysBack}d`;
+  const scopeLabel = data.myCommitsOnly ? 'My' : 'All';
   const lastCommit = data.lastCommitDate ? new Date(data.lastCommitDate).toLocaleDateString() : null;
 
   return (
@@ -2520,6 +2691,7 @@ function CommitStatsWidget({ data, onViewAll }: { data: CommitStatsResponse | nu
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <span>📊</span> Commits ({periodLabel})
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 font-normal">{scopeLabel}</span>
           </h3>
           <FullViewButton />
         </div>
@@ -2528,6 +2700,9 @@ function CommitStatsWidget({ data, onViewAll }: { data: CommitStatsResponse | nu
           <div className="bg-white/60 dark:bg-gray-800/60 rounded-lg p-2 text-center">
             <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{data.totalCommits}</p>
             <p className="text-[9px] text-gray-500 uppercase font-medium">Commits</p>
+            {data.totalCommitsAll != null && data.totalCommitsAll !== data.totalCommits && (
+              <p className="text-[8px] text-gray-400">{data.totalCommitsAll} total</p>
+            )}
           </div>
           <div className="bg-white/60 dark:bg-gray-800/60 rounded-lg p-2 text-center">
             <p className="text-lg font-bold text-purple-600 dark:text-purple-400">{data.byAuthor?.length || 0}</p>
@@ -2542,6 +2717,13 @@ function CommitStatsWidget({ data, onViewAll }: { data: CommitStatsResponse | nu
             <p className="text-[9px] text-gray-500 uppercase font-medium">Repos</p>
           </div>
         </div>
+        {/* My commits context */}
+        {data.myCommitsCount != null && !data.myCommitsOnly && (
+          <div className="flex items-center gap-3 mt-2 text-[10px]">
+            <span className="text-blue-600 dark:text-blue-400">📝 {data.myCommitsCount} by me</span>
+            {data.currentUserEmail && <span className="text-gray-400">({data.currentUserEmail})</span>}
+          </div>
+        )}
       </div>
       
       {/* Content */}
