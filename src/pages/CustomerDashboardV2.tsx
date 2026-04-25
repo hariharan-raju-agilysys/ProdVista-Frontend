@@ -586,22 +586,30 @@ const CustomerDashboardV2: React.FC = () => {
     if (!selectedCustomer) return null;
     const data = editMode && editingCustomer ? editingCustomer : selectedCustomer;
 
+    const hasAddress = data.address || data.city || data.state || data.country;
+    const hasCustomerManager = data.customerManager || data.customerManagerEmail;
+    const hasSupportManager = data.supportManager || data.supportManagerEmail;
+    const hasOnboardedBy = data.onboardedBy || data.onboardedByEmail;
+    const hasDates = data.onboardingStartDate || data.goLiveDate || data.contractStartDate || data.contractEndDate;
+    const hasProducts = (data.products || []).length > 0;
+    const hasSubProperties = (data.subProperties || []).length > 0;
+
     const EditField = ({ label, field, type = 'text' }: { label: string; field: string; type?: string }) => {
       const value = (data as any)[field] ?? '';
       return editMode ? (
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-gray-500">{label}</label>
+          <label className="text-xs text-gray-500 dark:text-gray-400">{label}</label>
           <input
             type={type}
             value={type === 'date' && value ? new Date(value).toISOString().split('T')[0] : value}
             onChange={(e) => handleFieldChange(field, type === 'number' ? parseInt(e.target.value) || 0 : type === 'date' ? new Date(e.target.value).toISOString() : e.target.value)}
-            className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            className="px-2.5 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
       ) : (
-        <div className="flex justify-between">
-          <span className="text-gray-500">{label}</span>
-          <span className="text-gray-900 dark:text-white">{type === 'date' ? formatDate(value) : value || 'N/A'}</span>
+        <div className="flex justify-between items-center py-1">
+          <span className="text-gray-500 dark:text-gray-400 text-sm">{label}</span>
+          <span className="text-gray-900 dark:text-white text-sm font-medium">{type === 'date' ? formatDate(value) : value || '—'}</span>
         </div>
       );
     };
@@ -610,11 +618,11 @@ const CustomerDashboardV2: React.FC = () => {
       const value = (data as any)[field] ?? '';
       return editMode ? (
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-gray-500">{label}</label>
+          <label className="text-xs text-gray-500 dark:text-gray-400">{label}</label>
           <select
             value={value}
             onChange={(e) => handleFieldChange(field, e.target.value)}
-            className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            className="px-2.5 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             {options.map(o => <option key={o} value={o}>{o}</option>)}
           </select>
@@ -622,31 +630,67 @@ const CustomerDashboardV2: React.FC = () => {
       ) : null;
     };
 
+    const InfoRow = ({ icon, label, value, mono }: { icon: React.ReactNode; label: string; value?: string | null; mono?: boolean }) => {
+      if (!value && !editMode) return null;
+      return (
+        <div className="flex items-center gap-2.5 py-1.5">
+          <span className="text-gray-400 dark:text-gray-500 flex-shrink-0">{icon}</span>
+          <span className="text-gray-500 dark:text-gray-400 text-sm min-w-[90px]">{label}</span>
+          <span className={`text-gray-900 dark:text-white text-sm font-medium ${mono ? 'font-mono' : ''}`}>{value || '—'}</span>
+        </div>
+      );
+    };
+
+    const ContactCard = ({ title, name, email, icon }: { title: string; name?: string | null; email?: string | null; icon: React.ReactNode }) => (
+      <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg flex-shrink-0">
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs text-gray-500 dark:text-gray-400">{title}</p>
+          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{name || '—'}</p>
+          {email && (
+            <a href={`mailto:${email}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline truncate block">{email}</a>
+          )}
+        </div>
+      </div>
+    );
+
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => { setSelectedCustomer(null); handleCancelEdit(); }}>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
-            <div>
-              {editMode ? (
-                <input
-                  type="text"
-                  value={editingCustomer?.customerName ?? ''}
-                  onChange={(e) => handleFieldChange('customerName', e.target.value)}
-                  className="text-xl font-bold text-gray-900 dark:text-white bg-transparent border-b-2 border-blue-500 focus:outline-none"
-                />
-              ) : (
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">{selectedCustomer.customerName}</h2>
-              )}
-              <p className="text-sm text-gray-500">{selectedCustomer.customerId}</p>
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                {(selectedCustomer.customerName || '?')[0].toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                {editMode ? (
+                  <input
+                    type="text"
+                    value={editingCustomer?.customerName ?? ''}
+                    onChange={(e) => handleFieldChange('customerName', e.target.value)}
+                    className="text-lg font-bold text-gray-900 dark:text-white bg-transparent border-b-2 border-blue-500 focus:outline-none w-full"
+                  />
+                ) : (
+                  <h2 className="text-lg font-bold text-gray-900 dark:text-white truncate">{selectedCustomer.customerName}</h2>
+                )}
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-xs font-mono text-gray-500 dark:text-gray-400">{selectedCustomer.customerId}</span>
+                  {selectedCustomer.customerNameAlias && (
+                    <span className="text-xs text-gray-400 dark:text-gray-500">({selectedCustomer.customerNameAlias})</span>
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               {isManager && !editMode && (
                 <button
                   onClick={() => handleStartEdit(selectedCustomer)}
-                  className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-1"
+                  className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-1.5 transition-colors"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
                   Edit
@@ -657,13 +701,13 @@ const CustomerDashboardV2: React.FC = () => {
                   <button
                     onClick={handleSaveEdit}
                     disabled={saving}
-                    className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-lg flex items-center gap-1"
+                    className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-lg flex items-center gap-1.5 transition-colors"
                   >
                     {saving ? 'Saving...' : 'Save'}
                   </button>
                   <button
                     onClick={handleCancelEdit}
-                    className="px-3 py-1.5 text-sm bg-gray-500 hover:bg-gray-600 text-white rounded-lg"
+                    className="px-3 py-1.5 text-sm bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
                   >
                     Cancel
                   </button>
@@ -671,166 +715,133 @@ const CustomerDashboardV2: React.FC = () => {
               )}
               <button
                 onClick={() => { setSelectedCustomer(null); handleCancelEdit(); }}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
-                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
           </div>
 
-          {/* Content */}
-          <div className="p-6 space-y-6">
-            {/* Status Row */}
-            <div className="flex flex-wrap gap-3">
+          {/* Scrollable Content */}
+          <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+            {/* Status Badges + Metrics Row */}
+            <div className="flex flex-wrap items-center gap-2">
               {editMode ? (
-                <>
+                <div className="flex flex-wrap gap-3">
                   <EditSelect label="Status" field="status" options={['Active', 'Onboarding', 'Suspended', 'Churned']} />
                   <EditSelect label="Priority" field="priority" options={['Critical', 'High', 'Medium', 'Low']} />
                   <EditSelect label="Deployment" field="deploymentType" options={['SaaS', 'OnPremise', 'Hybrid']} />
                   <EditSelect label="Health" field="healthScore" options={['Good', 'Warning', 'Critical']} />
-                </>
+                </div>
               ) : (
                 <>
-                  <span className={`px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(data.status || '')}`}>{data.status}</span>
-                  <span className={`px-3 py-1 text-sm font-medium rounded-full ${getPriorityColor(data.priority || '')}`}>{data.priority} Priority</span>
-                  <span className="px-3 py-1 text-sm font-medium rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                  <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${getStatusColor(data.status || '')}`}>{data.status}</span>
+                  <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${getPriorityColor(data.priority || '')}`}>{data.priority}</span>
+                  <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
                     {getDeploymentTypeIcon(data.deploymentType || '')} {data.deploymentType}
                   </span>
-                  <span className={`px-3 py-1 text-sm font-medium rounded-full ${getHealthScoreColor(data.healthScore || '')} bg-opacity-20`}>
-                    Health: {data.healthScore}
+                  <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${getHealthScoreColor(data.healthScore || '')} bg-opacity-20`}>
+                    {data.healthScore === 'Good' ? '●' : data.healthScore === 'Warning' ? '◐' : '○'} {data.healthScore}
+                  </span>
+                  <span className="ml-auto text-xs text-gray-400 dark:text-gray-500">
+                    Last active {formatRelativeTime(data.lastActivityDate || '')}
                   </span>
                 </>
               )}
             </div>
 
-            {/* Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Identification */}
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Identification</h3>
-                <div className="space-y-2 text-sm">
+            {/* Quick Metrics */}
+            {!editMode && (
+              <div className="grid grid-cols-4 gap-3">
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-center">
+                  <div className="text-xl font-bold text-blue-700 dark:text-blue-300">{data.totalProperties ?? 0}</div>
+                  <div className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">Properties</div>
+                </div>
+                <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 text-center">
+                  <div className="text-xl font-bold text-green-700 dark:text-green-300">{(data.subProperties || []).length}</div>
+                  <div className="text-[11px] text-green-600 dark:text-green-400 font-medium">Sub-Properties</div>
+                </div>
+                <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3 text-center">
+                  <div className="text-xl font-bold text-purple-700 dark:text-purple-300">{data.activeUsers ?? 0}</div>
+                  <div className="text-[11px] text-purple-600 dark:text-purple-400 font-medium">Active Users</div>
+                </div>
+                <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-3 text-center">
+                  <div className="text-xl font-bold text-orange-700 dark:text-orange-300">{data.openTickets ?? 0}</div>
+                  <div className="text-[11px] text-orange-600 dark:text-orange-400 font-medium">Open Tickets</div>
+                </div>
+              </div>
+            )}
+
+            {editMode && (
+              <div className="grid grid-cols-3 gap-4">
+                <EditField label="Active Users" field="activeUsers" type="number" />
+                <EditField label="Total Properties" field="totalProperties" type="number" />
+                <EditField label="Open Tickets" field="openTickets" type="number" />
+              </div>
+            )}
+
+            {/* Identification */}
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+              <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Identification</h3>
+              {editMode ? (
+                <div className="grid grid-cols-2 gap-3">
                   <EditField label="Tenant ID" field="tenantId" />
                   <EditField label="Property ID" field="propertyId" />
                   <EditField label="Region" field="region" />
                   <EditField label="Version" field="currentVersion" />
                 </div>
-              </div>
-
-              {/* Address */}
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Address</h3>
-                {editMode ? (
-                  <div className="space-y-2">
-                    <EditField label="Address" field="address" />
-                    <EditField label="City" field="city" />
-                    <EditField label="State" field="state" />
-                    <EditField label="Country" field="country" />
-                    <EditField label="Postal Code" field="postalCode" />
-                  </div>
-                ) : (
-                  <div className="text-sm text-gray-900 dark:text-white">
-                    <p>{data.address}</p>
-                    <p>{data.city}, {data.state}</p>
-                    <p>{data.country} {data.postalCode}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Customer Manager */}
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Customer Manager</h3>
-                {editMode ? (
-                  <div className="space-y-2">
-                    <EditField label="Name" field="customerManager" />
-                    <EditField label="Email" field="customerManagerEmail" />
-                  </div>
-                ) : (
-                  <div className="text-sm">
-                    <p className="font-medium text-gray-900 dark:text-white">{data.customerManager}</p>
-                    <a href={`mailto:${data.customerManagerEmail}`} className="text-blue-600 dark:text-blue-400 hover:underline">{data.customerManagerEmail}</a>
-                  </div>
-                )}
-              </div>
-
-              {/* Support Manager */}
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Support Manager</h3>
-                {editMode ? (
-                  <div className="space-y-2">
-                    <EditField label="Name" field="supportManager" />
-                    <EditField label="Email" field="supportManagerEmail" />
-                  </div>
-                ) : (
-                  <div className="text-sm">
-                    <p className="font-medium text-gray-900 dark:text-white">{data.supportManager}</p>
-                    <a href={`mailto:${data.supportManagerEmail}`} className="text-blue-600 dark:text-blue-400 hover:underline">{data.supportManagerEmail}</a>
-                  </div>
-                )}
-              </div>
-
-              {/* Onboarded By */}
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Onboarded By</h3>
-                {editMode ? (
-                  <div className="space-y-2">
-                    <EditField label="Name" field="onboardedBy" />
-                    <EditField label="Email" field="onboardedByEmail" />
-                  </div>
-                ) : (
-                  <div className="text-sm">
-                    <p className="font-medium text-gray-900 dark:text-white">{data.onboardedBy}</p>
-                    <a href={`mailto:${data.onboardedByEmail}`} className="text-blue-600 dark:text-blue-400 hover:underline">{data.onboardedByEmail}</a>
-                  </div>
-                )}
-              </div>
-
-              {/* Dates */}
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Key Dates</h3>
-                <div className="space-y-2 text-sm">
-                  <EditField label="Onboarding Start" field="onboardingStartDate" type="date" />
-                  <EditField label="Go Live" field="goLiveDate" type="date" />
-                  <EditField label="Contract Start" field="contractStartDate" type="date" />
-                  <EditField label="Contract End" field="contractEndDate" type="date" />
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1">
+                  <InfoRow icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>} label="Tenant" value={data.tenantId} mono />
+                  <InfoRow icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>} label="Property" value={data.propertyId} mono />
+                  <InfoRow icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} label="Region" value={data.region} />
+                  <InfoRow icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>} label="Version" value={data.currentVersion} />
                 </div>
-              </div>
+              )}
             </div>
 
-            {/* Products */}
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Products</h3>
-              <div className="flex flex-wrap gap-2">
-                {(data.products || []).map((product, idx) => (
-                  <span key={idx} className="px-3 py-1.5 text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full">
-                    {product}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Sub-Properties */}
-            {(data.subProperties || []).length > 0 && (
+            {/* Sub-Properties — now prominent */}
+            {hasSubProperties && (
               <div>
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                  Sub-Properties ({data.subProperties?.length || 0})
-                </h3>
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg overflow-hidden">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                  <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Sub-Properties ({data.subProperties!.length})
+                  </h3>
+                </div>
+                <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead>
-                      <tr className="bg-gray-100 dark:bg-gray-600">
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Property Code</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Property Name</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Property ID</th>
+                      <tr className="bg-gray-50 dark:bg-gray-700/80">
+                        <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">#</th>
+                        <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Property Code</th>
+                        <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Property Name</th>
+                        <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Property ID</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
                       {(data.subProperties || []).map((sp, idx) => (
-                        <tr key={idx} className="hover:bg-gray-100 dark:hover:bg-gray-650">
-                          <td className="px-4 py-2 text-sm font-mono text-gray-900 dark:text-white">{sp.id}</td>
+                        <tr key={idx} className="hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors">
+                          <td className="px-4 py-2 text-xs text-gray-400 dark:text-gray-500">{idx + 1}</td>
+                          <td className="px-4 py-2">
+                            <span className="inline-flex items-center px-2 py-0.5 text-xs font-mono font-medium bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded">
+                              {sp.id}
+                            </span>
+                          </td>
                           <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">{sp.name}</td>
-                          <td className="px-4 py-2 text-sm font-mono text-blue-600 dark:text-blue-400">{sp.propertyId ?? 'N/A'}</td>
+                          <td className="px-4 py-2">
+                            {sp.propertyId ? (
+                              <span className="inline-flex items-center px-2 py-0.5 text-xs font-mono font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
+                                {sp.propertyId}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400">—</span>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -839,35 +850,122 @@ const CustomerDashboardV2: React.FC = () => {
               </div>
             )}
 
-            {/* Metrics */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {editMode ? (
-                <>
-                  <EditField label="Active Users" field="activeUsers" type="number" />
-                  <EditField label="Total Properties" field="totalProperties" type="number" />
-                  <EditField label="Open Tickets" field="openTickets" type="number" />
-                </>
-              ) : (
-                <>
-                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-gray-900 dark:text-white">{data.activeUsers}</div>
-                    <div className="text-xs text-gray-500">Active Users</div>
+            {/* Products */}
+            {hasProducts && (
+              <div>
+                <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Products</h3>
+                <div className="flex flex-wrap gap-2">
+                  {(data.products || []).map((product, idx) => (
+                    <span key={idx} className="px-3 py-1 text-sm bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg font-medium">
+                      {product}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Contacts — only show sections with data */}
+            {(hasCustomerManager || hasSupportManager || hasOnboardedBy || editMode) && (
+              <div>
+                <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Contacts</h3>
+                {editMode ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-gray-500">Customer Manager</p>
+                      <EditField label="Name" field="customerManager" />
+                      <EditField label="Email" field="customerManagerEmail" />
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-gray-500">Support Manager</p>
+                      <EditField label="Name" field="supportManager" />
+                      <EditField label="Email" field="supportManagerEmail" />
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-gray-500">Onboarded By</p>
+                      <EditField label="Name" field="onboardedBy" />
+                      <EditField label="Email" field="onboardedByEmail" />
+                    </div>
                   </div>
-                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-gray-900 dark:text-white">{data.totalProperties}</div>
-                    <div className="text-xs text-gray-500">Properties</div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {hasCustomerManager && (
+                      <ContactCard
+                        title="Customer Manager"
+                        name={data.customerManager}
+                        email={data.customerManagerEmail}
+                        icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
+                      />
+                    )}
+                    {hasSupportManager && (
+                      <ContactCard
+                        title="Support Manager"
+                        name={data.supportManager}
+                        email={data.supportManagerEmail}
+                        icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" /></svg>}
+                      />
+                    )}
+                    {hasOnboardedBy && (
+                      <ContactCard
+                        title="Onboarded By"
+                        name={data.onboardedBy}
+                        email={data.onboardedByEmail}
+                        icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>}
+                      />
+                    )}
                   </div>
-                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-gray-900 dark:text-white">{data.openTickets}</div>
-                    <div className="text-xs text-gray-500">Open Tickets</div>
+                )}
+              </div>
+            )}
+
+            {/* Address — only show if data exists */}
+            {(hasAddress || editMode) && (
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Address</h3>
+                {editMode ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2"><EditField label="Address" field="address" /></div>
+                    <EditField label="City" field="city" />
+                    <EditField label="State" field="state" />
+                    <EditField label="Country" field="country" />
+                    <EditField label="Postal Code" field="postalCode" />
                   </div>
-                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center">
-                    <div className="text-sm font-medium text-gray-900 dark:text-white">{formatRelativeTime(data.lastActivityDate || '')}</div>
-                    <div className="text-xs text-gray-500">Last Activity</div>
+                ) : (
+                  <p className="text-sm text-gray-900 dark:text-white">
+                    {[data.address, data.city, data.state, data.country, data.postalCode].filter(Boolean).join(', ')}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Key Dates — only show if data exists */}
+            {(hasDates || editMode) && (
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Key Dates</h3>
+                {editMode ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <EditField label="Onboarding Start" field="onboardingStartDate" type="date" />
+                    <EditField label="Go Live" field="goLiveDate" type="date" />
+                    <EditField label="Contract Start" field="contractStartDate" type="date" />
+                    <EditField label="Contract End" field="contractEndDate" type="date" />
                   </div>
-                </>
-              )}
-            </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {data.onboardingStartDate && (
+                      <div><div className="text-xs text-gray-500 dark:text-gray-400">Onboarding</div><div className="text-sm font-medium text-gray-900 dark:text-white">{formatDate(data.onboardingStartDate)}</div></div>
+                    )}
+                    {data.goLiveDate && (
+                      <div><div className="text-xs text-gray-500 dark:text-gray-400">Go Live</div><div className="text-sm font-medium text-gray-900 dark:text-white">{formatDate(data.goLiveDate)}</div></div>
+                    )}
+                    {data.contractStartDate && (
+                      <div><div className="text-xs text-gray-500 dark:text-gray-400">Contract Start</div><div className="text-sm font-medium text-gray-900 dark:text-white">{formatDate(data.contractStartDate)}</div></div>
+                    )}
+                    {data.contractEndDate && (
+                      <div><div className="text-xs text-gray-500 dark:text-gray-400">Contract End</div><div className="text-sm font-medium text-gray-900 dark:text-white">{formatDate(data.contractEndDate)}</div></div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
