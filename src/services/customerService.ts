@@ -7,6 +7,7 @@ import api from './api';
 export interface SubPropertyDto {
   id: string;
   name: string;
+  propertyId?: number;
 }
 
 export interface CustomerDetailDto {
@@ -66,6 +67,9 @@ export interface CustomerFilterDto {
   priority?: string;
   deploymentType?: string;
   searchTerm?: string;
+  propertyIdSearch?: string;
+  tenantIdSearch?: string;
+  subPropertySearch?: string;
 }
 
 export interface FilterOptions {
@@ -98,6 +102,9 @@ export const getCustomers = async (filter?: CustomerFilterDto): Promise<Customer
   if (filter?.priority) params.append('priority', filter.priority);
   if (filter?.deploymentType) params.append('deploymentType', filter.deploymentType);
   if (filter?.searchTerm) params.append('searchTerm', filter.searchTerm);
+  if (filter?.propertyIdSearch) params.append('propertyIdSearch', filter.propertyIdSearch);
+  if (filter?.tenantIdSearch) params.append('tenantIdSearch', filter.tenantIdSearch);
+  if (filter?.subPropertySearch) params.append('subPropertySearch', filter.subPropertySearch);
   
   const queryString = params.toString();
   const url = queryString ? `/customers?${queryString}` : '/customers';

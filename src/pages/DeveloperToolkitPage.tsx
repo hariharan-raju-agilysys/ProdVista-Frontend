@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   User, GitPullRequest, GitCommit, Package, RefreshCw, Settings,
   CheckCircle, XCircle, Clock, Eye, AlertTriangle, ExternalLink,
-  ChevronRight, Search, Activity, Code2, FileText
+  ChevronRight, Search, Activity, Code2, FileText, Radar
 } from 'lucide-react';
 import clsx from 'clsx';
 import developerDashboardService, {
@@ -10,6 +10,7 @@ import developerDashboardService, {
   type CommitInfo, type BuildInfo
 } from '../services/developerDashboardService';
 import engineeringService, { type EngineeringConfig } from '../services/engineeringService';
+import { type DevTeamMemberDto } from '../services/devIntelligenceService';
 // Import shared utilities - centralized helper functions
 import {
   timeAgo,
@@ -22,6 +23,8 @@ import {
 import {
   InteractiveStatCard,
 } from '@components/shared/ui';
+// Dev Intelligence Command Center components
+import { CommandBar, AttentionQueue, BranchTenantPanel, ReleaseHealthGrid, TeamRoster } from '../components/dev-intelligence';
 
 // =====================================================
 // Tab Type
@@ -322,10 +325,13 @@ function ConfigDialog({ config, onSave, onClose }: {
 }
 
 // =====================================================
-// Main Page Component
+// Main Page Component — Developer Command Center
 // =====================================================
 
 export default function DeveloperToolkitPage() {
+  // View mode: command-center (new) vs classic (tabbed)
+  const [viewMode, setViewMode] = useState<'command-center' | 'classic'>('command-center');
+
   // State
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [dashboard, setDashboard] = useState<DeveloperDashboard | null>(null);
@@ -334,6 +340,9 @@ export default function DeveloperToolkitPage() {
   const [showConfig, setShowConfig] = useState(false);
   const [config, setConfig] = useState<EngineeringConfig | null>(() => engineeringService.getSavedConfig());
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+
+  // Dev Intelligence state
+  const [selectedMember, setSelectedMember] = useState<DevTeamMemberDto | null>(null);
 
   // Filters
   const [workItemFilter, setWorkItemFilter] = useState<string>('all');
@@ -406,7 +415,7 @@ export default function DeveloperToolkitPage() {
     return { mine, review };
   }, [dashboard, prSearch]);
 
-  // Tabs
+  // Tabs (for classic view)
   const tabs: LocalTab[] = useMemo(() => [
     { id: 'overview', label: 'Overview', icon: <Activity className="w-4 h-4" /> },
     { id: 'work', label: 'My Work', icon: <FileText className="w-4 h-4" />, badge: dashboard?.stats?.openWorkItems },
@@ -436,13 +445,39 @@ export default function DeveloperToolkitPage() {
             <Code2 className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Developer Toolkit</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Developer Command Center</h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {dashboard?.currentUser ? `Welcome, ${dashboard.currentUser.displayName}` : 'Your personal development dashboard'}
+              {dashboard?.currentUser ? `Welcome, ${dashboard.currentUser.displayName}` : 'Intelligence-driven development dashboard'}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {/* View Mode Toggle */}
+          <div className="flex items-center bg-gray-100 dark:bg-slate-800 rounded-lg p-0.5">
+            <button
+              onClick={() => setViewMode('command-center')}
+              className={clsx(
+                'px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5',
+                viewMode === 'command-center'
+                  ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400'
+              )}
+            >
+              <Radar className="w-3.5 h-3.5" /> Command Center
+            </button>
+            <button
+              onClick={() => setViewMode('classic')}
+              className={clsx(
+                'px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5',
+                viewMode === 'classic'
+                  ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400'
+              )}
+            >
+              <Activity className="w-3.5 h-3.5" /> Classic
+            </button>
+          </div>
+
           {lastRefresh && (
             <span className="text-xs text-gray-400 dark:text-gray-500">
               Updated {timeAgo(lastRefresh.toISOString())}
@@ -473,204 +508,249 @@ export default function DeveloperToolkitPage() {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex items-center gap-1 p-1 bg-gray-100 dark:bg-slate-800 rounded-xl w-fit">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={clsx(
-              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
-              activeTab === tab.id
-                ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            )}
-          >
-            {tab.icon}
-            {tab.label}
-            {tab.badge !== undefined && Number(tab.badge) > 0 && (
-              <span className={clsx(
-                'px-1.5 py-0.5 text-xs rounded-full font-medium',
-                activeTab === tab.id ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400' : 'bg-gray-200 dark:bg-slate-600 text-gray-600 dark:text-gray-300'
-              )}>
-                {tab.badge}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab Content */}
-      {activeTab === 'overview' && dashboard && (
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* COMMAND CENTER VIEW                                        */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {viewMode === 'command-center' && (
         <div className="space-y-6">
-          {/* Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <InteractiveStatCard label="Open Work Items" value={dashboard.stats?.openWorkItems || 0} icon={<FileText className="w-5 h-5 text-blue-600" />}
-              color="bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-100"
-              onClick={() => setActiveTab('work')} />
-            <InteractiveStatCard label="Active PRs" value={dashboard.stats?.activePullRequests || 0} icon={<GitPullRequest className="w-5 h-5 text-green-600" />}
-              color="bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-900 dark:text-green-100"
-              onClick={() => { setActiveTab('prs'); setPrFilter('mine'); }} />
-            <InteractiveStatCard label="Pending Reviews" value={dashboard.stats?.pendingReviews || 0} icon={<Eye className="w-5 h-5 text-orange-600" />}
-              color="bg-orange-50 dark:bg-orange-900/30 border-orange-200 dark:border-orange-800 text-orange-900 dark:text-orange-100"
-              onClick={() => { setActiveTab('prs'); setPrFilter('review'); }} />
-            <InteractiveStatCard label="Commits (Week)" value={dashboard.stats?.commitsThisWeek || 0} icon={<GitCommit className="w-5 h-5 text-purple-600" />}
-              color="bg-purple-50 dark:bg-purple-900/30 border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-100"
-              onClick={() => setActiveTab('commits')} />
-            <InteractiveStatCard label="Builds Today" value={dashboard.stats?.buildsToday || 0} icon={<Package className="w-5 h-5 text-pink-600" />}
-              color="bg-pink-50 dark:bg-pink-900/30 border-pink-200 dark:border-pink-800 text-pink-900 dark:text-pink-100"
-              onClick={() => setActiveTab('builds')} />
+          {/* Global Search Bar */}
+          <CommandBar className="max-w-2xl" />
+
+          {/* Stats Row (compact) */}
+          {dashboard && (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <InteractiveStatCard label="Open Work Items" value={dashboard.stats?.openWorkItems || 0} icon={<FileText className="w-5 h-5 text-blue-600" />}
+                color="bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-100"
+                onClick={() => { setViewMode('classic'); setActiveTab('work'); }} />
+              <InteractiveStatCard label="Active PRs" value={dashboard.stats?.activePullRequests || 0} icon={<GitPullRequest className="w-5 h-5 text-green-600" />}
+                color="bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-900 dark:text-green-100"
+                onClick={() => { setViewMode('classic'); setActiveTab('prs'); setPrFilter('mine'); }} />
+              <InteractiveStatCard label="Pending Reviews" value={dashboard.stats?.pendingReviews || 0} icon={<Eye className="w-5 h-5 text-orange-600" />}
+                color="bg-orange-50 dark:bg-orange-900/30 border-orange-200 dark:border-orange-800 text-orange-900 dark:text-orange-100"
+                onClick={() => { setViewMode('classic'); setActiveTab('prs'); setPrFilter('review'); }} />
+              <InteractiveStatCard label="Commits (Week)" value={dashboard.stats?.commitsThisWeek || 0} icon={<GitCommit className="w-5 h-5 text-purple-600" />}
+                color="bg-purple-50 dark:bg-purple-900/30 border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-100"
+                onClick={() => { setViewMode('classic'); setActiveTab('commits'); }} />
+              <InteractiveStatCard label="Builds Today" value={dashboard.stats?.buildsToday || 0} icon={<Package className="w-5 h-5 text-pink-600" />}
+                color="bg-pink-50 dark:bg-pink-900/30 border-pink-200 dark:border-pink-800 text-pink-900 dark:text-pink-100"
+                onClick={() => { setViewMode('classic'); setActiveTab('builds'); }} />
+            </div>
+          )}
+
+          {/* Main Intelligence Grid: 3 columns */}
+          <div className="grid lg:grid-cols-3 gap-6">
+            {/* Left: Attention Queue */}
+            <AttentionQueue devOpsUniqueName={selectedMember?.devOpsUniqueName} />
+
+            {/* Center: Branch-to-Tenant Lookup */}
+            <BranchTenantPanel />
+
+            {/* Right: Team Roster */}
+            <TeamRoster onSelectMember={setSelectedMember} />
           </div>
 
-          {/* Quick Lists */}
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Recent Work Items */}
-            <div className="bg-gray-50 dark:bg-slate-800/50 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-900 dark:text-white">Recent Work Items</h3>
-                <button onClick={() => setActiveTab('work')} className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
-                  View All <ChevronRight className="w-4 h-4" />
-                </button>
+          {/* Release Pipeline Health Grid */}
+          <ReleaseHealthGrid />
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* CLASSIC TABBED VIEW                                        */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {viewMode === 'classic' && (
+        <>
+          {/* Tabs */}
+          <div className="flex items-center gap-1 p-1 bg-gray-100 dark:bg-slate-800 rounded-xl w-fit">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={clsx(
+                  'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
+                  activeTab === tab.id
+                    ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                )}
+              >
+                {tab.icon}
+                {tab.label}
+                {tab.badge !== undefined && Number(tab.badge) > 0 && (
+                  <span className={clsx(
+                    'px-1.5 py-0.5 text-xs rounded-full font-medium',
+                    activeTab === tab.id ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400' : 'bg-gray-200 dark:bg-slate-600 text-gray-600 dark:text-gray-300'
+                  )}>
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Tab Content */}
+          {activeTab === 'overview' && dashboard && (
+            <div className="space-y-6">
+              {/* Stats Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <InteractiveStatCard label="Open Work Items" value={dashboard.stats?.openWorkItems || 0} icon={<FileText className="w-5 h-5 text-blue-600" />}
+                  color="bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-100"
+                  onClick={() => setActiveTab('work')} />
+                <InteractiveStatCard label="Active PRs" value={dashboard.stats?.activePullRequests || 0} icon={<GitPullRequest className="w-5 h-5 text-green-600" />}
+                  color="bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-900 dark:text-green-100"
+                  onClick={() => { setActiveTab('prs'); setPrFilter('mine'); }} />
+                <InteractiveStatCard label="Pending Reviews" value={dashboard.stats?.pendingReviews || 0} icon={<Eye className="w-5 h-5 text-orange-600" />}
+                  color="bg-orange-50 dark:bg-orange-900/30 border-orange-200 dark:border-orange-800 text-orange-900 dark:text-orange-100"
+                  onClick={() => { setActiveTab('prs'); setPrFilter('review'); }} />
+                <InteractiveStatCard label="Commits (Week)" value={dashboard.stats?.commitsThisWeek || 0} icon={<GitCommit className="w-5 h-5 text-purple-600" />}
+                  color="bg-purple-50 dark:bg-purple-900/30 border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-100"
+                  onClick={() => setActiveTab('commits')} />
+                <InteractiveStatCard label="Builds Today" value={dashboard.stats?.buildsToday || 0} icon={<Package className="w-5 h-5 text-pink-600" />}
+                  color="bg-pink-50 dark:bg-pink-900/30 border-pink-200 dark:border-pink-800 text-pink-900 dark:text-pink-100"
+                  onClick={() => setActiveTab('builds')} />
               </div>
-              <div className="space-y-3">
-                {dashboard.myWorkItems?.slice(0, 3).map(item => (
+
+              {/* Quick Lists */}
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="bg-gray-50 dark:bg-slate-800/50 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-gray-900 dark:text-white">Recent Work Items</h3>
+                    <button onClick={() => setActiveTab('work')} className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
+                      View All <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    {dashboard.myWorkItems?.slice(0, 3).map(item => (
+                      <WorkItemCard key={item.id} item={item} />
+                    ))}
+                    {(!dashboard.myWorkItems || dashboard.myWorkItems.length === 0) && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">No work items assigned</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 dark:bg-slate-800/50 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-gray-900 dark:text-white">Pending Reviews</h3>
+                    <button onClick={() => { setActiveTab('prs'); setPrFilter('review'); }} className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
+                      View All <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    {dashboard.pullRequestsToReview?.slice(0, 3).map(pr => (
+                      <PullRequestCard key={pr.id} pr={pr} isReview />
+                    ))}
+                    {(!dashboard.pullRequestsToReview || dashboard.pullRequestsToReview.length === 0) && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">No pending reviews</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'work' && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={workItemSearch}
+                    onChange={e => setWorkItemSearch(e.target.value)}
+                    placeholder="Search work items..."
+                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+                <select
+                  value={workItemFilter}
+                  onChange={e => setWorkItemFilter(e.target.value)}
+                  className="px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                  <option value="all">All Types</option>
+                  <option value="Bug">Bugs</option>
+                  <option value="Task">Tasks</option>
+                  <option value="User Story">User Stories</option>
+                  <option value="Feature">Features</option>
+                </select>
+              </div>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredWorkItems.map(item => (
                   <WorkItemCard key={item.id} item={item} />
                 ))}
-                {(!dashboard.myWorkItems || dashboard.myWorkItems.length === 0) && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">No work items assigned</p>
-                )}
               </div>
+              {filteredWorkItems.length === 0 && (
+                <p className="text-center text-gray-500 dark:text-gray-400 py-8">No work items found</p>
+              )}
             </div>
+          )}
 
-            {/* Pending Reviews */}
-            <div className="bg-gray-50 dark:bg-slate-800/50 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-900 dark:text-white">Pending Reviews</h3>
-                <button onClick={() => { setActiveTab('prs'); setPrFilter('review'); }} className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
-                  View All <ChevronRight className="w-4 h-4" />
-                </button>
+          {activeTab === 'prs' && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={prSearch}
+                    onChange={e => setPrSearch(e.target.value)}
+                    placeholder="Search pull requests..."
+                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+                <div className="flex items-center bg-gray-100 dark:bg-slate-800 rounded-lg p-1">
+                  {(['all', 'mine', 'review'] as const).map(f => (
+                    <button
+                      key={f}
+                      onClick={() => setPrFilter(f)}
+                      className={clsx(
+                        'px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
+                        prFilter === f ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-600 dark:text-gray-400'
+                      )}
+                    >
+                      {f === 'all' ? 'All' : f === 'mine' ? 'My PRs' : 'To Review'}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="space-y-3">
-                {dashboard.pullRequestsToReview?.slice(0, 3).map(pr => (
-                  <PullRequestCard key={pr.id} pr={pr} isReview />
+              <div className="grid md:grid-cols-2 gap-4">
+                {(prFilter === 'all' || prFilter === 'mine') && filteredPRs.mine.map(pr => (
+                  <PullRequestCard key={`mine-${pr.id}`} pr={pr} />
                 ))}
-                {(!dashboard.pullRequestsToReview || dashboard.pullRequestsToReview.length === 0) && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">No pending reviews</p>
-                )}
+                {(prFilter === 'all' || prFilter === 'review') && filteredPRs.review.map(pr => (
+                  <PullRequestCard key={`review-${pr.id}`} pr={pr} isReview />
+                ))}
               </div>
+              {filteredPRs.mine.length === 0 && filteredPRs.review.length === 0 && (
+                <p className="text-center text-gray-500 dark:text-gray-400 py-8">No pull requests found</p>
+              )}
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {activeTab === 'work' && (
-        <div className="space-y-4">
-          {/* Filters */}
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                value={workItemSearch}
-                onChange={e => setWorkItemSearch(e.target.value)}
-                placeholder="Search work items..."
-                className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-              />
+          {activeTab === 'commits' && (
+            <div className="space-y-4">
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {dashboard?.myCommits?.map(commit => (
+                  <CommitCard key={commit.commitId} commit={commit} />
+                ))}
+              </div>
+              {(!dashboard?.myCommits || dashboard.myCommits.length === 0) && (
+                <p className="text-center text-gray-500 dark:text-gray-400 py-8">No commits found</p>
+              )}
             </div>
-            <select
-              value={workItemFilter}
-              onChange={e => setWorkItemFilter(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-            >
-              <option value="all">All Types</option>
-              <option value="Bug">Bugs</option>
-              <option value="Task">Tasks</option>
-              <option value="User Story">User Stories</option>
-              <option value="Feature">Features</option>
-            </select>
-          </div>
-
-          {/* Work Items Grid */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredWorkItems.map(item => (
-              <WorkItemCard key={item.id} item={item} />
-            ))}
-          </div>
-          {filteredWorkItems.length === 0 && (
-            <p className="text-center text-gray-500 dark:text-gray-400 py-8">No work items found</p>
           )}
-        </div>
-      )}
 
-      {activeTab === 'prs' && (
-        <div className="space-y-4">
-          {/* Filters */}
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                value={prSearch}
-                onChange={e => setPrSearch(e.target.value)}
-                placeholder="Search pull requests..."
-                className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-              />
+          {activeTab === 'builds' && (
+            <div className="space-y-4">
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {dashboard?.recentBuilds?.map(build => (
+                  <BuildCard key={build.id} build={build} />
+                ))}
+              </div>
+              {(!dashboard?.recentBuilds || dashboard.recentBuilds.length === 0) && (
+                <p className="text-center text-gray-500 dark:text-gray-400 py-8">No builds found</p>
+              )}
             </div>
-            <div className="flex items-center bg-gray-100 dark:bg-slate-800 rounded-lg p-1">
-              {(['all', 'mine', 'review'] as const).map(f => (
-                <button
-                  key={f}
-                  onClick={() => setPrFilter(f)}
-                  className={clsx(
-                    'px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
-                    prFilter === f ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-600 dark:text-gray-400'
-                  )}
-                >
-                  {f === 'all' ? 'All' : f === 'mine' ? 'My PRs' : 'To Review'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* PRs Grid */}
-          <div className="grid md:grid-cols-2 gap-4">
-            {(prFilter === 'all' || prFilter === 'mine') && filteredPRs.mine.map(pr => (
-              <PullRequestCard key={`mine-${pr.id}`} pr={pr} />
-            ))}
-            {(prFilter === 'all' || prFilter === 'review') && filteredPRs.review.map(pr => (
-              <PullRequestCard key={`review-${pr.id}`} pr={pr} isReview />
-            ))}
-          </div>
-          {filteredPRs.mine.length === 0 && filteredPRs.review.length === 0 && (
-            <p className="text-center text-gray-500 dark:text-gray-400 py-8">No pull requests found</p>
           )}
-        </div>
-      )}
-
-      {activeTab === 'commits' && (
-        <div className="space-y-4">
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {dashboard?.myCommits?.map(commit => (
-              <CommitCard key={commit.commitId} commit={commit} />
-            ))}
-          </div>
-          {(!dashboard?.myCommits || dashboard.myCommits.length === 0) && (
-            <p className="text-center text-gray-500 dark:text-gray-400 py-8">No commits found</p>
-          )}
-        </div>
-      )}
-
-      {activeTab === 'builds' && (
-        <div className="space-y-4">
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {dashboard?.recentBuilds?.map(build => (
-              <BuildCard key={build.id} build={build} />
-            ))}
-          </div>
-          {(!dashboard?.recentBuilds || dashboard.recentBuilds.length === 0) && (
-            <p className="text-center text-gray-500 dark:text-gray-400 py-8">No builds found</p>
-          )}
-        </div>
+        </>
       )}
 
       {/* Config Dialog */}

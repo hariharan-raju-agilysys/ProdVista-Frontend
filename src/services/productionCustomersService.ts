@@ -5,6 +5,7 @@ import api from './api';
 export interface SubProperty {
   id: string;
   name: string;
+  propertyId?: number;
 }
 
 export interface RegionCustomer {
