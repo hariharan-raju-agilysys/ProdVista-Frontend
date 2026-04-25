@@ -2774,46 +2774,49 @@ function CustomersWidget({ data, onRefresh }: { data: CustomersOverviewResponse 
       ) : undefined}>
       {data && data.total > 0 && (
         <div>
-          <div className="flex gap-2 mb-2">
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
-              SaaS: {data.saas.count} ({data.saas.active} active)
-            </span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300">
-              On-Prem: {data.onPremise.count} ({data.onPremise.active} active)
-            </span>
-            {data.hybrid.count > 0 && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300">
-                Hybrid: {data.hybrid.count}
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex gap-2">
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
+                SaaS: {data.saas.count} ({data.saas.active} active)
               </span>
-            )}
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300">
+                On-Prem: {data.onPremise.count} ({data.onPremise.active} active)
+              </span>
+              {data.hybrid.count > 0 && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300">
+                  Hybrid: {data.hybrid.count}
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] text-gray-400 dark:text-gray-500">Top 10 Active</span>
           </div>
-          <div className="overflow-x-auto max-h-48 overflow-y-auto">
+          <div className="overflow-x-auto max-h-52 overflow-y-auto">
             <table className="w-full text-[11px]">
-              <thead>
+              <thead className="sticky top-0 bg-white dark:bg-gray-800">
                 <tr className="text-left text-[10px] text-gray-500 dark:text-gray-400 uppercase">
                   <th className="pb-1.5">Customer</th>
                   <th className="pb-1.5">Type</th>
-                  <th className="pb-1.5">Tenant ID</th>
-                  <th className="pb-1.5">Project ID</th>
+                  <th className="pb-1.5">Region</th>
                   <th className="pb-1.5">Version</th>
                   <th className="pb-1.5">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {[...data.saas.customers, ...data.onPremise.customers, ...data.hybrid.customers].map(c => (
-                  <tr key={c.id} className="border-t border-gray-50 dark:border-gray-700/50">
-                    <td className="py-1 font-medium text-gray-900 dark:text-white">{c.customerName}</td>
+                {(data.topCustomers || [...data.saas.customers, ...data.onPremise.customers, ...data.hybrid.customers]).map(c => (
+                  <tr key={c.id} className="border-t border-gray-50 dark:border-gray-700/50 hover:bg-gray-50/50 dark:hover:bg-gray-700/30">
+                    <td className="py-1 font-medium text-gray-900 dark:text-white truncate max-w-[140px]" title={c.customerName}>
+                      {c.displayName || c.customerNameAlias || c.customerName}
+                    </td>
                     <td className="py-1">
                       <span className={`px-1.5 py-0.5 rounded text-[10px] ${
-                        data.saas.customers.includes(c) ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
-                        data.onPremise.customers.includes(c) ? 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' :
+                        c.deploymentType === 'SaaS' ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
+                        c.deploymentType === 'OnPremise' ? 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' :
                         'bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'
                       }`}>
-                        {data.saas.customers.includes(c) ? 'SaaS' : data.onPremise.customers.includes(c) ? 'On-Prem' : 'Hybrid'}
+                        {c.deploymentType === 'SaaS' ? 'SaaS' : c.deploymentType === 'OnPremise' ? 'On-Prem' : 'Hybrid'}
                       </span>
                     </td>
-                    <td className="py-1 font-mono text-[10px] text-gray-600 dark:text-gray-300">{c.customerTenantId || '—'}</td>
-                    <td className="py-1 font-mono text-[10px] text-gray-600 dark:text-gray-300">{c.propertyId || '—'}</td>
+                    <td className="py-1 text-[10px] text-gray-600 dark:text-gray-300">{c.region || '—'}</td>
                     <td className="py-1 text-gray-600 dark:text-gray-300">{c.currentVersion || '—'}</td>
                     <td className="py-1">
                       <span className={`px-1.5 py-0.5 rounded text-[10px] ${
@@ -2824,6 +2827,9 @@ function CustomersWidget({ data, onRefresh }: { data: CustomersOverviewResponse 
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="mt-1.5 text-[10px] text-gray-400 dark:text-gray-500 text-right">
+            {data.total} total production customers
           </div>
         </div>
       )}

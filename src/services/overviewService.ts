@@ -273,11 +273,14 @@ export interface CustomerOverviewItem {
   id: string;
   customerId: string;
   customerName: string;
+  customerNameAlias?: string;
+  displayName: string;
   customerTenantId: string;
   propertyId?: string;
   currentVersion?: string;
   status: string;
   region: string;
+  deploymentType?: string;
   activeUsers: number;
   totalProperties: number;
 }
@@ -287,6 +290,7 @@ export interface CustomersOverviewResponse {
   saas: { count: number; active: number; customers: CustomerOverviewItem[] };
   onPremise: { count: number; active: number; customers: CustomerOverviewItem[] };
   hybrid: { count: number; active: number; customers: CustomerOverviewItem[] };
+  topCustomers: CustomerOverviewItem[];
 }
 
 export interface TodayBuildsResponse {
