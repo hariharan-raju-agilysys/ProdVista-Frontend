@@ -1,14 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   getCustomerSummary,
   getCustomers,
-  getFilterOptions,
   updateCustomer,
   CustomerDetailDto,
   CustomerSummaryDto,
   CustomerFilterDto,
-  FilterOptions,
   getStatusColor,
   getPriorityColor,
   getHealthScoreColor,
@@ -32,7 +30,7 @@ const CustomerDashboardV2: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('all');
   const [summary, setSummary] = useState<CustomerSummaryDto | null>(null);
   const [customers, setCustomers] = useState<CustomerDetailDto[]>([]);
-  const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null);
+  const [allCustomers, setAllCustomers] = useState<CustomerDetailDto[]>([]);
   const [filters, setFilters] = useState<CustomerFilterDto>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +59,18 @@ const CustomerDashboardV2: React.FC = () => {
     }
   }, [filters]);
 
+  // Derive unique filter values from ALL loaded customers (not filtered subset)
+  const derivedFilters = useMemo(() => {
+    const unique = (arr: (string | undefined | null)[]) =>
+      [...new Set(arr.filter((v): v is string => !!v))].sort();
+    return {
+      statuses: unique(allCustomers.map(c => c.status)),
+      regions: unique(allCustomers.map(c => c.region)),
+      priorities: unique(allCustomers.map(c => c.priority)),
+      deploymentTypes: unique(allCustomers.map(c => c.deploymentType)),
+    };
+  }, [allCustomers]);
+
   // Debounced search
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -79,14 +89,13 @@ const CustomerDashboardV2: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const [summaryData, customersData, filterData] = await Promise.all([
+      const [summaryData, customersData] = await Promise.all([
         getCustomerSummary(),
         getCustomers(),
-        getFilterOptions()
       ]);
       setSummary(summaryData);
       setCustomers(customersData);
-      setFilterOptions(filterData);
+      setAllCustomers(customersData);
     } catch (err: any) {
       setError(err.message || 'Failed to load customer data');
     } finally {
@@ -240,8 +249,6 @@ const CustomerDashboardV2: React.FC = () => {
   };
 
   const renderFilters = () => {
-    if (!filterOptions) return null;
-
     const hasActiveFilters = filters.status || filters.region || filters.priority || filters.deploymentType || searchTerm || propertyIdSearch || tenantIdSearch || subPropertySearch;
 
     return (
@@ -281,52 +288,72 @@ const CustomerDashboardV2: React.FC = () => {
           </button>
 
           {/* Status Filter */}
-          <select
-            value={filters.status || ''}
-            onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value || undefined }))}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          >
-            <option value="">All Statuses</option>
-            {filterOptions.statuses.map(s => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
+          <div className="relative">
+            <svg className="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <select
+              value={filters.status || ''}
+              onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value || undefined }))}
+              className="pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm appearance-none cursor-pointer hover:border-blue-400 transition-colors"
+            >
+              <option value="">All Statuses</option>
+              {derivedFilters.statuses.map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
 
           {/* Region Filter */}
-          <select
-            value={filters.region || ''}
-            onChange={(e) => setFilters(prev => ({ ...prev, region: e.target.value || undefined }))}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          >
-            <option value="">All Regions</option>
-            <option value="West US">West US</option>
-            <option value="West EU">West EU</option>
-            <option value="SE Asia">SE Asia</option>
-          </select>
+          <div className="relative">
+            <svg className="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <select
+              value={filters.region || ''}
+              onChange={(e) => setFilters(prev => ({ ...prev, region: e.target.value || undefined }))}
+              className="pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm appearance-none cursor-pointer hover:border-blue-400 transition-colors"
+            >
+              <option value="">All Regions</option>
+              {derivedFilters.regions.map(r => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+          </div>
 
           {/* Priority Filter */}
-          <select
-            value={filters.priority || ''}
-            onChange={(e) => setFilters(prev => ({ ...prev, priority: e.target.value || undefined }))}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          >
-            <option value="">All Priorities</option>
-            {filterOptions.priorities.map(p => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
+          <div className="relative">
+            <svg className="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+            </svg>
+            <select
+              value={filters.priority || ''}
+              onChange={(e) => setFilters(prev => ({ ...prev, priority: e.target.value || undefined }))}
+              className="pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm appearance-none cursor-pointer hover:border-blue-400 transition-colors"
+            >
+              <option value="">All Priorities</option>
+              {derivedFilters.priorities.map(p => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          </div>
 
           {/* Deployment Type Filter */}
-          <select
-            value={filters.deploymentType || ''}
-            onChange={(e) => setFilters(prev => ({ ...prev, deploymentType: e.target.value || undefined }))}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          >
-            <option value="">All Types</option>
-            {filterOptions.deploymentTypes.map(d => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
+          <div className="relative">
+            <svg className="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+            </svg>
+            <select
+              value={filters.deploymentType || ''}
+              onChange={(e) => setFilters(prev => ({ ...prev, deploymentType: e.target.value || undefined }))}
+              className="pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm appearance-none cursor-pointer hover:border-blue-400 transition-colors"
+            >
+              <option value="">All Types</option>
+              {derivedFilters.deploymentTypes.map(d => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          </div>
 
           {/* Clear Filters */}
           {hasActiveFilters && (
