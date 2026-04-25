@@ -107,7 +107,7 @@ const defaultSettings: AppSettings = {
     regions: defaultRegions,
   },
   dashboardRefreshInterval: 30000,
-  theme: 'system',
+  theme: 'light',
   defaultRegions: ['eastus', 'westus', 'westeurope'],
   enabledFeatures: {
     aiPredictions: true,

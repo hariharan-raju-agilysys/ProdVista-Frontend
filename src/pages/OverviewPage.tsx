@@ -98,7 +98,7 @@ export default function OverviewPage({ isAdminView = true }: OverviewPageProps) 
   const [realTimePRData, setRealTimePRData] = useState<PRSummaryResponse | null>(null);
   const [realTimeCommitData, setRealTimeCommitData] = useState<CommitStatsResponse | null>(null);
   const [realTimeBuildsData, setRealTimeBuildsData] = useState<TodayBuildsResponse | null>(null);
-  const [daysFilter, setDaysFilter] = useState(7);
+  const [daysFilter, setDaysFilter] = useState(9);
   // Role-based default: Managers/Admins see "all", regular users see "mine"
   const [userScope, setUserScope] = useState<'mine' | 'all'>(isManager || isAdmin ? 'all' : 'mine');
 
@@ -585,7 +585,7 @@ export default function OverviewPage({ isAdminView = true }: OverviewPageProps) 
         {/* Days Filter */}
         <div className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-700">
           <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">Time Range:</span>
-          {[7, 14, 30, 90].map(d => (
+          {[9, 14, 30, 90].map(d => (
             <button
               key={d}
               onClick={() => setDaysFilter(d)}
@@ -3053,17 +3053,25 @@ function SupportWidget({ data, onRefresh }: { data: ProductionSupportResponse | 
               </span>
             )}
           </div>
-          <div className="max-h-40 overflow-y-auto space-y-0.5">
+          <div className="max-h-48 overflow-y-auto space-y-0.5">
             {data.entries?.slice(0, 10).map(e => (
-              <div key={e.id} className="flex items-center justify-between text-[11px] py-1 px-1.5 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                <div className="min-w-0 flex-1">
-                  <span className={`inline-block px-1 py-0 rounded text-[9px] mr-1 ${getSeverityColor(e.severity)}`}>{e.severity}</span>
-                  <span className="text-gray-900 dark:text-white">{e.title}</span>
+              <div key={e.id} className="flex flex-col gap-0.5 text-[11px] py-1.5 px-1.5 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0 flex-1">
+                    <span className={`inline-block px-1 py-0 rounded text-[9px] mr-1 ${getSeverityColor(e.severity)}`}>{e.severity}</span>
+                    <span className="text-gray-900 dark:text-white">{e.title}</span>
+                  </div>
+                  <div className="text-[10px] text-gray-400 whitespace-nowrap ml-2 flex items-center gap-1.5">
+                    <span className={`px-1 py-0 rounded text-[9px] ${getStatusColor(e.status)}`}>{e.status}</span>
+                    <span>{e.incidentDate}</span>
+                  </div>
                 </div>
-                <div className="text-[10px] text-gray-400 whitespace-nowrap ml-2 flex items-center gap-1.5">
-                  <span className={`px-1 py-0 rounded text-[9px] ${getStatusColor(e.status)}`}>{e.status}</span>
-                  <span>{e.incidentDate}</span>
-                </div>
+                {(e.tenantAffected || e.propertyAffected) && (
+                  <div className="flex items-center gap-2 text-[9px] text-gray-500 dark:text-gray-400 pl-1">
+                    {e.tenantAffected && <span>🏢 {e.tenantAffected}</span>}
+                    {e.propertyAffected && <span>🏨 {e.propertyAffected}</span>}
+                  </div>
+                )}
               </div>
             ))}
           </div>

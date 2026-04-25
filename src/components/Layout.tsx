@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, Suspense } from 'react'
 import { 
   LayoutDashboard, 
   Code2, 
@@ -29,9 +29,6 @@ import {
   CheckCircle2,
   ExternalLink,
   HelpCircle,
-  Moon,
-  Sun,
-  Monitor,
   Keyboard,
   Zap,
   Crown,
@@ -54,8 +51,6 @@ import FloatingAIButton from './FloatingAIButton'
 import PersistentChatWidget from './PersistentChatWidget'
 import FunLoader from './FunLoader'
 import { getTodayNotifications, markAsRead, markAllAsRead, dismissNotification, getUnreadCount, type UserNotification } from '../services/notificationService'
-import { useSettingsStore } from '../store/settingsStore'
-import { authService } from '../services/authService'
 
 // Icon mapping for dynamic icons
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -79,32 +74,11 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
 
-  // Theme
-  const { settings, updateSettings } = useSettingsStore()
-  const currentTheme = settings.theme
+  // Theme — light mode only (dark mode disabled)
 
-  const handleThemeChange = useCallback((theme: 'light' | 'dark' | 'system') => {
-    updateSettings({ theme })
-    // Persist to backend (fire-and-forget)
-    authService.updateProfile({ theme }).catch(() => {})
-  }, [updateSettings])
-
-  // Apply dark mode class to <html> based on theme preference
   useEffect(() => {
-    const root = document.documentElement
-    if (currentTheme === 'dark') {
-      root.classList.add('dark')
-    } else if (currentTheme === 'light') {
-      root.classList.remove('dark')
-    } else {
-      // system: follow OS preference
-      const mq = window.matchMedia('(prefers-color-scheme: dark)')
-      const apply = () => mq.matches ? root.classList.add('dark') : root.classList.remove('dark')
-      apply()
-      mq.addEventListener('change', apply)
-      return () => mq.removeEventListener('change', apply)
-    }
-  }, [currentTheme])
+    document.documentElement.classList.remove('dark')
+  }, [])
 
   // Notification state
   const [notifications, setNotifications] = useState<UserNotification[]>([])
@@ -767,32 +741,7 @@ export default function Layout() {
 
                   {/* Theme Switcher */}
                   <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">APPEARANCE</span>
-                      <div className="flex items-center gap-1 p-1 bg-gray-200 dark:bg-gray-700 rounded-lg">
-                        <button
-                          onClick={() => handleThemeChange('light')}
-                          className={`p-1.5 rounded-md transition-all ${currentTheme === 'light' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-700 dark:text-white' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
-                          title="Light"
-                        >
-                          <Sun className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleThemeChange('dark')}
-                          className={`p-1.5 rounded-md transition-all ${currentTheme === 'dark' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-700 dark:text-white' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
-                          title="Dark"
-                        >
-                          <Moon className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleThemeChange('system')}
-                          className={`p-1.5 rounded-md transition-all ${currentTheme === 'system' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-700 dark:text-white' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
-                          title="System"
-                        >
-                          <Monitor className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
+                    {/* Theme toggle removed — light mode only */}
                   </div>
 
                   {/* Logout */}
@@ -821,7 +770,13 @@ export default function Layout() {
 
         {/* Page content */}
         <main className="flex-1 p-3 sm:p-4 md:p-6 overflow-x-hidden">
-          <Outlet />
+          <Suspense fallback={
+            <div className="flex items-center justify-center py-12">
+              <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          }>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
 

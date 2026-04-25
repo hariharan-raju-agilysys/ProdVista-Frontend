@@ -11,7 +11,6 @@ import AzureResourceSetup from '../components/AzureResourceSetup'
 import DevOpsConnectionSetup from '../components/DevOpsConnectionSetup'
 import { devopsService, AzureDevOpsOrganization } from '../services/devopsService'
 import engineeringService, { EngineeringConfig } from '../services/engineeringService'
-import { authService } from '../services/authService'
 import { useMsal } from '@azure/msal-react'
 import { InteractionRequiredAuthError } from '@azure/msal-browser'
 import { devopsScopes, isMsalConfigured } from '../config/msalConfig'
@@ -335,26 +334,7 @@ export function ManagerSettingsPage() {
                         </select>
                       </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">
-                          Theme
-                        </label>
-                        <div className="flex gap-3">
-                          {(['light', 'dark', 'system'] as const).map((theme) => (
-                            <button
-                              key={theme}
-                              onClick={() => { updateSettings({ theme }); authService.updateProfile({ theme }).catch(() => {}) }}
-                              className={`flex-1 p-3 rounded-lg border-2 capitalize transition-all ${
-                                settings.theme === theme
-                                  ? 'border-purple-500 bg-purple-500/10'
-                                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                              }`}
-                            >
-                              <span className="text-gray-900 dark:text-white">{theme}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                      {/* Theme selector removed — light mode only */}
 
                       <div>
                         <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">
