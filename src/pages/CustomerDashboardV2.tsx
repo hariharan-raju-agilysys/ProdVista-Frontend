@@ -4,6 +4,7 @@ import {
   getCustomerSummary,
   getCustomers,
   updateCustomer,
+  syncAliasesFromDevOps,
   CustomerDetailDto,
   CustomerSummaryDto,
   CustomerFilterDto,
@@ -46,6 +47,10 @@ const CustomerDashboardV2: React.FC = () => {
   const [editingCustomer, setEditingCustomer] = useState<Partial<CustomerDetailDto> | null>(null);
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Sync aliases state
+  const [syncingAliases, setSyncingAliases] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ updated: number; totalCustomers: number; totalAreaPaths: number; changes: any[]; message: string } | null>(null);
 
   // Load data on mount
   useEffect(() => {
@@ -1013,6 +1018,28 @@ const CustomerDashboardV2: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={async () => {
+              setSyncingAliases(true);
+              setSyncResult(null);
+              try {
+                const result = await syncAliasesFromDevOps();
+                setSyncResult(result);
+                if (result.updated > 0) await loadData();
+              } catch (err: any) {
+                setSyncResult({ updated: 0, totalCustomers: 0, totalAreaPaths: 0, changes: [], message: err?.response?.data?.error || 'Failed to sync aliases from DevOps' });
+              } finally {
+                setSyncingAliases(false);
+              }
+            }}
+            disabled={syncingAliases}
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white rounded-lg flex items-center gap-2 text-sm"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+            </svg>
+            {syncingAliases ? 'Syncing...' : 'Sync Aliases from DevOps'}
+          </button>
+          <button
             onClick={loadData}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2"
           >
@@ -1023,6 +1050,37 @@ const CustomerDashboardV2: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Sync Result Banner */}
+      {syncResult && (
+        <div className={`mb-4 p-4 rounded-lg border ${syncResult.updated > 0 ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'}`}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className={`font-medium ${syncResult.updated > 0 ? 'text-green-800 dark:text-green-300' : 'text-blue-800 dark:text-blue-300'}`}>
+                {syncResult.message}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {syncResult.totalTags} unique tags scanned · {syncResult.matchedInDevOps} customers matched in DevOps
+              </p>
+              {syncResult.changes && syncResult.changes.length > 0 && (
+                <div className="mt-2 text-sm text-gray-600 dark:text-gray-400 max-h-48 overflow-y-auto">
+                  {syncResult.changes.map((c: any, i: number) => (
+                    <div key={i}>
+                      <span className="font-medium">{c.customerName}</span>: {c.oldAlias || '(empty)'} → <span className="font-semibold text-green-700 dark:text-green-400">{c.newAlias}</span>
+                      <span className="text-xs ml-2 text-gray-400">(matched by {c.matchedBy}, tag: {c.devOpsTag})</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button onClick={() => setSyncResult(null)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Summary Cards */}
       {renderSummaryCards()}

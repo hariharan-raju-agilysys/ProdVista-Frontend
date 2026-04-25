@@ -145,6 +145,23 @@ export const updateCustomer = async (id: string, data: Partial<CustomerDetailDto
   return response.data;
 };
 
+/**
+ * Sync customer aliases from Azure DevOps work item tags
+ */
+export interface SyncAliasesResult {
+  updated: number;
+  totalCustomers: number;
+  totalTags: number;
+  matchedInDevOps: number;
+  changes: { customerId: string; customerName: string; oldAlias: string; newAlias: string; matchedBy: string; devOpsTag: string }[];
+  message: string;
+}
+
+export const syncAliasesFromDevOps = async (): Promise<SyncAliasesResult> => {
+  const response = await api.post<SyncAliasesResult>('/customers/sync-aliases-from-devops');
+  return response.data;
+};
+
 // ============================================================================
 // Helper Functions
 // ============================================================================
