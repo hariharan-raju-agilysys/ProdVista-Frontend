@@ -1,10 +1,22 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   X, Building2, Server, Cloud, HardDrive, Users, MapPin, Calendar,
   Shield, Headphones, UserCheck, Ticket, Activity, Globe, Package,
-  ChevronRight, ExternalLink, Clock
+  ChevronRight, ExternalLink, Clock, Bug, AlertTriangle, Loader2,
+  ArrowRight
 } from 'lucide-react'
 import { CustomerDetailDto, SubPropertyDto, getStatusColor, getPriorityColor, formatDate } from '../services/customerService'
+import { getCustomerIssues } from '../services/qualityService'
+
+interface CustomerBugStats {
+  total: number
+  open: number
+  closed: number
+  critical: number
+  olderThan7Days: number
+  avgAge: number
+}
 
 interface Props {
   customer: CustomerDetailDto
@@ -13,12 +25,66 @@ interface Props {
 
 export default function CustomerDetailPopup({ customer, onClose }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate()
+
+  // Bug stats
+  const [bugStats, setBugStats] = useState<CustomerBugStats | null>(null)
+  const [bugStatsLoading, setBugStatsLoading] = useState(true)
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', handleEsc)
     return () => document.removeEventListener('keydown', handleEsc)
   }, [onClose])
+
+  // Fetch bug stats for this customer
+  useEffect(() => {
+    let cancelled = false
+    const fetchBugStats = async () => {
+      setBugStatsLoading(true)
+      try {
+        // Try customer issues endpoint first (lightweight)
+        const issues = await getCustomerIssues()
+        const match = issues.find(
+          (ci) => ci.customerName.toLowerCase() === customer.customerName.toLowerCase()
+        )
+        if (!cancelled && match) {
+          // Calculate aging from the issues list
+          const now = Date.now()
+          const olderThan7 = (match.issues || []).filter(
+            (b) => b.createdDate && (now - new Date(b.createdDate).getTime()) > 7 * 24 * 60 * 60 * 1000 && (b.state === 'Active' || b.state === 'New')
+          ).length
+          const activeBugs = (match.issues || []).filter((b) => b.state === 'Active' || b.state === 'New')
+          const avgAge = activeBugs.length > 0
+            ? activeBugs.reduce((sum, b) => sum + (b.ageDays || 0), 0) / activeBugs.length
+            : 0
+
+          setBugStats({
+            total: match.totalIssues,
+            open: match.activeIssues,
+            closed: match.resolvedIssues,
+            critical: match.criticalIssues,
+            olderThan7Days: olderThan7,
+            avgAge: Math.round(avgAge),
+          })
+        } else if (!cancelled) {
+          setBugStats({ total: 0, open: 0, closed: 0, critical: 0, olderThan7Days: 0, avgAge: 0 })
+        }
+      } catch {
+        if (!cancelled) setBugStats({ total: 0, open: 0, closed: 0, critical: 0, olderThan7Days: 0, avgAge: 0 })
+      }
+      if (!cancelled) setBugStatsLoading(false)
+    }
+    fetchBugStats()
+    return () => { cancelled = true }
+  }, [customer.customerName])
+
+  const navigateToQuality = (filter?: string) => {
+    const params = new URLSearchParams({ customer: customer.customerName })
+    if (filter) params.set('filter', filter)
+    onClose()
+    navigate(`/quality?${params.toString()}`)
+  }
 
   const deployIcon = customer.deploymentType === 'SaaS' ? Cloud
     : customer.deploymentType === 'OnPremise' ? HardDrive : Server
@@ -86,6 +152,99 @@ export default function CustomerDetailPopup({ customer, onClose }: Props) {
             <KpiMini icon={Users} label="Active Users" value={String(customer.activeUsers ?? 0)} color="green" />
             <KpiMini icon={Ticket} label="Open Tickets" value={String(customer.openTickets ?? 0)}
               color={customer.openTickets && customer.openTickets > 5 ? 'red' : customer.openTickets && customer.openTickets > 0 ? 'amber' : 'green'} />
+          </div>
+
+          {/* Bug Intelligence */}
+          <div className="mb-6">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <Bug className="w-4 h-4" /> Bug Intelligence
+              {bugStatsLoading && <Loader2 className="w-3 h-3 animate-spin text-gray-400" />}
+            </h3>
+            {bugStatsLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                <span className="ml-2 text-sm text-gray-500">Loading bug data...</span>
+              </div>
+            ) : bugStats && bugStats.total > 0 ? (
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <button
+                  onClick={() => navigateToQuality()}
+                  className="group rounded-xl border border-blue-100 bg-blue-50 p-3 text-left hover:border-blue-300 hover:shadow-md transition-all"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <Bug className="w-4 h-4 text-blue-500 opacity-60" />
+                    <ArrowRight className="w-3 h-3 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <div className="text-2xl font-bold text-blue-700">{bugStats.total}</div>
+                  <div className="text-[10px] font-medium text-blue-500 uppercase tracking-wider">Total Bugs</div>
+                </button>
+
+                <button
+                  onClick={() => navigateToQuality('open')}
+                  className="group rounded-xl border border-red-100 bg-red-50 p-3 text-left hover:border-red-300 hover:shadow-md transition-all"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <AlertTriangle className="w-4 h-4 text-red-500 opacity-60" />
+                    <ArrowRight className="w-3 h-3 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <div className="text-2xl font-bold text-red-700">{bugStats.open}</div>
+                  <div className="text-[10px] font-medium text-red-500 uppercase tracking-wider">Open Bugs</div>
+                </button>
+
+                <button
+                  onClick={() => navigateToQuality('closed')}
+                  className="group rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-left hover:border-emerald-300 hover:shadow-md transition-all"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <Shield className="w-4 h-4 text-emerald-500 opacity-60" />
+                    <ArrowRight className="w-3 h-3 text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <div className="text-2xl font-bold text-emerald-700">{bugStats.closed}</div>
+                  <div className="text-[10px] font-medium text-emerald-500 uppercase tracking-wider">Resolved</div>
+                </button>
+
+                <button
+                  onClick={() => navigateToQuality('critical')}
+                  className="group rounded-xl border border-orange-100 bg-orange-50 p-3 text-left hover:border-orange-300 hover:shadow-md transition-all"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <AlertTriangle className="w-4 h-4 text-orange-500 opacity-60" />
+                    <ArrowRight className="w-3 h-3 text-orange-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <div className="text-2xl font-bold text-orange-700">{bugStats.critical}</div>
+                  <div className="text-[10px] font-medium text-orange-500 uppercase tracking-wider">Critical</div>
+                </button>
+
+                <button
+                  onClick={() => navigateToQuality('aging')}
+                  className="group rounded-xl border border-amber-100 bg-amber-50 p-3 text-left hover:border-amber-300 hover:shadow-md transition-all"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <Clock className="w-4 h-4 text-amber-500 opacity-60" />
+                    <ArrowRight className="w-3 h-3 text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <div className="text-2xl font-bold text-amber-700">{bugStats.olderThan7Days}</div>
+                  <div className="text-[10px] font-medium text-amber-500 uppercase tracking-wider">&gt;7 Days Old</div>
+                </button>
+              </div>
+            ) : bugStats ? (
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4 text-center">
+                <Shield className="w-6 h-6 text-emerald-400 mx-auto mb-1" />
+                <div className="text-sm font-medium text-emerald-700">No bugs found for this customer</div>
+                <div className="text-xs text-emerald-500 mt-0.5">Clean record!</div>
+              </div>
+            ) : null}
+            {bugStats && bugStats.total > 0 && (
+              <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
+                <span>Avg age of open bugs: <strong className="text-gray-600">{bugStats.avgAge}d</strong></span>
+                <button
+                  onClick={() => navigateToQuality()}
+                  className="flex items-center gap-1 text-blue-500 hover:text-blue-700 font-medium transition-colors"
+                >
+                  View all in Quality Center <ArrowRight className="w-3 h-3" />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Health + Deployment */}
