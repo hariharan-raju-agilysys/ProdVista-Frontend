@@ -35,6 +35,7 @@ const EngineeringCommandCenter = lazyWithRetry(() => import('./pages/Engineering
 const ReleaseManagement = lazyWithRetry(() => import('./pages/ReleaseManagement'))
 const QualityDashboardV2 = lazyWithRetry(() => import('./pages/QualityDashboardV2'))
 const QualityCommandCenterPage = lazyWithRetry(() => import('./pages/QualityCommandCenterPage'))
+const QualityTeamViewPage = lazyWithRetry(() => import('./pages/QualityTeamViewPage'))
 const BugAnalyticsPage = lazyWithRetry(() => import('./pages/BugAnalyticsPage'))
 const Production = lazyWithRetry(() => import('./pages/Production'))
 const CustomerDashboardV2 = lazyWithRetry(() => import('./pages/CustomerDashboardV2'))
@@ -102,6 +103,7 @@ function AppRoutes() {
         <Route path="command-center" element={<EngineeringCommandCenter />} />
         <Route path="releases" element={<ReleaseManagement />} />
         <Route path="quality" element={<QualityCommandCenterPage />} />
+        <Route path="quality-team" element={<QualityTeamViewPage />} />
         <Route path="quality-classic" element={<QualityDashboardV2 />} />
         <Route path="bug-analytics" element={<BugAnalyticsPage />} />
         <Route path="production" element={<Production />} />
