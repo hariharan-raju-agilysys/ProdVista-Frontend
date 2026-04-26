@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSearchParams } from 'react-router-dom';
+import ReactECharts from 'echarts-for-react';
 import {
   getConnections, getKpiSummary, getBugs, getMyBugs, getTrend,
   getAgingDistribution, getCustomerIssues, getOwnerEfficiency,
@@ -125,6 +126,7 @@ export default function QualityCommandCenterPage() {
   const [bugsLoading, setBugsLoading] = useState(false);
   const [trend, setTrend] = useState<QualityTrendPointDto[]>([]);
   const [trendLoading, setTrendLoading] = useState(false);
+  const [trendDays, setTrendDays] = useState(90);
   const [aging, setAging] = useState<BugAgingDistributionDto[]>([]);
   const [agingLoading, setAgingLoading] = useState(false);
   const [customerIssues, setCustomerIssues] = useState<CustomerIssueGroupDto[]>([]);
@@ -211,10 +213,15 @@ export default function QualityCommandCenterPage() {
     setBugsLoading(false);
   };
 
-  const loadTrend = async () => {
+  const loadTrend = async (days?: number) => {
     setTrendLoading(true);
-    try { setTrend(await getTrend(30, selectedConnectionId)); } catch { /* skip */ }
+    try { setTrend(await getTrend(days ?? trendDays, selectedConnectionId)); } catch { /* skip */ }
     setTrendLoading(false);
+  };
+
+  const handleTrendDaysChange = (days: number) => {
+    setTrendDays(days);
+    loadTrend(days);
   };
 
   const loadAging = async () => {
@@ -438,7 +445,8 @@ export default function QualityCommandCenterPage() {
         {activeTab === 'overview' && (
           <OverviewTab
             kpi={kpi} kpiLoading={kpiLoading} criticalBugs={criticalBugs} staleCount={staleCount}
-            trend={trend} trendLoading={trendLoading} aging={aging} agingLoading={agingLoading}
+            trend={trend} trendLoading={trendLoading} trendDays={trendDays} onChangeDays={handleTrendDaysChange}
+            aging={aging} agingLoading={agingLoading}
             customerIssues={customerIssues} customerLoading={customerLoading}
             efficiency={efficiency} efficiencyLoading={efficiencyLoading}
             isLeadership={isLeadership} onViewCritical={() => { setBugView('priority'); setActiveTab('triage'); }}
@@ -466,6 +474,7 @@ export default function QualityCommandCenterPage() {
         {activeTab === 'analytics' && isLeadership && (
           <AnalyticsTab
             kpi={kpi} trend={trend} trendLoading={trendLoading}
+            trendDays={trendDays} onChangeDays={handleTrendDaysChange}
             aging={aging} agingLoading={agingLoading}
             efficiency={efficiency} efficiencyLoading={efficiencyLoading}
             customerIssues={customerIssues} customerLoading={customerLoading}
@@ -495,11 +504,12 @@ export default function QualityCommandCenterPage() {
 // ============================================================================
 // Overview Tab
 // ============================================================================
-function OverviewTab({ kpi, kpiLoading, criticalBugs, staleCount, trend, trendLoading, aging, agingLoading,
+function OverviewTab({ kpi, kpiLoading, criticalBugs, staleCount, trend, trendLoading, trendDays, onChangeDays, aging, agingLoading,
   customerIssues, customerLoading, efficiency: _efficiency, efficiencyLoading: _efficiencyLoading, isLeadership, onViewCritical
 }: {
   kpi: KpiSummary | null; kpiLoading: boolean; criticalBugs: QualityWorkItemDto[]; staleCount: number;
-  trend: QualityTrendPointDto[]; trendLoading: boolean; aging: BugAgingDistributionDto[]; agingLoading: boolean;
+  trend: QualityTrendPointDto[]; trendLoading: boolean; trendDays: number; onChangeDays: (d: number) => void;
+  aging: BugAgingDistributionDto[]; agingLoading: boolean;
   customerIssues: CustomerIssueGroupDto[]; customerLoading: boolean;
   efficiency: OwnerEfficiencyDto[]; efficiencyLoading: boolean;
   isLeadership: boolean; onViewCritical: () => void;
@@ -536,11 +546,12 @@ function OverviewTab({ kpi, kpiLoading, criticalBugs, staleCount, trend, trendLo
         <div className="xl:col-span-2 space-y-6">
           {/* Trend + Aging */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card title="30-Day Bug Trend" icon={TrendingUp} iconColor="text-purple-500" loading={trendLoading}>
-              {trend.length > 0 ? <MiniTrendChart data={trend} /> : <EmptyState text="No trend data" />}
+            <Card title="Bug Trend" icon={TrendingUp} iconColor="text-purple-500" loading={trendLoading}
+              headerRight={<DayRangeSelector value={trendDays} onChange={onChangeDays} />}>
+              {trend.length > 0 ? <InteractiveBugTrendChart data={trend} /> : <EmptyState text="No trend data" />}
             </Card>
             <Card title="Bug Aging Distribution" icon={Clock} iconColor="text-orange-500" loading={agingLoading}>
-              {aging.length > 0 ? <AgingBarChart data={aging} /> : <EmptyState text="No aging data" />}
+              {aging.length > 0 ? <InteractiveAgingChart data={aging} /> : <EmptyState text="No aging data" />}
             </Card>
           </div>
 
@@ -733,10 +744,11 @@ function MyWorkTab({ myBugs, bugsLoading, expandedBugId, setExpandedBugId, userN
 // ============================================================================
 // Analytics Tab (Leadership Only)
 // ============================================================================
-function AnalyticsTab({ kpi, trend, trendLoading, aging, agingLoading, efficiency, efficiencyLoading,
+function AnalyticsTab({ kpi, trend, trendLoading, trendDays, onChangeDays, aging, agingLoading, efficiency, efficiencyLoading,
   customerIssues, customerLoading, criticalCount, staleCount
 }: {
   kpi: KpiSummary | null; trend: QualityTrendPointDto[]; trendLoading: boolean;
+  trendDays: number; onChangeDays: (d: number) => void;
   aging: BugAgingDistributionDto[]; agingLoading: boolean;
   efficiency: OwnerEfficiencyDto[]; efficiencyLoading: boolean;
   customerIssues: CustomerIssueGroupDto[]; customerLoading: boolean;
@@ -760,11 +772,12 @@ function AnalyticsTab({ kpi, trend, trendLoading, aging, agingLoading, efficienc
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card title="30-Day Bug Trend" icon={TrendingUp} iconColor="text-purple-500" loading={trendLoading}>
-          {trend.length > 0 ? <MiniTrendChart data={trend} /> : <EmptyState text="No trend data" />}
+        <Card title="Bug Trend" icon={TrendingUp} iconColor="text-purple-500" loading={trendLoading}
+          headerRight={<DayRangeSelector value={trendDays} onChange={onChangeDays} />}>
+          {trend.length > 0 ? <InteractiveBugTrendChart data={trend} /> : <EmptyState text="No trend data" />}
         </Card>
         <Card title="Aging Distribution" icon={Clock} iconColor="text-orange-500" loading={agingLoading}>
-          {aging.length > 0 ? <AgingBarChart data={aging} /> : <EmptyState text="No aging data" />}
+          {aging.length > 0 ? <InteractiveAgingChart data={aging} /> : <EmptyState text="No aging data" />}
         </Card>
       </div>
 
@@ -946,8 +959,8 @@ function QueryTab({ prompt, setPrompt, queryLoading, interpretation, queryResult
 // ============================================================================
 // Reusable Card Component
 // ============================================================================
-function Card({ title, icon: Icon, iconColor, loading, children }: {
-  title: string; icon: React.ElementType; iconColor: string; loading?: boolean; children: React.ReactNode;
+function Card({ title, icon: Icon, iconColor, loading, headerRight, children }: {
+  title: string; icon: React.ElementType; iconColor: string; loading?: boolean; headerRight?: React.ReactNode; children: React.ReactNode;
 }) {
   return (
     <section className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
@@ -955,6 +968,7 @@ function Card({ title, icon: Icon, iconColor, loading, children }: {
         <Icon size={20} className={iconColor} />
         <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">{title}</h3>
         {loading && <Loader2 size={14} className="animate-spin text-gray-400 ml-auto" />}
+        {headerRight && <div className="ml-auto flex items-center">{headerRight}</div>}
       </div>
       <div className="p-6">{children}</div>
     </section>
@@ -1192,70 +1206,241 @@ function SeverityBreakdown({ kpi }: { kpi: KpiSummary }) {
 }
 
 // ============================================================================
-// Charts
+// Charts — Interactive ECharts
 // ============================================================================
-function MiniTrendChart({ data }: { data: QualityTrendPointDto[] }) {
-  const h = 300, w = 700;
-  const padL = 48, padR = 16, padT = 16, padB = 40;
-  const chartW = w - padL - padR;
-  const chartH = h - padT - padB;
-  const maxVal = Math.max(...data.map(d => Math.max(d.opened, d.closed, d.cumulativeActive)), 1);
-  const xStep = data.length > 1 ? chartW / (data.length - 1) : chartW;
-
-  const buildPath = (getter: (d: QualityTrendPointDto) => number) => {
-    return data.map((d, i) => {
-      const x = padL + i * xStep;
-      const y = padT + chartH - (getter(d) / maxVal) * chartH;
-      return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
-    }).join(' ');
-  };
-
+function DayRangeSelector({ value, onChange }: { value: number; onChange: (d: number) => void }) {
+  const options = [30, 60, 90, 120];
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-72">
-      {[0, 0.25, 0.5, 0.75, 1].map(f => {
-        const y = padT + chartH * (1 - f);
-        return <line key={f} x1={padL} x2={w - padR} y1={y} y2={y} stroke="#f0f0f0" strokeWidth={1} />;
-      })}
-      <path d={buildPath(d => d.cumulativeActive)} fill="none" stroke="#a78bfa" strokeWidth={3} opacity={0.5} />
-      <path d={buildPath(d => d.opened)} fill="none" stroke="#ef4444" strokeWidth={2.5} />
-      <path d={buildPath(d => d.closed)} fill="none" stroke="#22c55e" strokeWidth={2.5} />
-      <text x={padL - 6} y={padT + 8} fill="#9ca3af" fontSize={13} textAnchor="end">{maxVal}</text>
-      <text x={padL - 6} y={padT + chartH + 6} fill="#9ca3af" fontSize={13} textAnchor="end">0</text>
-      <circle cx={padL + 14} cy={h - 10} r={5} fill="#ef4444" />
-      <text x={padL + 24} y={h - 5} fill="#6b7280" fontSize={13}>Opened</text>
-      <circle cx={padL + 100} cy={h - 10} r={5} fill="#22c55e" />
-      <text x={padL + 110} y={h - 5} fill="#6b7280" fontSize={13}>Closed</text>
-      <circle cx={padL + 180} cy={h - 10} r={5} fill="#a78bfa" />
-      <text x={padL + 190} y={h - 5} fill="#6b7280" fontSize={13}>Active</text>
-    </svg>
+    <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
+      {options.map(d => (
+        <button key={d} onClick={() => onChange(d)}
+          className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${value === d
+            ? 'bg-white dark:bg-gray-600 text-purple-600 dark:text-purple-300 shadow-sm'
+            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
+          {d}d
+        </button>
+      ))}
+    </div>
   );
 }
 
-function AgingBarChart({ data }: { data: BugAgingDistributionDto[] }) {
-  const h = 300, w = 700;
-  const padL = 16, padR = 16, padT = 16, padB = 50;
-  const chartH = h - padT - padB;
-  const maxCount = Math.max(...data.map(d => d.count), 1);
-  const barW = Math.min(65, (w - padL - padR) / data.length - 14);
-  const colors = ['#22c55e', '#86efac', '#fbbf24', '#f97316', '#ef4444', '#dc2626'];
+function InteractiveBugTrendChart({ data }: { data: QualityTrendPointDto[] }) {
+  const dates = data.map(d => {
+    const dt = new Date(d.date);
+    return `${dt.getMonth() + 1}/${dt.getDate()}`;
+  });
+  const opened = data.map(d => d.opened);
+  const closed = data.map(d => d.closed);
+  const active = data.map(d => d.cumulativeActive);
+
+  // Compute summary stats
+  const totalOpened = opened.reduce((a, b) => a + b, 0);
+  const totalClosed = closed.reduce((a, b) => a + b, 0);
+  const netChange = totalOpened - totalClosed;
+  const latestActive = active.length > 0 ? active[active.length - 1] : 0;
+
+  const option = useMemo(() => ({
+    tooltip: {
+      trigger: 'axis' as const,
+      backgroundColor: 'rgba(30, 30, 46, 0.95)',
+      borderColor: 'rgba(139, 92, 246, 0.3)',
+      borderWidth: 1,
+      textStyle: { color: '#e5e7eb', fontSize: 13 },
+      axisPointer: { type: 'cross' as const, crossStyle: { color: '#6b7280' } },
+      formatter: (params: Array<{ seriesName: string; value: number; marker: string; axisValueLabel: string }>) => {
+        if (!params?.length) return '';
+        let html = `<div style="font-weight:600;margin-bottom:6px;font-size:13px">${params[0].axisValueLabel}</div>`;
+        params.forEach(p => {
+          html += `<div style="display:flex;align-items:center;gap:8px;padding:2px 0">
+            ${p.marker}<span style="flex:1">${p.seriesName}</span>
+            <span style="font-weight:700;font-size:14px">${p.value}</span></div>`;
+        });
+        // Net change for that day
+        const dayOpened = params.find(p => p.seriesName === 'Opened')?.value ?? 0;
+        const dayClosed = params.find(p => p.seriesName === 'Closed')?.value ?? 0;
+        const dayNet = dayOpened - dayClosed;
+        const netColor = dayNet <= 0 ? '#22c55e' : '#ef4444';
+        html += `<div style="border-top:1px solid rgba(255,255,255,0.1);margin-top:6px;padding-top:6px;font-size:12px;color:${netColor}">
+          Net: ${dayNet > 0 ? '+' : ''}${dayNet} bug${Math.abs(dayNet) !== 1 ? 's' : ''}</div>`;
+        return html;
+      }
+    },
+    legend: {
+      data: ['Opened', 'Closed', 'Active Backlog'],
+      bottom: 0,
+      textStyle: { fontSize: 12, color: '#9ca3af' },
+      itemWidth: 16,
+      itemHeight: 10,
+      itemGap: 20
+    },
+    grid: { left: 48, right: 16, top: 16, bottom: 60 },
+    dataZoom: data.length > 30 ? [
+      { type: 'slider' as const, start: Math.max(0, 100 - (30 / data.length) * 100), end: 100, bottom: 28, height: 20,
+        borderColor: 'rgba(139, 92, 246, 0.3)', fillerColor: 'rgba(139, 92, 246, 0.08)',
+        handleStyle: { color: '#8b5cf6', borderColor: '#8b5cf6' },
+        textStyle: { fontSize: 10, color: '#9ca3af' },
+        dataBackground: { lineStyle: { color: '#a78bfa', opacity: 0.3 }, areaStyle: { color: '#a78bfa', opacity: 0.05 } }
+      },
+      { type: 'inside' as const, start: Math.max(0, 100 - (30 / data.length) * 100), end: 100 }
+    ] : [],
+    xAxis: {
+      type: 'category' as const,
+      data: dates,
+      axisLine: { lineStyle: { color: '#e5e7eb' } },
+      axisLabel: { fontSize: 11, color: '#9ca3af', rotate: data.length > 45 ? 45 : 0 },
+      axisTick: { show: false }
+    },
+    yAxis: {
+      type: 'value' as const,
+      splitLine: { lineStyle: { color: '#f3f4f6', type: 'dashed' as const } },
+      axisLabel: { fontSize: 11, color: '#9ca3af' },
+      axisLine: { show: false }
+    },
+    series: [
+      {
+        name: 'Opened',
+        type: 'line' as const,
+        data: opened,
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 6,
+        showSymbol: data.length <= 40,
+        lineStyle: { width: 2.5, color: '#ef4444' },
+        itemStyle: { color: '#ef4444', borderWidth: 2, borderColor: '#fff' },
+        areaStyle: { color: { type: 'linear' as const, x: 0, y: 0, x2: 0, y2: 1, colorStops: [
+          { offset: 0, color: 'rgba(239, 68, 68, 0.2)' },
+          { offset: 1, color: 'rgba(239, 68, 68, 0.01)' }
+        ] } },
+        emphasis: { focus: 'series' as const, itemStyle: { shadowBlur: 10, shadowColor: 'rgba(239,68,68,0.3)' } }
+      },
+      {
+        name: 'Closed',
+        type: 'line' as const,
+        data: closed,
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 6,
+        showSymbol: data.length <= 40,
+        lineStyle: { width: 2.5, color: '#22c55e' },
+        itemStyle: { color: '#22c55e', borderWidth: 2, borderColor: '#fff' },
+        areaStyle: { color: { type: 'linear' as const, x: 0, y: 0, x2: 0, y2: 1, colorStops: [
+          { offset: 0, color: 'rgba(34, 197, 94, 0.2)' },
+          { offset: 1, color: 'rgba(34, 197, 94, 0.01)' }
+        ] } },
+        emphasis: { focus: 'series' as const, itemStyle: { shadowBlur: 10, shadowColor: 'rgba(34,197,94,0.3)' } }
+      },
+      {
+        name: 'Active Backlog',
+        type: 'line' as const,
+        data: active,
+        smooth: true,
+        symbol: 'none',
+        lineStyle: { width: 2, color: '#a78bfa', type: 'dashed' as const },
+        itemStyle: { color: '#a78bfa' },
+        areaStyle: { color: { type: 'linear' as const, x: 0, y: 0, x2: 0, y2: 1, colorStops: [
+          { offset: 0, color: 'rgba(167, 139, 250, 0.08)' },
+          { offset: 1, color: 'rgba(167, 139, 250, 0.01)' }
+        ] } },
+        emphasis: { focus: 'series' as const }
+      }
+    ],
+    animationDuration: 800,
+    animationEasing: 'cubicInOut' as const,
+  }), [data, dates, opened, closed, active]);
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-72">
-      {data.map((d, i) => {
-        const barH = (d.count / maxCount) * chartH;
-        const x = padL + i * ((w - padL - padR) / data.length) + ((w - padL - padR) / data.length - barW) / 2;
-        const y = padT + chartH - barH;
-        return (
-          <g key={d.range}>
-            <rect x={x} y={y} width={barW} height={barH} fill={colors[i % colors.length]} rx={5} />
-            <text x={x + barW / 2} y={y - 8} fill="#374151" fontSize={14} textAnchor="middle" fontWeight="bold">{d.count}</text>
-            <text x={x + barW / 2} y={h - padB + 18} fill="#6b7280" fontSize={13} textAnchor="middle">{d.range}</text>
-            <text x={x + barW / 2} y={h - padB + 36} fill="#9ca3af" fontSize={12} textAnchor="middle">{d.percentage.toFixed(0)}%</text>
-          </g>
-        );
-      })}
-    </svg>
+    <div>
+      {/* Summary stats bar */}
+      <div className="flex items-center gap-4 mb-3 px-1">
+        <div className="flex items-center gap-1.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+          <span className="text-xs text-gray-500">Opened: <span className="font-bold text-gray-800 dark:text-gray-200">{totalOpened}</span></span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+          <span className="text-xs text-gray-500">Closed: <span className="font-bold text-gray-800 dark:text-gray-200">{totalClosed}</span></span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {netChange <= 0 ? <TrendingDown size={14} className="text-green-500" /> : <TrendingUp size={14} className="text-red-500" />}
+          <span className={`text-xs font-bold ${netChange <= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            Net: {netChange > 0 ? '+' : ''}{netChange}
+          </span>
+        </div>
+        <div className="ml-auto flex items-center gap-1.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-purple-400" />
+          <span className="text-xs text-gray-500">Backlog: <span className="font-bold text-gray-800 dark:text-gray-200">{latestActive}</span></span>
+        </div>
+      </div>
+      <ReactECharts option={option} style={{ height: 320 }} notMerge lazyUpdate />
+    </div>
   );
+}
+
+function InteractiveAgingChart({ data }: { data: BugAgingDistributionDto[] }) {
+  const colors = ['#22c55e', '#86efac', '#fbbf24', '#f97316', '#ef4444', '#dc2626'];
+  const totalBugs = data.reduce((s, d) => s + d.count, 0);
+
+  const option = useMemo(() => ({
+    tooltip: {
+      trigger: 'axis' as const,
+      backgroundColor: 'rgba(30, 30, 46, 0.95)',
+      borderColor: 'rgba(249, 115, 22, 0.3)',
+      borderWidth: 1,
+      textStyle: { color: '#e5e7eb', fontSize: 13 },
+      formatter: (params: Array<{ name: string; value: number; marker: string; dataIndex: number }>) => {
+        if (!params?.length) return '';
+        const p = params[0];
+        const pct = data[p.dataIndex]?.percentage ?? 0;
+        return `<div style="font-weight:600;margin-bottom:4px">${p.name}</div>
+          <div style="font-size:20px;font-weight:700">${p.value} bugs</div>
+          <div style="color:#9ca3af;margin-top:2px">${pct.toFixed(1)}% of total (${totalBugs})</div>`;
+      }
+    },
+    grid: { left: 12, right: 12, top: 16, bottom: 8, containLabel: true },
+    xAxis: {
+      type: 'category' as const,
+      data: data.map(d => d.range),
+      axisLine: { lineStyle: { color: '#e5e7eb' } },
+      axisLabel: { fontSize: 12, color: '#6b7280', fontWeight: 500 },
+      axisTick: { show: false }
+    },
+    yAxis: {
+      type: 'value' as const,
+      splitLine: { lineStyle: { color: '#f3f4f6', type: 'dashed' as const } },
+      axisLabel: { fontSize: 11, color: '#9ca3af' },
+      axisLine: { show: false }
+    },
+    series: [{
+      type: 'bar' as const,
+      data: data.map((d, i) => ({
+        value: d.count,
+        itemStyle: {
+          color: { type: 'linear' as const, x: 0, y: 0, x2: 0, y2: 1, colorStops: [
+            { offset: 0, color: colors[i % colors.length] },
+            { offset: 1, color: colors[i % colors.length] + '80' }
+          ] },
+          borderRadius: [6, 6, 0, 0]
+        },
+        label: {
+          show: true,
+          position: 'top' as const,
+          formatter: `{bold|${d.count}}\n{pct|${d.percentage.toFixed(0)}%}`,
+          rich: {
+            bold: { fontSize: 14, fontWeight: 'bold' as const, color: '#374151', lineHeight: 18 },
+            pct: { fontSize: 11, color: '#9ca3af', lineHeight: 16 }
+          }
+        }
+      })),
+      barWidth: '55%',
+      emphasis: {
+        itemStyle: { shadowBlur: 12, shadowColor: 'rgba(0,0,0,0.15)' }
+      }
+    }],
+    animationDuration: 600,
+    animationEasing: 'cubicOut' as const,
+  }), [data, totalBugs]);
+
+  return <ReactECharts option={option} style={{ height: 300 }} notMerge lazyUpdate />;
 }
 
 function QualityHealthScore({ kpi, criticalCount, staleCount }: { kpi: KpiSummary; criticalCount: number; staleCount: number }) {
