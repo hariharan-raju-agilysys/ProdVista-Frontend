@@ -41,6 +41,8 @@ const ENDPOINT_EXECUTOR: Record<string, (params: Record<string, unknown>, connec
   'sprint-work-items': (p, c) => import('../services/qualityService').then(m => m.getSprintWorkItems(c, p.iterationPath as string)),
   'bug-analytics/by-area': (p) => import('../services/qualityService').then(m => m.getBugsByArea(p as never)),
   'bug-analytics/team-summary': (p) => import('../services/qualityService').then(m => m.getTeamSummary(p as never)),
+  'bug-analytics/user-analysis': (p) => import('../services/qualityService').then(m => m.getUserBugAnalysis(p as never)),
+  'bug-analytics/feature-children': (p) => import('../services/qualityService').then(m => m.getFeatureChildrenStatus(p as never)),
 };
 
 // ============================================================================
@@ -55,6 +57,7 @@ const QUICK_ACTIONS = [
   { label: 'Release Status', prompt: 'Show release iteration status', icon: Calendar, color: 'teal' },
   { label: 'Aging Bugs', prompt: 'Show aging distribution of active bugs', icon: Clock, color: 'orange' },
   { label: 'Bug Hotspots', prompt: 'Show bugs by area to find hotspots', icon: Shield, color: 'pink' },
+  { label: 'Employee Progress', prompt: 'Show employee wise bug resolution progress with efficiency', icon: Users, color: 'indigo' },
 ];
 
 type TabId = 'overview' | 'triage' | 'mywork' | 'analytics' | 'query';
@@ -1723,20 +1726,25 @@ function detectChartType(
   const numKeys = keys.filter(k => typeof sample[k] === 'number');
 
   if (strKeys.length === 0 || numKeys.length === 0) return null;
-  if (items.length > 50) return null; // too many items for chart
+  if (items.length > 100) return null; // too many items for chart
 
   // Use visualization hint if available
   const hintType = vis?.chartType;
-  const categoryKey = strKeys[0];
+  // Prefer userName/name/ownerName as category for people-oriented data
+  const personKey = strKeys.find(k => /^(userName|name|ownerName|assignedTo|user)$/i.test(k));
+  const categoryKey = personKey || strKeys[0];
   const valueKeys = numKeys.slice(0, 4);
 
   if (hintType === 'pie' && valueKeys.length >= 1)
     return { type: 'pie', categoryKey, valueKeys: [valueKeys[0]] };
   if (hintType === 'line' || visType === 'chart' && keys.some(k => k.toLowerCase().includes('date')))
     return { type: 'line', categoryKey, valueKeys };
+  // Multi-metric per person → grouped bar (horizontal for readability)
+  if (personKey && numKeys.length >= 2)
+    return { type: 'horizontal-bar', categoryKey, valueKeys: numKeys.filter(k => !/^(topAreas|recentBugs)$/i.test(k)).slice(0, 5) };
   if (items.length <= 8 && valueKeys.length === 1)
     return { type: 'bar', categoryKey, valueKeys };
-  if (items.length > 8 && items.length <= 20 && valueKeys.length === 1)
+  if (items.length > 8 && items.length <= 30 && valueKeys.length === 1)
     return { type: 'horizontal-bar', categoryKey, valueKeys };
 
   return { type: 'bar', categoryKey, valueKeys };
@@ -1970,13 +1978,38 @@ function ObjectRenderer({ data, compact }: { data: Record<string, unknown>; comp
 
 // ---- Helper: Flatten nested API responses ----
 function flattenNestedData(obj: Record<string, unknown>): Record<string, unknown>[] | null {
-  // Look for arrays nested inside the object (e.g. { byType: [...], stateDistribution: {...} })
+  // Look for arrays nested inside the object (e.g. { totalUsers: 3, users: [...] })
+  // Prefer the largest array of objects (e.g. "users" over "topAreas")
+  let bestArr: Record<string, unknown>[] | null = null;
   for (const v of Object.values(obj)) {
-    if (Array.isArray(v) && v.length > 0 && typeof v[0] === 'object') return v;
+    if (Array.isArray(v) && v.length > 0 && typeof v[0] === 'object') {
+      if (!bestArr || v.length > bestArr.length) bestArr = v as Record<string, unknown>[];
+    }
   }
-  // If it's a flat KV object, wrap it
+  if (bestArr) {
+    // Strip nested arrays/objects from each row to keep tables clean
+    return bestArr.map(row => {
+      const clean: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(row)) {
+        if (v == null || typeof v !== 'object' || v instanceof Date) clean[k] = v;
+        else if (Array.isArray(v)) clean[k] = v.length; // show count instead of nested array
+        else clean[k] = JSON.stringify(v); // rare: nested object → string
+      }
+      return clean;
+    });
+  }
+  // Check for Record<string,number> patterns (e.g. byArea, bySeverity, byState)
+  for (const [key, val] of Object.entries(obj)) {
+    if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+      const entries = Object.entries(val as Record<string, unknown>);
+      if (entries.length > 0 && entries.every(([, v]) => typeof v === 'number')) {
+        return entries.map(([name, count]) => ({ name, count: count as number, category: formatColumnName(key) }));
+      }
+    }
+  }
+  // If it's a flat KV object, return null to render as ObjectRenderer
   const flatEntries = Object.entries(obj).filter(([, v]) => v != null && typeof v !== 'object');
-  if (flatEntries.length > 0) return null; // return null to render as ObjectRenderer
+  if (flatEntries.length > 0) return null;
   return null;
 }
 
