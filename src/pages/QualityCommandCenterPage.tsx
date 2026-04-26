@@ -511,22 +511,22 @@ function OverviewTab({ kpi, kpiLoading, criticalBugs, staleCount, trend, trendLo
 
       {/* Critical Alert */}
       {criticalBugs.length > 0 && (
-        <div className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-center gap-4">
-          <div className="flex-shrink-0 w-10 h-10 bg-red-500 rounded-full flex items-center justify-center">
-            <Flame size={20} className="text-white" />
+        <div className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border border-red-200 dark:border-red-800 rounded-xl p-5 flex items-center gap-4">
+          <div className="flex-shrink-0 w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
+            <Flame size={24} className="text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-bold text-red-800 dark:text-red-200">
+            <h3 className="text-base font-bold text-red-800 dark:text-red-200">
               {criticalBugs.length} Critical Bug{criticalBugs.length > 1 ? 's' : ''} Require Immediate Attention
             </h3>
-            <p className="text-xs text-red-600 dark:text-red-300 mt-0.5">
+            <p className="text-sm text-red-600 dark:text-red-300 mt-1">
               Oldest: {Math.max(...criticalBugs.map(b => b.ageDays))} days open
               {' · '}Customer-reported: {criticalBugs.filter(b => b.customer).length}
               {' · '}Avg age: {Math.round(criticalBugs.reduce((s, b) => s + b.ageDays, 0) / criticalBugs.length)} days
             </p>
           </div>
-          <button onClick={onViewCritical} className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 transition-colors flex items-center gap-1">
-            <Eye size={12} /> View All
+          <button onClick={onViewCritical} className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors flex items-center gap-1.5">
+            <Eye size={14} /> View All
           </button>
         </div>
       )}
@@ -578,7 +578,7 @@ function OverviewTab({ kpi, kpiLoading, criticalBugs, staleCount, trend, trendLo
                       </div>
                       <div className="text-right flex-shrink-0">
                         <div className="text-lg font-bold text-gray-800 dark:text-gray-200">{ci.totalIssues}</div>
-                        <div className="text-[10px] text-gray-400">{ci.avgResolutionDays.toFixed(0)}d avg</div>
+                        <div className="text-xs text-gray-400">{ci.avgResolutionDays.toFixed(0)}d avg</div>
                       </div>
                     </div>
                   ))}
@@ -593,14 +593,14 @@ function OverviewTab({ kpi, kpiLoading, criticalBugs, staleCount, trend, trendLo
               <div className="space-y-1">
                 {kpi.topAreas.slice(0, 6).map((area, i) => (
                   <div key={area.area} className="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
-                    <span className="text-xs font-bold text-gray-400 w-4">{i + 1}</span>
+                    <span className="text-sm font-bold text-gray-400 w-4">{i + 1}</span>
                     <span className="text-sm text-gray-800 dark:text-gray-200 flex-1 truncate">{area.area}</span>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {area.critical > 0 && (
-                        <span className="text-[10px] bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded font-medium">{area.critical}C</span>
+                        <span className="text-xs bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 px-2 py-0.5 rounded font-medium">{area.critical}C</span>
                       )}
-                      <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">{area.total}</span>
-                      <span className={`text-[10px] ${area.avgAge > 14 ? 'text-red-500' : 'text-gray-400'}`}>{area.avgAge.toFixed(0)}d</span>
+                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{area.total}</span>
+                      <span className={`text-xs ${area.avgAge > 14 ? 'text-red-500' : 'text-gray-400'}`}>{area.avgAge.toFixed(0)}d</span>
                     </div>
                   </div>
                 ))}
@@ -775,11 +775,11 @@ function AnalyticsTab({ kpi, trend, trendLoading, aging, agingLoading, efficienc
             <div className="space-y-2 max-h-[300px] overflow-y-auto">
               {efficiency.map(e => (
                 <div key={e.ownerName} className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
-                  <div className="w-7 h-7 bg-emerald-100 dark:bg-emerald-900 rounded-full flex items-center justify-center text-[10px] font-bold text-emerald-700 dark:text-emerald-300 flex-shrink-0">
+                  <div className="w-8 h-8 bg-emerald-100 dark:bg-emerald-900 rounded-full flex items-center justify-center text-xs font-bold text-emerald-700 dark:text-emerald-300 flex-shrink-0">
                     {e.ownerName.slice(0, 1)}
                   </div>
-                  <span className="text-xs text-gray-800 dark:text-gray-200 flex-1 truncate">{e.ownerName.split(' <')[0]}</span>
-                  <div className="flex items-center gap-3 text-xs flex-shrink-0">
+                  <span className="text-sm text-gray-800 dark:text-gray-200 flex-1 truncate">{e.ownerName.split(' <')[0]}</span>
+                  <div className="flex items-center gap-3 text-sm flex-shrink-0">
                     <span className="text-gray-500">{e.resolved}/{e.totalAssigned}</span>
                     <div className="w-16 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                       <div className={`h-full rounded-full ${e.efficiencyScore >= 70 ? 'bg-green-500' : e.efficiencyScore >= 40 ? 'bg-yellow-400' : 'bg-red-500'}`}
@@ -799,12 +799,12 @@ function AnalyticsTab({ kpi, trend, trendLoading, aging, agingLoading, efficienc
             <div className="space-y-2 max-h-[300px] overflow-y-auto">
               {customerIssues.slice(0, 10).map(ci => (
                 <div key={ci.customerName} className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
-                  <div className="w-7 h-7 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center text-[10px] font-bold text-blue-700 dark:text-blue-300 flex-shrink-0">
+                  <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center text-xs font-bold text-blue-700 dark:text-blue-300 flex-shrink-0">
                     {ci.customerName.slice(0, 2).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">{ci.customerName}</div>
-                    <div className="text-[10px] text-gray-500">{ci.activeIssues} active · {ci.resolvedIssues} resolved</div>
+                    <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{ci.customerName}</div>
+                    <div className="text-xs text-gray-500">{ci.activeIssues} active · {ci.resolvedIssues} resolved</div>
                   </div>
                   <div className="text-sm font-bold text-gray-800 dark:text-gray-200">{ci.totalIssues}</div>
                 </div>
@@ -951,12 +951,12 @@ function Card({ title, icon: Icon, iconColor, loading, children }: {
 }) {
   return (
     <section className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
-      <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
-        <Icon size={14} className={iconColor} />
-        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{title}</h3>
-        {loading && <Loader2 size={12} className="animate-spin text-gray-400 ml-auto" />}
+      <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2.5">
+        <Icon size={18} className={iconColor} />
+        <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200">{title}</h3>
+        {loading && <Loader2 size={14} className="animate-spin text-gray-400 ml-auto" />}
       </div>
-      <div className="p-4">{children}</div>
+      <div className="p-5">{children}</div>
     </section>
   );
 }
@@ -965,12 +965,12 @@ function MiniStatCard({ label, value, icon: Icon, color, bg }: {
   label: string; value: string | number; icon: React.ElementType; color: string; bg: string;
 }) {
   return (
-    <div className={`${bg} rounded-xl p-4 border border-gray-100 dark:border-gray-700`}>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{label}</span>
-        <Icon size={14} className={color} />
+    <div className={`${bg} rounded-xl p-5 border border-gray-100 dark:border-gray-700`}>
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{label}</span>
+        <Icon size={18} className={color} />
       </div>
-      <div className="text-2xl font-bold text-gray-900 dark:text-white">{value}</div>
+      <div className="text-3xl font-bold text-gray-900 dark:text-white">{value}</div>
     </div>
   );
 }
@@ -992,15 +992,15 @@ function BugTable({ bugs, expandedBugId, setExpandedBugId }: {
       <table className="w-full text-left">
         <thead className="sticky top-0 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm z-10">
           <tr className="border-b border-gray-200 dark:border-gray-700">
-            <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 w-8"></th>
-            <th className="px-3 py-2.5 text-xs font-semibold text-gray-500">ID</th>
-            <th className="px-3 py-2.5 text-xs font-semibold text-gray-500">Title</th>
-            <th className="px-3 py-2.5 text-xs font-semibold text-gray-500">Priority</th>
-            <th className="px-3 py-2.5 text-xs font-semibold text-gray-500">Severity</th>
-            <th className="px-3 py-2.5 text-xs font-semibold text-gray-500">Age</th>
-            <th className="px-3 py-2.5 text-xs font-semibold text-gray-500">Assigned</th>
-            <th className="px-3 py-2.5 text-xs font-semibold text-gray-500">Area</th>
-            <th className="px-3 py-2.5 text-xs font-semibold text-gray-500">Customer</th>
+            <th className="px-4 py-2.5 text-sm font-semibold text-gray-500 w-8"></th>
+            <th className="px-3 py-2.5 text-sm font-semibold text-gray-500">ID</th>
+            <th className="px-3 py-2.5 text-sm font-semibold text-gray-500">Title</th>
+            <th className="px-3 py-2.5 text-sm font-semibold text-gray-500">Priority</th>
+            <th className="px-3 py-2.5 text-sm font-semibold text-gray-500">Severity</th>
+            <th className="px-3 py-2.5 text-sm font-semibold text-gray-500">Age</th>
+            <th className="px-3 py-2.5 text-sm font-semibold text-gray-500">Assigned</th>
+            <th className="px-3 py-2.5 text-sm font-semibold text-gray-500">Area</th>
+            <th className="px-3 py-2.5 text-sm font-semibold text-gray-500">Customer</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
@@ -1023,26 +1023,26 @@ function BugTable({ bugs, expandedBugId, setExpandedBugId }: {
                   </td>
                   <td className="px-3 py-2.5 text-sm text-gray-800 dark:text-gray-200 max-w-[280px] truncate" title={bug.title}>{bug.title}</td>
                   <td className="px-3 py-2.5">
-                    <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${badge.bg} ${badge.text}`}>{badge.label}</span>
+                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${badge.bg} ${badge.text}`}>{badge.label}</span>
                   </td>
                   <td className="px-3 py-2.5">
-                    <span className={`inline-block px-1.5 py-0.5 rounded text-[11px] font-medium ${getSeverityColor(bug.severity)}`}>{bug.severity || 'N/A'}</span>
+                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${getSeverityColor(bug.severity)}`}>{bug.severity || 'N/A'}</span>
                   </td>
                   <td className="px-3 py-2.5">
                     <span className={`text-sm font-mono ${getAgingColor(bug.ageDays)}`}>{bug.ageDays}d</span>
                   </td>
-                  <td className="px-3 py-2.5 text-xs text-gray-600 dark:text-gray-400 max-w-[120px] truncate" title={bug.assignedTo || ''}>
+                  <td className="px-3 py-2.5 text-sm text-gray-600 dark:text-gray-400 max-w-[120px] truncate" title={bug.assignedTo || ''}>
                     {bug.assignedTo ? bug.assignedTo.split(' <')[0] : '—'}
                   </td>
-                  <td className="px-3 py-2.5 text-xs text-gray-500 max-w-[100px] truncate" title={bug.areaPath || ''}>
+                  <td className="px-3 py-2.5 text-sm text-gray-500 max-w-[100px] truncate" title={bug.areaPath || ''}>
                     {bug.areaPath?.split('\\').pop() || '—'}
                   </td>
                   <td className="px-3 py-2.5">
                     {bug.customer ? (
-                      <span className="inline-flex items-center gap-1 text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded">
-                        <Users size={10} /> {bug.customer}
+                      <span className="inline-flex items-center gap-1 text-sm bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded">
+                        <Users size={12} /> {bug.customer}
                       </span>
-                    ) : <span className="text-xs text-gray-300">—</span>}
+                    ) : <span className="text-sm text-gray-300">—</span>}
                   </td>
                 </tr>
                 {isExpanded && (
@@ -1096,31 +1096,31 @@ function BugDetailExpanded({ bug }: { bug: QualityWorkItemDto }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div className="space-y-3">
-        <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Bug Details</h4>
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          <div><span className="text-gray-400">State:</span> <span className={`px-1.5 py-0.5 rounded font-medium ${getStateColor(bug.state)}`}>{bug.state}</span></div>
+        <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Bug Details</h4>
+        <div className="grid grid-cols-2 gap-2.5 text-sm">
+          <div><span className="text-gray-400">State:</span> <span className={`px-2 py-0.5 rounded font-medium ${getStateColor(bug.state)}`}>{bug.state}</span></div>
           <div><span className="text-gray-400">Created:</span> <span className="text-gray-700 dark:text-gray-300">{formatDate(bug.createdDate)}</span></div>
           <div><span className="text-gray-400">Area:</span> <span className="text-gray-700 dark:text-gray-300">{bug.areaPath || '—'}</span></div>
           <div><span className="text-gray-400">Iteration:</span> <span className="text-gray-700 dark:text-gray-300">{bug.iterationPath || '—'}</span></div>
           <div><span className="text-gray-400">Dev Owner:</span> <span className="text-gray-700 dark:text-gray-300">{bug.devOwner || '—'}</span></div>
           <div><span className="text-gray-400">BA Owner:</span> <span className="text-gray-700 dark:text-gray-300">{bug.baOwner || '—'}</span></div>
           {bug.tags.length > 0 && (
-            <div className="col-span-2"><span className="text-gray-400">Tags:</span> {bug.tags.map(t => <span key={t} className="ml-1 px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-[10px]">{t}</span>)}</div>
+            <div className="col-span-2"><span className="text-gray-400">Tags:</span> {bug.tags.map(t => <span key={t} className="ml-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs">{t}</span>)}</div>
           )}
           {bug.parentTitle && (
             <div className="col-span-2"><span className="text-gray-400">Parent:</span> <span className="text-gray-700 dark:text-gray-300">{bug.parentType}: {bug.parentTitle}</span></div>
           )}
         </div>
-        <a href={bug.devOpsUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline mt-1">
-          Open in Azure DevOps <ExternalLink size={10} />
+        <a href={bug.devOpsUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline mt-1">
+          Open in Azure DevOps <ExternalLink size={12} />
         </a>
       </div>
       <div className="space-y-3">
-        <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Recommended Fix Steps</h4>
-        <ol className="space-y-1.5">
+        <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Recommended Fix Steps</h4>
+        <ol className="space-y-2">
           {fixSteps.map((step, i) => (
-            <li key={i} className="flex items-start gap-2 text-xs">
-              <span className="flex-shrink-0 w-5 h-5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full flex items-center justify-center text-[10px] font-bold mt-0.5">
+            <li key={i} className="flex items-start gap-2 text-sm">
+              <span className="flex-shrink-0 w-6 h-6 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full flex items-center justify-center text-xs font-bold mt-0.5">
                 {i + 1}
               </span>
               <span className="text-gray-700 dark:text-gray-300">{step}</span>
@@ -1146,17 +1146,17 @@ function KpiStrip({ kpi, loading, criticalCount, staleCount }: { kpi: KpiSummary
   ];
 
   return (
-    <div className={`grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 ${loading ? 'opacity-60' : ''}`}>
+    <div className={`grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 ${loading ? 'opacity-60' : ''}`}>
       {cards.map(c => (
-        <div key={c.label} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200/80 dark:border-gray-700 p-4 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{c.label}</span>
-            <div className={`w-7 h-7 ${c.bg} rounded-lg flex items-center justify-center`}>
-              <c.icon size={14} className={c.color} />
+        <div key={c.label} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200/80 dark:border-gray-700 p-5 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{c.label}</span>
+            <div className={`w-9 h-9 ${c.bg} rounded-lg flex items-center justify-center`}>
+              <c.icon size={18} className={c.color} />
             </div>
           </div>
-          <div className="text-2xl font-bold text-gray-900 dark:text-white">{typeof c.value === 'number' ? c.value.toLocaleString() : String(c.value)}</div>
-          <div className="text-[11px] text-gray-400 mt-1">{c.sub}</div>
+          <div className="text-3xl font-bold text-gray-900 dark:text-white">{typeof c.value === 'number' ? c.value.toLocaleString() : String(c.value)}</div>
+          <div className="text-sm text-gray-400 mt-1.5">{c.sub}</div>
         </div>
       ))}
     </div>
@@ -1168,17 +1168,17 @@ function KpiStrip({ kpi, loading, criticalCount, staleCount }: { kpi: KpiSummary
 // ============================================================================
 function SeverityBreakdown({ kpi }: { kpi: KpiSummary }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {Object.entries(kpi.bySeverity || {}).sort().map(([sev, count]) => {
         const total = Object.values(kpi.bySeverity).reduce((s, v) => s + v, 0);
         const pct = total > 0 ? (count / total) * 100 : 0;
         return (
           <div key={sev}>
-            <div className="flex items-center justify-between mb-1">
-              <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${getSeverityColor(sev)}`}>{sev}</span>
-              <span className="text-xs font-bold text-gray-700 dark:text-gray-300">{count}</span>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className={`text-sm font-medium px-2 py-0.5 rounded ${getSeverityColor(sev)}`}>{sev}</span>
+              <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{count}</span>
             </div>
-            <div className="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+            <div className="w-full h-2.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all ${sev.includes('Critical') ? 'bg-red-500' : sev.includes('High') ? 'bg-orange-500' : sev.includes('Medium') ? 'bg-yellow-400' : 'bg-green-400'}`}
                 style={{ width: `${pct}%` }}
@@ -1195,8 +1195,8 @@ function SeverityBreakdown({ kpi }: { kpi: KpiSummary }) {
 // Charts
 // ============================================================================
 function MiniTrendChart({ data }: { data: QualityTrendPointDto[] }) {
-  const h = 120, w = 400;
-  const padL = 30, padR = 10, padT = 10, padB = 20;
+  const h = 180, w = 500;
+  const padL = 36, padR = 10, padT = 10, padB = 28;
   const chartW = w - padL - padR;
   const chartH = h - padT - padB;
   const maxVal = Math.max(...data.map(d => Math.max(d.opened, d.closed, d.cumulativeActive)), 1);
@@ -1211,46 +1211,46 @@ function MiniTrendChart({ data }: { data: QualityTrendPointDto[] }) {
   };
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-32">
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-48">
       {[0, 0.25, 0.5, 0.75, 1].map(f => {
         const y = padT + chartH * (1 - f);
         return <line key={f} x1={padL} x2={w - padR} y1={y} y2={y} stroke="#f0f0f0" strokeWidth={1} />;
       })}
-      <path d={buildPath(d => d.cumulativeActive)} fill="none" stroke="#a78bfa" strokeWidth={2} opacity={0.5} />
-      <path d={buildPath(d => d.opened)} fill="none" stroke="#ef4444" strokeWidth={1.5} />
-      <path d={buildPath(d => d.closed)} fill="none" stroke="#22c55e" strokeWidth={1.5} />
-      <text x={padL - 4} y={padT + 4} fill="#9ca3af" fontSize={8} textAnchor="end">{maxVal}</text>
-      <text x={padL - 4} y={padT + chartH + 4} fill="#9ca3af" fontSize={8} textAnchor="end">0</text>
-      <circle cx={padL + 10} cy={h - 4} r={3} fill="#ef4444" />
-      <text x={padL + 16} y={h - 1} fill="#6b7280" fontSize={7}>Opened</text>
-      <circle cx={padL + 55} cy={h - 4} r={3} fill="#22c55e" />
-      <text x={padL + 61} y={h - 1} fill="#6b7280" fontSize={7}>Closed</text>
-      <circle cx={padL + 95} cy={h - 4} r={3} fill="#a78bfa" />
-      <text x={padL + 101} y={h - 1} fill="#6b7280" fontSize={7}>Active</text>
+      <path d={buildPath(d => d.cumulativeActive)} fill="none" stroke="#a78bfa" strokeWidth={2.5} opacity={0.5} />
+      <path d={buildPath(d => d.opened)} fill="none" stroke="#ef4444" strokeWidth={2} />
+      <path d={buildPath(d => d.closed)} fill="none" stroke="#22c55e" strokeWidth={2} />
+      <text x={padL - 4} y={padT + 6} fill="#9ca3af" fontSize={10} textAnchor="end">{maxVal}</text>
+      <text x={padL - 4} y={padT + chartH + 4} fill="#9ca3af" fontSize={10} textAnchor="end">0</text>
+      <circle cx={padL + 10} cy={h - 6} r={4} fill="#ef4444" />
+      <text x={padL + 18} y={h - 2} fill="#6b7280" fontSize={10}>Opened</text>
+      <circle cx={padL + 75} cy={h - 6} r={4} fill="#22c55e" />
+      <text x={padL + 83} y={h - 2} fill="#6b7280" fontSize={10}>Closed</text>
+      <circle cx={padL + 135} cy={h - 6} r={4} fill="#a78bfa" />
+      <text x={padL + 143} y={h - 2} fill="#6b7280" fontSize={10}>Active</text>
     </svg>
   );
 }
 
 function AgingBarChart({ data }: { data: BugAgingDistributionDto[] }) {
-  const h = 120, w = 400;
-  const padL = 10, padR = 10, padT = 10, padB = 30;
+  const h = 180, w = 500;
+  const padL = 10, padR = 10, padT = 10, padB = 36;
   const chartH = h - padT - padB;
   const maxCount = Math.max(...data.map(d => d.count), 1);
-  const barW = Math.min(40, (w - padL - padR) / data.length - 8);
+  const barW = Math.min(50, (w - padL - padR) / data.length - 10);
   const colors = ['#22c55e', '#86efac', '#fbbf24', '#f97316', '#ef4444', '#dc2626'];
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-32">
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-48">
       {data.map((d, i) => {
         const barH = (d.count / maxCount) * chartH;
         const x = padL + i * ((w - padL - padR) / data.length) + ((w - padL - padR) / data.length - barW) / 2;
         const y = padT + chartH - barH;
         return (
           <g key={d.range}>
-            <rect x={x} y={y} width={barW} height={barH} fill={colors[i % colors.length]} rx={3} />
-            <text x={x + barW / 2} y={y - 4} fill="#374151" fontSize={8} textAnchor="middle" fontWeight="bold">{d.count}</text>
-            <text x={x + barW / 2} y={h - padB + 12} fill="#6b7280" fontSize={7} textAnchor="middle">{d.range}</text>
-            <text x={x + barW / 2} y={h - padB + 22} fill="#9ca3af" fontSize={6} textAnchor="middle">{d.percentage.toFixed(0)}%</text>
+            <rect x={x} y={y} width={barW} height={barH} fill={colors[i % colors.length]} rx={4} />
+            <text x={x + barW / 2} y={y - 6} fill="#374151" fontSize={11} textAnchor="middle" fontWeight="bold">{d.count}</text>
+            <text x={x + barW / 2} y={h - padB + 14} fill="#6b7280" fontSize={10} textAnchor="middle">{d.range}</text>
+            <text x={x + barW / 2} y={h - padB + 28} fill="#9ca3af" fontSize={9} textAnchor="middle">{d.percentage.toFixed(0)}%</text>
           </g>
         );
       })}
@@ -1282,16 +1282,16 @@ function QualityHealthScore({ kpi, criticalCount, staleCount }: { kpi: KpiSummar
             strokeLinecap="round" transform="rotate(-90 60 60)" className="transition-all duration-700" />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className={`text-2xl font-bold ${color}`}>{score}</span>
-          <span className="text-[10px] text-gray-400">/ 100</span>
+          <span className={`text-3xl font-bold ${color}`}>{score}</span>
+          <span className="text-xs text-gray-400">/ 100</span>
         </div>
       </div>
       <div className="space-y-2">
-        <div className={`text-lg font-bold ${color}`}>{label}</div>
-        <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+        <div className={`text-xl font-bold ${color}`}>{label}</div>
+        <div className="text-sm text-gray-500 dark:text-gray-400 space-y-1">
           <div>Critical bugs: <span className="font-medium text-gray-700 dark:text-gray-300">-{criticalCount * 15}pts</span></div>
           <div>Stale items: <span className="font-medium text-gray-700 dark:text-gray-300">-{staleCount * 3}pts</span></div>
-          <div className="text-[10px] text-gray-400 mt-1">Based on critical bugs, staleness, and resolution rate</div>
+          <div className="text-xs text-gray-400 mt-1">Based on critical bugs, staleness, and resolution rate</div>
         </div>
       </div>
     </div>
@@ -1458,10 +1458,10 @@ function renderCell(col: string, value: unknown, row: Record<string, unknown>): 
     return <span className="font-mono text-blue-600">{String(value)}</span>;
   }
   if (col.toLowerCase().includes('severity')) {
-    return <span className={`px-1.5 py-0.5 rounded text-[11px] font-medium ${getSeverityColor(String(value))}`}>{String(value)}</span>;
+    return <span className={`px-2 py-0.5 rounded text-xs font-medium ${getSeverityColor(String(value))}`}>{String(value)}</span>;
   }
   if (col.toLowerCase().includes('state')) {
-    return <span className={`px-1.5 py-0.5 rounded text-[11px] font-medium ${getStateColor(String(value))}`}>{String(value)}</span>;
+    return <span className={`px-2 py-0.5 rounded text-xs font-medium ${getStateColor(String(value))}`}>{String(value)}</span>;
   }
   return formatCellValue(value);
 }
