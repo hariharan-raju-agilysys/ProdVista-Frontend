@@ -60,6 +60,78 @@ const QUICK_ACTIONS = [
   { label: 'Employee Progress', prompt: 'Show employee wise bug resolution progress with efficiency', icon: Users, color: 'indigo' },
 ];
 
+// ============================================================================
+// Autocomplete Suggestion Catalog — grouped by category, covers all endpoints
+// ============================================================================
+interface QuerySuggestion { text: string; category: string; keywords: string[] }
+
+const QUERY_SUGGESTIONS: QuerySuggestion[] = [
+  // Bugs
+  { text: 'Show all critical active bugs', category: 'Bugs', keywords: ['critical', 'active', 'bug', 'severity'] },
+  { text: 'Show my assigned bugs', category: 'Bugs', keywords: ['my', 'assigned', 'mine', 'bugs'] },
+  { text: 'Show all bugs in Active state', category: 'Bugs', keywords: ['active', 'state', 'open', 'bugs'] },
+  { text: 'Show resolved bugs in the current sprint', category: 'Bugs', keywords: ['resolved', 'closed', 'sprint', 'fixed'] },
+  { text: 'Show high severity bugs assigned to me', category: 'Bugs', keywords: ['high', 'severity', 'mine', 'assigned'] },
+  { text: 'Show bugs by area to find hotspots', category: 'Bugs', keywords: ['area', 'hotspot', 'module', 'count'] },
+  { text: 'Show bugs older than 30 days', category: 'Bugs', keywords: ['old', 'stale', 'aging', 'days'] },
+  { text: 'Show bugs created this week', category: 'Bugs', keywords: ['created', 'new', 'this week', 'recent'] },
+  // Trends & Analytics
+  { text: 'Show bug creation vs resolution trend last 30 days', category: 'Trends', keywords: ['trend', 'creation', 'resolution', 'chart', 'line'] },
+  { text: 'Show bug trend last 90 days', category: 'Trends', keywords: ['trend', '90', 'days', 'long'] },
+  { text: 'Show aging distribution of active bugs', category: 'Trends', keywords: ['aging', 'distribution', 'age', 'old'] },
+  // Sprint & Board
+  { text: 'Show current sprint summary', category: 'Sprint', keywords: ['sprint', 'iteration', 'summary', 'health', 'current'] },
+  { text: 'Show sprint work items and status', category: 'Sprint', keywords: ['sprint', 'work items', 'board', 'status'] },
+  { text: 'Show board summary with swim lanes', category: 'Sprint', keywords: ['board', 'swim', 'lanes', 'kanban'] },
+  // Team & Efficiency
+  { text: 'Show team efficiency metrics', category: 'Team', keywords: ['team', 'efficiency', 'metrics', 'performance'] },
+  { text: 'Show employee wise bug resolution progress with efficiency', category: 'Team', keywords: ['employee', 'user', 'person', 'progress', 'resolution', 'efficiency'] },
+  { text: 'Show team summary with velocity and scoreboard', category: 'Team', keywords: ['team', 'velocity', 'scoreboard', 'daily'] },
+  { text: 'Show owner efficiency breakdown', category: 'Team', keywords: ['owner', 'efficiency', 'breakdown', 'developer'] },
+  // Releases & Pipelines
+  { text: 'Show release iteration status', category: 'Releases', keywords: ['release', 'iteration', 'version', 'status'] },
+  { text: 'Show recent builds', category: 'Releases', keywords: ['build', 'recent', 'ci', 'pipeline'] },
+  { text: 'Show pipeline status', category: 'Releases', keywords: ['pipeline', 'status', 'cicd', 'deploy'] },
+  { text: 'Show pull requests open', category: 'Releases', keywords: ['pull request', 'pr', 'open', 'review'] },
+  // KPI & Features
+  { text: 'Show KPI summary for all areas', category: 'KPI', keywords: ['kpi', 'summary', 'metrics', 'overall'] },
+  { text: 'Show feature status with child items', category: 'Features', keywords: ['feature', 'children', 'status', 'epic'] },
+  { text: 'Show features grouped by iteration', category: 'Features', keywords: ['feature', 'group', 'iteration', 'progress'] },
+  // Customer
+  { text: 'Show customer reported issues', category: 'Bugs', keywords: ['customer', 'reported', 'external', 'issues'] },
+];
+
+function matchSuggestions(input: string): QuerySuggestion[] {
+  if (!input.trim()) return [];
+  const terms = input.toLowerCase().split(/\s+/).filter(Boolean);
+  return QUERY_SUGGESTIONS
+    .map(s => {
+      const haystack = (s.text + ' ' + s.keywords.join(' ')).toLowerCase();
+      const hits = terms.filter(t => haystack.includes(t)).length;
+      // Also boost partial matches at word boundaries
+      const partialHits = terms.filter(t => s.text.toLowerCase().includes(t)).length;
+      return { ...s, score: hits * 2 + partialHits };
+    })
+    .filter(s => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 8);
+}
+
+/** Highlight matched words in suggestion text */
+function highlightMatch(text: string, input: string): React.ReactNode {
+  if (!input.trim()) return text;
+  const terms = input.toLowerCase().split(/\s+/).filter(Boolean);
+  // Build a regex that matches any of the input terms
+  const escaped = terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const regex = new RegExp(`(${escaped.join('|')})`, 'gi');
+  const parts = text.split(regex);
+  return parts.map((part, i) =>
+    regex.test(part)
+      ? <span key={i} className="font-semibold text-blue-600 dark:text-blue-400">{part}</span>
+      : part
+  );
+}
+
 type TabId = 'overview' | 'triage' | 'mywork' | 'analytics' | 'query';
 
 const TABS: { id: TabId; label: string; icon: React.ElementType; leadershipOnly?: boolean }[] = [
@@ -855,35 +927,135 @@ function QueryTab({ prompt, setPrompt, queryLoading, interpretation, queryResult
   setInterpretation: (v: SmartQueryInterpretation | null) => void;
   setQueryError: (v: string | null) => void;
 }) {
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedIdx, setSelectedIdx] = useState(-1);
+  const suggestions = useMemo(() => matchSuggestions(prompt), [prompt]);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setShowSuggestions(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Reset selection when suggestions change
+  useEffect(() => { setSelectedIdx(-1); }, [suggestions]);
+
+  const handleInputChange = (val: string) => {
+    setPrompt(val);
+    setShowSuggestions(val.trim().length > 0);
+  };
+
+  const handleSelectSuggestion = (text: string) => {
+    setPrompt(text);
+    setShowSuggestions(false);
+    promptRef.current?.focus();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIdx(i => (i + 1) % suggestions.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIdx(i => (i <= 0 ? suggestions.length - 1 : i - 1));
+    } else if (e.key === 'Enter' && selectedIdx >= 0) {
+      e.preventDefault();
+      handleSelectSuggestion(suggestions[selectedIdx].text);
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+    } else if (e.key === 'Tab' && selectedIdx >= 0) {
+      e.preventDefault();
+      handleSelectSuggestion(suggestions[selectedIdx].text);
+    }
+  };
+
+  // Group suggestions by category for display
+  const groupedSuggestions = useMemo(() => {
+    const map = new Map<string, { text: string; globalIdx: number }[]>();
+    suggestions.forEach((s, i) => {
+      const arr = map.get(s.category) || [];
+      arr.push({ text: s.text, globalIdx: i });
+      map.set(s.category, arr);
+    });
+    return map;
+  }, [suggestions]);
+
   return (
     <div className="space-y-6">
       {/* Query Bar */}
       <section className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
-        <form onSubmit={handleSubmit} className="flex items-center gap-3 p-4">
-          <div className="flex items-center gap-2 text-purple-500"><Sparkles size={20} /></div>
-          <input
-            ref={promptRef}
-            type="text"
-            value={prompt}
-            onChange={e => setPrompt(e.target.value)}
-            placeholder="Ask anything... e.g. 'Show critical bugs in PMS module' or 'Bug trend last 30 days'"
-            className="flex-1 text-sm bg-transparent outline-none placeholder:text-gray-400 dark:text-white"
-            disabled={queryLoading}
-          />
-          {prompt && (
-            <button type="button" onClick={() => { setPrompt(''); setQueryResult(null); setInterpretation(null); setQueryError(null); }} className="text-gray-400 hover:text-gray-600">
-              <X size={16} />
+        <div ref={dropdownRef} className="relative">
+          <form onSubmit={(e) => { setShowSuggestions(false); handleSubmit(e); }} className="flex items-center gap-3 p-4">
+            <div className="flex items-center gap-2 text-purple-500"><Sparkles size={20} /></div>
+            <input
+              ref={promptRef}
+              type="text"
+              value={prompt}
+              onChange={e => handleInputChange(e.target.value)}
+              onFocus={() => prompt.trim() && setShowSuggestions(true)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask anything... e.g. 'Show critical bugs' or 'employee progress'"
+              className="flex-1 text-sm bg-transparent outline-none placeholder:text-gray-400 dark:text-white"
+              disabled={queryLoading}
+              autoComplete="off"
+            />
+            {prompt && (
+              <button type="button" onClick={() => { setPrompt(''); setShowSuggestions(false); setQueryResult(null); setInterpretation(null); setQueryError(null); }} className="text-gray-400 hover:text-gray-600">
+                <X size={16} />
+              </button>
+            )}
+            <button type="submit" disabled={queryLoading || !prompt.trim()}
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium rounded-lg hover:shadow-md disabled:opacity-50 transition-all flex items-center gap-2">
+              {queryLoading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+              Query
             </button>
+          </form>
+
+          {/* Autocomplete Dropdown */}
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="absolute left-0 right-0 top-full z-50 mx-4 mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+              <div className="max-h-72 overflow-y-auto py-1">
+                {Array.from(groupedSuggestions.entries()).map(([category, items]) => (
+                  <div key={category}>
+                    <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 bg-gray-50/80 dark:bg-gray-800/80 sticky top-0">
+                      {category}
+                    </div>
+                    {items.map(({ text, globalIdx }) => (
+                      <button
+                        key={globalIdx}
+                        type="button"
+                        className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-2.5 ${
+                          globalIdx === selectedIdx
+                            ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                        }`}
+                        onMouseEnter={() => setSelectedIdx(globalIdx)}
+                        onMouseDown={(e) => { e.preventDefault(); handleSelectSuggestion(text); }}
+                      >
+                        <Search size={13} className={`flex-shrink-0 ${globalIdx === selectedIdx ? 'text-blue-500' : 'text-gray-400'}`} />
+                        <span>{highlightMatch(text, prompt)}</span>
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+              <div className="px-3 py-1.5 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex items-center gap-3 text-[10px] text-gray-400">
+                <span className="flex items-center gap-1"><kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-[9px] font-mono">↑↓</kbd> navigate</span>
+                <span className="flex items-center gap-1"><kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-[9px] font-mono">Tab</kbd> select</span>
+                <span className="flex items-center gap-1"><kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-[9px] font-mono">Enter</kbd> run</span>
+                <span className="flex items-center gap-1"><kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-[9px] font-mono">Esc</kbd> close</span>
+              </div>
+            </div>
           )}
-          <button type="submit" disabled={queryLoading || !prompt.trim()}
-            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium rounded-lg hover:shadow-md disabled:opacity-50 transition-all flex items-center gap-2">
-            {queryLoading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
-            Query
-          </button>
-        </form>
+        </div>
         <div className="px-4 pb-4 flex flex-wrap gap-2">
           {QUICK_ACTIONS.map(qa => (
-            <button key={qa.label} onClick={() => { setPrompt(qa.prompt); executeSmartQuery(qa.prompt); }}
+            <button key={qa.label} onClick={() => { setPrompt(qa.prompt); setShowSuggestions(false); executeSmartQuery(qa.prompt); }}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all hover:shadow-sm hover:-translate-y-0.5">
               <qa.icon size={12} />
               {qa.label}
