@@ -221,7 +221,9 @@ function MsalTokenRefreshRegistrar({ children }: { children: React.ReactNode }) 
         }
       } catch (err) {
         if (err instanceof InteractionRequiredAuthError) {
-          console.warn('[MSAL] ARM token requires consent — will be granted on next login');
+          // ARM consent not yet granted — don't auto-redirect (disruptive UX).
+          // The Azure Setup page will show a "Grant access" button instead.
+          console.warn('[MSAL] ARM token requires consent — user can grant via Azure Setup page');
         } else {
           console.warn('[MSAL] ARM token silent acquisition failed:', err);
         }

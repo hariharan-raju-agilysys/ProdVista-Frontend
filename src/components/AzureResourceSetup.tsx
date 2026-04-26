@@ -1,10 +1,13 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Cloud, Check, CheckCircle2, AlertTriangle, Loader2,
   ChevronRight, Search, RefreshCw, Building2,
-  Database, Activity, Save, X, Shield, ArrowRight
+  Database, Activity, Save, X, Shield, ArrowRight, LogIn
 } from 'lucide-react';
 import clsx from 'clsx';
+import { useMsal } from '@azure/msal-react';
+import { InteractionRequiredAuthError, InteractionStatus } from '@azure/msal-browser';
+import { armScopes } from '../config/msalConfig';
 import api from '../services/api';
 
 interface Subscription {
@@ -71,6 +74,46 @@ export function AzureResourceSetup() {
   const [loadingStep, setLoadingStep] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [expandedTenants, setExpandedTenants] = useState<Set<string>>(new Set());
+
+  // MSAL for ARM consent flow
+  const { instance, accounts, inProgress } = useMsal();
+  const [grantingAccess, setGrantingAccess] = useState(false);
+
+  const handleGrantAzureAccess = useCallback(async () => {
+    if (inProgress !== InteractionStatus.None) return;
+    const account = accounts[0] || instance.getActiveAccount();
+    if (!account) {
+      setError('No Azure AD account found. Please sign in with Microsoft SSO first.');
+      return;
+    }
+    setGrantingAccess(true);
+    try {
+      // Try silent first — maybe consent was already granted
+      const response = await instance.acquireTokenSilent({ ...armScopes, account });
+      if (response?.accessToken) {
+        sessionStorage.setItem('prodvista_azure_token', response.accessToken);
+        setError(null);
+        // Reload subscriptions with the new token
+        await loadSubscriptions();
+      }
+    } catch (err) {
+      if (err instanceof InteractionRequiredAuthError) {
+        // Need consent — redirect to Microsoft for ARM permission
+        try {
+          await instance.acquireTokenRedirect({ ...armScopes, account });
+          // Page will redirect — no code runs after this
+        } catch (redirectErr) {
+          console.warn('[MSAL] ARM consent redirect failed:', redirectErr);
+          setError('Failed to redirect for Azure access. Please try again.');
+          setGrantingAccess(false);
+        }
+      } else {
+        console.warn('[MSAL] ARM token acquisition failed:', err);
+        setError('Failed to acquire Azure token. Please try again.');
+        setGrantingAccess(false);
+      }
+    }
+  }, [instance, accounts, inProgress]);
 
   const DRAFT_STORAGE_KEY = 'azure-setup-draft';
 
@@ -547,7 +590,25 @@ export function AzureResourceSetup() {
           <div className="text-center py-12">
             <Cloud className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
             <p className="text-sm text-gray-500 dark:text-gray-400">No subscriptions found</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Make sure you're signed in to Azure</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              {accounts.length > 0
+                ? 'Your Azure token may not have access. Grant Azure Management access below.'
+                : 'Make sure you\'re signed in to Azure'}
+            </p>
+            {accounts.length > 0 && (
+              <button
+                onClick={handleGrantAzureAccess}
+                disabled={grantingAccess || inProgress !== InteractionStatus.None}
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+              >
+                {grantingAccess ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <LogIn className="w-4 h-4" />
+                )}
+                Grant Azure Access
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">

@@ -337,17 +337,12 @@ export default function LoginPage() {
     }
 
     // No existing session — redirect to Microsoft login
-    // Include DevOps and ARM scopes in extraScopesToConsent so the user grants
-    // consent upfront. This allows subsequent acquireTokenSilent calls to succeed
-    // without requiring separate interactive prompts.
+    // Only request Graph scopes here. ARM consent is handled post-login
+    // via acquireTokenRedirect in App.tsx if silent acquisition fails.
     try {
       await msalInstance.loginRedirect({
         ...graphScopes,
         prompt: 'select_account',
-        extraScopesToConsent: [
-          ...armScopes.scopes,
-          ...devopsScopes.scopes,
-        ],
       });
     } catch (err: any) {
       sessionStorage.removeItem('msal_pending_tenant');
