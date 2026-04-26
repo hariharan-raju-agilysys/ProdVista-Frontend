@@ -18,7 +18,7 @@ import {
   Bug, Target, Activity, TrendingUp, TrendingDown, Users, Calendar,
   BarChart3, AlertTriangle, Shield, Clock, Save, Bookmark,
   ExternalLink, ChevronDown, ChevronRight, Flame, Zap, Eye, Layout,
-  ListChecks, LineChart, Terminal
+  ListChecks, LineChart, Terminal, Download, Image, Table2, FileText, ClipboardCopy
 } from 'lucide-react';
 
 // ============================================================================
@@ -1527,33 +1527,390 @@ function SavedPanelCard({ panel, result, loading, onRun, onTogglePin, onDelete, 
 }
 
 // ============================================================================
-// Dynamic Result Renderer
+// Dynamic Result Renderer — Auto-chart, Table, Summary with Export
 // ============================================================================
+type ViewMode = 'auto' | 'chart' | 'table' | 'summary';
+
 function DynamicResultRenderer({ data, visualizationType, visualization, compact }: {
   data: unknown; visualizationType: string;
   visualization?: SmartQueryInterpretation['visualization'];
   compact?: boolean;
 }) {
+  const [viewMode, setViewMode] = useState<ViewMode>('auto');
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+  const chartRef = useRef<ReactECharts | null>(null);
+
   if (data == null) return <div className="text-sm text-gray-400">No data</div>;
 
-  if (Array.isArray(data)) {
-    if (data.length === 0) return <div className="text-sm text-gray-400">No results found</div>;
-    if (visualizationType === 'list' || compact) return <ListRenderer items={data} compact={compact} />;
-    return <TableRenderer items={data} columns={visualization?.columns} compact={compact} />;
+  // Normalize data for rendering
+  const items: Record<string, unknown>[] | null = Array.isArray(data) ? data
+    : (typeof data === 'object' && data !== null) ? flattenNestedData(data as Record<string, unknown>) : null;
+
+  if (items !== null && items.length === 0) return <div className="text-sm text-gray-400">No results found</div>;
+
+  // Detect if data is chart-friendly
+  const chartInfo = items ? detectChartType(items, visualizationType, visualization) : null;
+  const canChart = chartInfo !== null;
+  const isObject = !Array.isArray(data) && typeof data === 'object';
+
+  // Resolve effective view
+  const effectiveView: ViewMode = viewMode === 'auto'
+    ? (compact ? 'table'
+      : visualizationType === 'chart' && canChart ? 'chart'
+      : visualizationType === 'kpi' || isObject ? 'summary'
+      : canChart && items && items.length <= 30 ? 'chart' : 'table')
+    : viewMode;
+
+  // Show feedback toast
+  const showFeedback = (msg: string) => { setCopyFeedback(msg); setTimeout(() => setCopyFeedback(null), 2000); };
+
+  // Copy as tab-delimited data (pasteable to Excel)
+  const handleCopyData = () => {
+    if (!items?.length) return;
+    const cols = getColumns(items, visualization?.columns, 20);
+    const header = cols.map(formatColumnName).join('\t');
+    const rows = items.map(row => cols.map(c => {
+      const v = row[c];
+      if (v == null) return '';
+      if (typeof v === 'number') return String(v);
+      return String(v).replace(/\t/g, ' ').replace(/\n/g, ' ');
+    }).join('\t'));
+    navigator.clipboard.writeText([header, ...rows].join('\n'));
+    showFeedback('Copied as data — paste into Excel');
+  };
+
+  // Copy chart as image
+  const handleCopyImage = async () => {
+    const instance = chartRef.current?.getEchartsInstance();
+    if (!instance) { showFeedback('No chart to copy'); return; }
+    const url = instance.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#fff' });
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      showFeedback('Chart copied as image');
+    } catch {
+      // Fallback: open in new tab
+      const w = window.open();
+      if (w) { w.document.write(`<img src="${url}" />`); w.document.title = 'Chart Export'; }
+      showFeedback('Opened chart in new tab');
+    }
+  };
+
+  // Download CSV
+  const handleDownloadCsv = () => {
+    if (!items?.length) return;
+    const cols = getColumns(items, visualization?.columns, 30);
+    const csvHeader = cols.map(c => `"${formatColumnName(c)}"`).join(',');
+    const csvRows = items.map(row => cols.map(c => {
+      const v = row[c];
+      if (v == null) return '';
+      return `"${String(v).replace(/"/g, '""')}"`;
+    }).join(','));
+    const blob = new Blob([csvHeader + '\n' + csvRows.join('\n')], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `query-result-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showFeedback('Downloaded CSV');
+  };
+
+  // Compact mode — no toolbar
+  if (compact) {
+    if (items) return <CompactListRenderer items={items} />;
+    if (isObject) return <ObjectRenderer data={data as Record<string, unknown>} compact />;
+    return <div className="text-sm text-gray-700 dark:text-gray-300">{String(data)}</div>;
   }
 
-  if (typeof data === 'object') return <ObjectRenderer data={data as Record<string, unknown>} compact={compact} />;
+  return (
+    <div className="space-y-3">
+      {/* Toolbar: View modes + Export */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
+          {canChart && (
+            <button onClick={() => setViewMode('chart')}
+              className={`px-2.5 py-1.5 text-xs font-medium rounded-md flex items-center gap-1.5 transition-all ${
+                effectiveView === 'chart' ? 'bg-white dark:bg-gray-600 text-purple-600 dark:text-purple-300 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+              <BarChart3 size={13} /> Chart
+            </button>
+          )}
+          {items && (
+            <button onClick={() => setViewMode('table')}
+              className={`px-2.5 py-1.5 text-xs font-medium rounded-md flex items-center gap-1.5 transition-all ${
+                effectiveView === 'table' ? 'bg-white dark:bg-gray-600 text-purple-600 dark:text-purple-300 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+              <Table2 size={13} /> Table
+            </button>
+          )}
+          <button onClick={() => setViewMode('summary')}
+            className={`px-2.5 py-1.5 text-xs font-medium rounded-md flex items-center gap-1.5 transition-all ${
+              effectiveView === 'summary' ? 'bg-white dark:bg-gray-600 text-purple-600 dark:text-purple-300 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            <FileText size={13} /> Summary
+          </button>
+        </div>
+
+        <div className="flex items-center gap-1 relative">
+          {items && items.length > 0 && (
+            <>
+              <button onClick={handleCopyData} title="Copy as data (paste to Excel)"
+                className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-md transition-colors">
+                <ClipboardCopy size={15} />
+              </button>
+              <button onClick={handleDownloadCsv} title="Download CSV"
+                className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-md transition-colors">
+                <Download size={15} />
+              </button>
+            </>
+          )}
+          {canChart && effectiveView === 'chart' && (
+            <button onClick={handleCopyImage} title="Copy chart as image"
+              className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-md transition-colors">
+              <Image size={15} />
+            </button>
+          )}
+          {copyFeedback && (
+            <div className="absolute -top-8 right-0 px-2.5 py-1 bg-gray-900 text-white text-xs rounded-md shadow-lg whitespace-nowrap animate-pulse">
+              {copyFeedback}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Count badge */}
+      {items && (
+        <div className="text-xs text-gray-400">
+          {items.length} result{items.length !== 1 ? 's' : ''}
+        </div>
+      )}
+
+      {/* Render based on effective view */}
+      {effectiveView === 'chart' && canChart && items ? (
+        <AutoChart ref={chartRef} items={items} chartInfo={chartInfo} />
+      ) : effectiveView === 'table' && items ? (
+        <TableRenderer items={items} columns={visualization?.columns} />
+      ) : effectiveView === 'summary' ? (
+        <SummaryView data={data} items={items} />
+      ) : items ? (
+        <TableRenderer items={items} columns={visualization?.columns} />
+      ) : isObject ? (
+        <ObjectRenderer data={data as Record<string, unknown>} />
+      ) : (
+        <div className="text-sm text-gray-700 dark:text-gray-300">{String(data)}</div>
+      )}
+    </div>
+  );
+}
+
+// ---- Chart type auto-detection ----
+interface ChartDetection {
+  type: 'bar' | 'line' | 'pie' | 'horizontal-bar';
+  categoryKey: string;
+  valueKeys: string[];
+  title?: string;
+}
+
+function detectChartType(
+  items: Record<string, unknown>[],
+  visType: string,
+  vis?: SmartQueryInterpretation['visualization']
+): ChartDetection | null {
+  if (!items.length) return null;
+  const sample = items[0];
+  const keys = Object.keys(sample);
+
+  // Find string keys (categories) and number keys (values)
+  const strKeys = keys.filter(k => typeof sample[k] === 'string' && !k.toLowerCase().includes('url') && !k.toLowerCase().includes('id'));
+  const numKeys = keys.filter(k => typeof sample[k] === 'number');
+
+  if (strKeys.length === 0 || numKeys.length === 0) return null;
+  if (items.length > 50) return null; // too many items for chart
+
+  // Use visualization hint if available
+  const hintType = vis?.chartType;
+  const categoryKey = strKeys[0];
+  const valueKeys = numKeys.slice(0, 4);
+
+  if (hintType === 'pie' && valueKeys.length >= 1)
+    return { type: 'pie', categoryKey, valueKeys: [valueKeys[0]] };
+  if (hintType === 'line' || visType === 'chart' && keys.some(k => k.toLowerCase().includes('date')))
+    return { type: 'line', categoryKey, valueKeys };
+  if (items.length <= 8 && valueKeys.length === 1)
+    return { type: 'bar', categoryKey, valueKeys };
+  if (items.length > 8 && items.length <= 20 && valueKeys.length === 1)
+    return { type: 'horizontal-bar', categoryKey, valueKeys };
+
+  return { type: 'bar', categoryKey, valueKeys };
+}
+
+// ---- Auto Chart component ----
+const AutoChart = React.forwardRef<ReactECharts, { items: Record<string, unknown>[]; chartInfo: ChartDetection }>(({ items, chartInfo }, ref) => {
+  const palette = ['#8b5cf6', '#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899', '#14b8a6'];
+  const categories = items.map(r => String(r[chartInfo.categoryKey] ?? ''));
+
+  const option = useMemo(() => {
+    if (chartInfo.type === 'pie') {
+      return {
+        tooltip: { trigger: 'item' as const, backgroundColor: 'rgba(30,30,46,0.95)', textStyle: { color: '#e5e7eb' }, borderColor: 'rgba(139,92,246,0.3)', borderWidth: 1 },
+        legend: { bottom: 0, textStyle: { color: '#9ca3af', fontSize: 12 } },
+        series: [{
+          type: 'pie' as const,
+          radius: ['35%', '65%'],
+          center: ['50%', '45%'],
+          itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
+          label: { show: true, formatter: '{b}: {c} ({d}%)' },
+          emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.2)' } },
+          data: items.map((r, i) => ({
+            name: String(r[chartInfo.categoryKey] ?? ''),
+            value: r[chartInfo.valueKeys[0]] as number,
+            itemStyle: { color: palette[i % palette.length] }
+          }))
+        }],
+        animationDuration: 600
+      };
+    }
+
+    const isHorizontal = chartInfo.type === 'horizontal-bar';
+    const isLine = chartInfo.type === 'line';
+
+    const categoryAxis = {
+      type: 'category' as const,
+      data: categories,
+      axisLine: { lineStyle: { color: '#e5e7eb' } },
+      axisLabel: { fontSize: 11, color: '#6b7280', rotate: !isHorizontal && categories.length > 8 ? 30 : 0 },
+      axisTick: { show: false }
+    };
+    const valueAxis = {
+      type: 'value' as const,
+      splitLine: { lineStyle: { color: '#f3f4f6', type: 'dashed' as const } },
+      axisLabel: { fontSize: 11, color: '#9ca3af' },
+      axisLine: { show: false }
+    };
+
+    return {
+      tooltip: {
+        trigger: 'axis' as const,
+        backgroundColor: 'rgba(30,30,46,0.95)',
+        textStyle: { color: '#e5e7eb', fontSize: 12 },
+        borderColor: 'rgba(139,92,246,0.3)', borderWidth: 1
+      },
+      legend: chartInfo.valueKeys.length > 1 ? { bottom: 0, textStyle: { color: '#9ca3af', fontSize: 12 } } : undefined,
+      grid: { left: isHorizontal ? 120 : 48, right: 16, top: 16, bottom: chartInfo.valueKeys.length > 1 ? 40 : 8, containLabel: !isHorizontal },
+      xAxis: isHorizontal ? valueAxis : categoryAxis,
+      yAxis: isHorizontal ? categoryAxis : valueAxis,
+      series: chartInfo.valueKeys.map((vk, si) => ({
+        name: formatColumnName(vk),
+        type: (isLine ? 'line' : 'bar') as 'line' | 'bar',
+        data: items.map(r => r[vk] as number),
+        smooth: isLine,
+        symbol: isLine ? 'circle' : undefined,
+        symbolSize: isLine ? 6 : undefined,
+        showSymbol: isLine && items.length <= 30,
+        barWidth: chartInfo.valueKeys.length === 1 ? '50%' : undefined,
+        itemStyle: {
+          color: palette[si % palette.length],
+          borderRadius: isLine ? undefined : isHorizontal ? [0, 4, 4, 0] : [4, 4, 0, 0]
+        },
+        ...(isLine && si === 0 ? { areaStyle: { color: { type: 'linear' as const, x: 0, y: 0, x2: 0, y2: 1, colorStops: [
+          { offset: 0, color: palette[si % palette.length] + '30' },
+          { offset: 1, color: palette[si % palette.length] + '05' }
+        ] } } } : {}),
+        emphasis: { focus: 'series' as const }
+      })),
+      animationDuration: 600,
+      animationEasing: 'cubicOut' as const
+    };
+  }, [items, chartInfo, categories]);
+
+  return <ReactECharts ref={ref} option={option} style={{ height: 340 }} notMerge lazyUpdate />;
+});
+AutoChart.displayName = 'AutoChart';
+
+// ---- Summary View ----
+function SummaryView({ data, items }: { data: unknown; items: Record<string, unknown>[] | null }) {
+  // Generate auto-summary stats
+  if (items && items.length > 0) {
+    const sample = items[0];
+    const numKeys = Object.keys(sample).filter(k => typeof sample[k] === 'number');
+    const strKeys = Object.keys(sample).filter(k => typeof sample[k] === 'string' && !k.toLowerCase().includes('url'));
+
+    // Compute summary stats for numeric fields
+    const stats = numKeys.slice(0, 6).map(k => {
+      const vals = items.map(r => (r[k] as number) ?? 0);
+      const sum = vals.reduce((a, b) => a + b, 0);
+      const avg = vals.length > 0 ? sum / vals.length : 0;
+      const max = Math.max(...vals);
+      const min = Math.min(...vals);
+      return { key: k, sum, avg, max, min, count: vals.length };
+    });
+
+    // Compute distribution for first string field
+    const distKey = strKeys[0];
+    const distribution = distKey ? items.reduce<Record<string, number>>((acc, r) => {
+      const v = String(r[distKey] ?? 'Unknown');
+      acc[v] = (acc[v] || 0) + 1;
+      return acc;
+    }, {}) : {};
+
+    return (
+      <div className="space-y-4">
+        {/* Quick stats cards */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3">
+            <div className="text-xs text-purple-600 dark:text-purple-400 font-medium">Total Records</div>
+            <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">{items.length}</div>
+          </div>
+          {stats.slice(0, 5).map(s => (
+            <div key={s.key} className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+              <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">{formatColumnName(s.key)}</div>
+              <div className="text-lg font-bold text-blue-700 dark:text-blue-300">
+                Σ {s.sum.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+              </div>
+              <div className="text-xs text-gray-500">avg {s.avg.toFixed(1)} · max {s.max.toLocaleString()}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Distribution */}
+        {distKey && Object.keys(distribution).length > 0 && Object.keys(distribution).length <= 20 && (
+          <div className="bg-gray-50 dark:bg-gray-900/30 rounded-lg p-4">
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Distribution by {formatColumnName(distKey)}</div>
+            <div className="space-y-2">
+              {Object.entries(distribution).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([label, count]) => {
+                const pct = (count / items.length) * 100;
+                return (
+                  <div key={label} className="flex items-center gap-3">
+                    <span className="text-sm text-gray-700 dark:text-gray-300 w-36 truncate" title={label}>{label}</span>
+                    <div className="flex-1 h-5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className="text-xs font-mono text-gray-500 w-16 text-right">{count} ({pct.toFixed(0)}%)</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Object summary
+  if (typeof data === 'object' && data !== null) {
+    return <ObjectRenderer data={data as Record<string, unknown>} />;
+  }
+
   return <div className="text-sm text-gray-700 dark:text-gray-300">{String(data)}</div>;
 }
 
+// ---- Table Renderer ----
 function TableRenderer({ items, columns, compact }: { items: Record<string, unknown>[]; columns?: string[]; compact?: boolean }) {
-  const cols = columns?.length ? columns : Object.keys(items[0] || {}).filter(k => !k.toLowerCase().includes('url') && k !== 'devOpsUrl').slice(0, compact ? 4 : 10);
+  const cols = getColumns(items, columns, compact ? 4 : 10);
   const rows = compact ? items.slice(0, 5) : items;
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto max-h-[480px] overflow-y-auto">
       <table className="w-full text-left">
-        <thead>
+        <thead className="sticky top-0 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm z-10">
           <tr className="border-b border-gray-200 dark:border-gray-700">
             {cols.map(col => (
               <th key={col} className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{formatColumnName(col)}</th>
@@ -1577,10 +1934,10 @@ function TableRenderer({ items, columns, compact }: { items: Record<string, unkn
   );
 }
 
-function ListRenderer({ items, compact }: { items: Record<string, unknown>[]; compact?: boolean }) {
-  const rows = compact ? items.slice(0, 4) : items;
+function CompactListRenderer({ items }: { items: Record<string, unknown>[] }) {
   const titleKey = findKey(items[0], ['title', 'name', 'label']) || Object.keys(items[0])[1] || Object.keys(items[0])[0];
   const idKey = findKey(items[0], ['id', 'workItemId']) || Object.keys(items[0])[0];
+  const rows = items.slice(0, 4);
 
   return (
     <div className="space-y-1">
@@ -1590,7 +1947,7 @@ function ListRenderer({ items, compact }: { items: Record<string, unknown>[]; co
           <span className="text-sm text-gray-800 dark:text-gray-200 truncate">{String(item[titleKey] ?? '')}</span>
         </div>
       ))}
-      {compact && items.length > 4 && <div className="text-xs text-gray-400 text-center">+{items.length - 4} more</div>}
+      {items.length > 4 && <div className="text-xs text-gray-400 text-center">+{items.length - 4} more</div>}
     </div>
   );
 }
@@ -1609,6 +1966,23 @@ function ObjectRenderer({ data, compact }: { data: Record<string, unknown>; comp
       ))}
     </div>
   );
+}
+
+// ---- Helper: Flatten nested API responses ----
+function flattenNestedData(obj: Record<string, unknown>): Record<string, unknown>[] | null {
+  // Look for arrays nested inside the object (e.g. { byType: [...], stateDistribution: {...} })
+  for (const v of Object.values(obj)) {
+    if (Array.isArray(v) && v.length > 0 && typeof v[0] === 'object') return v;
+  }
+  // If it's a flat KV object, wrap it
+  const flatEntries = Object.entries(obj).filter(([, v]) => v != null && typeof v !== 'object');
+  if (flatEntries.length > 0) return null; // return null to render as ObjectRenderer
+  return null;
+}
+
+function getColumns(items: Record<string, unknown>[], hints?: string[], max = 10): string[] {
+  if (hints?.length) return hints;
+  return Object.keys(items[0] || {}).filter(k => !k.toLowerCase().includes('url') && k !== 'devOpsUrl').slice(0, max);
 }
 
 // ============================================================================
