@@ -98,7 +98,7 @@ export default function OverviewPage({ isAdminView = true }: OverviewPageProps) 
   const [realTimePRData, setRealTimePRData] = useState<PRSummaryResponse | null>(null);
   const [realTimeCommitData, setRealTimeCommitData] = useState<CommitStatsResponse | null>(null);
   const [realTimeBuildsData, setRealTimeBuildsData] = useState<TodayBuildsResponse | null>(null);
-  const [daysFilter, setDaysFilter] = useState(9);
+  const [daysFilter, setDaysFilter] = useState(10);
   // Role-based default: Managers/Admins see "all", regular users see "mine"
   const [userScope, setUserScope] = useState<'mine' | 'all'>(isManager || isAdmin ? 'all' : 'mine');
 
@@ -585,7 +585,7 @@ export default function OverviewPage({ isAdminView = true }: OverviewPageProps) 
         {/* Days Filter */}
         <div className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-700">
           <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">Time Range:</span>
-          {[9, 14, 30, 90].map(d => (
+          {[10, 14, 30, 90].map(d => (
             <button
               key={d}
               onClick={() => setDaysFilter(d)}
@@ -2497,6 +2497,7 @@ function PRWidget({ data, expanded, toggle, onViewAll }: { data: PRSummaryRespon
   );
 
   const allPrs = data.prs ?? [];
+  const completedPrs = data.completedPrs ?? [];
   const waiting = allPrs.filter(pr => !pr.isApproved && !pr.isDraft);
   const approved = allPrs.filter(pr => pr.isApproved);
   const maxShow = expanded ? 50 : 5;
@@ -2514,7 +2515,7 @@ function PRWidget({ data, expanded, toggle, onViewAll }: { data: PRSummaryRespon
           <FullViewButton />
         </div>
         {/* Stats Row */}
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-5 gap-2">
           <div className="bg-white/60 dark:bg-gray-800/60 rounded-lg p-2 text-center">
             <p className="text-lg font-bold text-purple-600 dark:text-purple-400">{data.totalActive}</p>
             <p className="text-[9px] text-gray-500 uppercase font-medium">Active</p>
@@ -2529,6 +2530,10 @@ function PRWidget({ data, expanded, toggle, onViewAll }: { data: PRSummaryRespon
           <div className="bg-white/60 dark:bg-gray-800/60 rounded-lg p-2 text-center">
             <p className="text-lg font-bold text-green-600 dark:text-green-400">{data.approved}</p>
             <p className="text-[9px] text-gray-500 uppercase font-medium">Approved</p>
+          </div>
+          <div className="bg-white/60 dark:bg-gray-800/60 rounded-lg p-2 text-center">
+            <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{data.completedCount ?? completedPrs.length}</p>
+            <p className="text-[9px] text-gray-500 uppercase font-medium">Completed</p>
           </div>
           <div className="bg-white/60 dark:bg-gray-800/60 rounded-lg p-2 text-center">
             <p className="text-lg font-bold text-gray-500 dark:text-gray-400">{data.drafts}</p>
@@ -2577,6 +2582,25 @@ function PRWidget({ data, expanded, toggle, onViewAll }: { data: PRSummaryRespon
             </div>
             <div className="space-y-1 max-h-32 overflow-y-auto mb-2">
               {approved.slice(0, 3).map(pr => (
+                <PRListItem key={pr.pullRequestId} pr={pr} />
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Completed section */}
+        {completedPrs.length > 0 && (
+          <>
+            <div className="flex items-center justify-between mb-1 mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+              <p className="text-[10px] font-medium text-blue-600 dark:text-blue-400 uppercase">Completed ({completedPrs.length})</p>
+              {completedPrs.length > 5 && (
+                <button onClick={toggle} className="text-[10px] text-blue-500 hover:underline">
+                  {expanded ? 'Show Less' : `+${completedPrs.length - 5} more`}
+                </button>
+              )}
+            </div>
+            <div className="space-y-1 max-h-48 overflow-y-auto mb-2">
+              {completedPrs.slice(0, expanded ? 50 : 5).map(pr => (
                 <PRListItem key={pr.pullRequestId} pr={pr} />
               ))}
             </div>
@@ -2760,8 +2784,8 @@ function CommitStatsWidget({ data, onViewAll }: { data: CommitStatsResponse | nu
         {data.recentCommits?.length > 0 && (
           <div className="border-t border-gray-100 dark:border-gray-700 pt-2">
             <p className="text-[10px] font-medium text-gray-500 uppercase mb-2">Recent Commits</p>
-            <div className="space-y-1 max-h-28 overflow-y-auto">
-              {data.recentCommits?.slice(0, 4).map(c => (
+            <div className="space-y-1 max-h-60 overflow-y-auto">
+              {data.recentCommits?.slice(0, 8).map(c => (
                 <a 
                   key={c.shortCommitId} 
                   href={c.url || '#'} 
@@ -3176,6 +3200,7 @@ interface SharedImage {
   id: string;
   url: string;
   title: string;
+  description?: string;
   uploadedBy: string;
   uploadedAt: string;
 }
@@ -3201,7 +3226,9 @@ function KnowledgeWidget({ data, onRefresh }: { data: KnowledgeShareInfo[]; onRe
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isAutoPlay, setIsAutoPlay] = useState(true);
   const [showImageUpload, setShowImageUpload] = useState(false);
-  const [imageForm, setImageForm] = useState({ url: '', title: '' });
+  const [imageForm, setImageForm] = useState({ url: '', title: '', description: '' });
+  const [fullViewImage, setFullViewImage] = useState<SharedImage | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-slide effect
   useEffect(() => {
@@ -3255,11 +3282,23 @@ function KnowledgeWidget({ data, onRefresh }: { data: KnowledgeShareInfo[]; onRe
       id: Date.now().toString(),
       url: imageForm.url,
       title: imageForm.title,
+      description: imageForm.description || undefined,
       uploadedBy: 'You',
       uploadedAt: new Date().toISOString()
     }]);
-    setImageForm({ url: '', title: '' });
+    setImageForm({ url: '', title: '', description: '' });
     setShowImageUpload(false);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImageForm(prev => ({ ...prev, url: reader.result as string }));
+    };
+    reader.readAsDataURL(file);
   };
 
   const removeImage = (id: string) => {
@@ -3328,7 +3367,7 @@ function KnowledgeWidget({ data, onRefresh }: { data: KnowledgeShareInfo[]; onRe
                 {aiLoading ? '⏳' : '🔄'} Refresh
               </button>
             )}
-            {activeTab === 'gallery' && isAdmin && (
+            {activeTab === 'gallery' && (
               <button onClick={() => setShowImageUpload(!showImageUpload)}
                 className="text-[10px] px-2 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700">
                 {showImageUpload ? 'Cancel' : '+ Image'}
@@ -3468,14 +3507,27 @@ function KnowledgeWidget({ data, onRefresh }: { data: KnowledgeShareInfo[]; onRe
         {/* ── Gallery Tab ── */}
         {activeTab === 'gallery' && (
           <>
-            {isAdmin && showImageUpload && (
+            {showImageUpload && (
               <div className="mb-3 p-2 bg-gray-50 dark:bg-gray-700/50 rounded space-y-1.5">
-                <input placeholder="Image URL *" value={imageForm.url} onChange={e => setImageForm(p => ({ ...p, url: e.target.value }))}
-                  className="w-full text-[11px] border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white" />
+                <div className="flex gap-1.5">
+                  <button onClick={() => fileInputRef.current?.click()}
+                    className="text-[10px] px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-1 shrink-0">
+                    📁 Choose File
+                  </button>
+                  <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+                  <input placeholder="Or paste image URL" value={imageForm.url} onChange={e => setImageForm(p => ({ ...p, url: e.target.value }))}
+                    className="flex-1 text-[11px] border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white" />
+                </div>
+                {imageForm.url && imageForm.url.startsWith('data:') && (
+                  <p className="text-[9px] text-green-600 dark:text-green-400">✓ File selected</p>
+                )}
                 <div className="flex gap-1.5">
                   <input placeholder="Title *" value={imageForm.title} onChange={e => setImageForm(p => ({ ...p, title: e.target.value }))}
                     className="flex-1 text-[11px] border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white" />
-                  <button onClick={handleAddImage} className="text-[10px] px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700">Add</button>
+                  <input placeholder="Description" value={imageForm.description} onChange={e => setImageForm(p => ({ ...p, description: e.target.value }))}
+                    className="flex-1 text-[11px] border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white" />
+                  <button onClick={handleAddImage} disabled={!imageForm.url || !imageForm.title}
+                    className="text-[10px] px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50">Add</button>
                 </div>
               </div>
             )}
@@ -3485,7 +3537,7 @@ function KnowledgeWidget({ data, onRefresh }: { data: KnowledgeShareInfo[]; onRe
             ) : (
               <div className="space-y-2">
                 {/* Main Slider */}
-                <div className="relative rounded-lg overflow-hidden bg-gray-900 aspect-video">
+                <div className="relative rounded-lg overflow-hidden bg-gray-900 aspect-video cursor-pointer" onClick={() => setFullViewImage(images[currentSlide])}>
                   <img
                     src={images[currentSlide]?.url}
                     alt={images[currentSlide]?.title}
@@ -3495,8 +3547,11 @@ function KnowledgeWidget({ data, onRefresh }: { data: KnowledgeShareInfo[]; onRe
                   {/* Overlay Info */}
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
                     <h4 className="text-white text-sm font-medium">{images[currentSlide]?.title}</h4>
-                    <p className="text-gray-300 text-[10px]">
-                      by {images[currentSlide]?.uploadedBy} • {new Date(images[currentSlide]?.uploadedAt).toLocaleDateString()}
+                    {images[currentSlide]?.description && (
+                      <p className="text-gray-300 text-[10px] mt-0.5">{images[currentSlide].description}</p>
+                    )}
+                    <p className="text-gray-400 text-[9px] mt-0.5">
+                      by {images[currentSlide]?.uploadedBy} • {new Date(images[currentSlide]?.uploadedAt).toLocaleDateString()} • Click to expand
                     </p>
                   </div>
                   {/* Navigation Arrows */}
@@ -3573,6 +3628,33 @@ function KnowledgeWidget({ data, onRefresh }: { data: KnowledgeShareInfo[]; onRe
           </>
         )}
       </div>
+
+      {/* Full-View Image Modal */}
+      {fullViewImage && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={() => setFullViewImage(null)}>
+          <div className="relative max-w-4xl max-h-[90vh] w-full mx-4 flex flex-col" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setFullViewImage(null)}
+              className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-lg flex items-center justify-center text-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+              ✕
+            </button>
+            <img
+              src={fullViewImage.url}
+              alt={fullViewImage.title}
+              className="w-full max-h-[75vh] object-contain rounded-t-lg bg-gray-900"
+              onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/800x450?text=Image+Not+Found'; }}
+            />
+            <div className="bg-white dark:bg-gray-800 rounded-b-lg p-4">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">{fullViewImage.title}</h3>
+              {fullViewImage.description && (
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{fullViewImage.description}</p>
+              )}
+              <p className="text-xs text-gray-400 mt-2">
+                Shared by {fullViewImage.uploadedBy} • {new Date(fullViewImage.uploadedAt).toLocaleDateString()}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -273,11 +273,11 @@ export const UiConstants = {
 
 export const DashboardConstants = {
   /** Default number of days to show PRs */
-  PR_DAYS_BACK: 7,
+  PR_DAYS_BACK: 10,
   /** Default hours back for PR API calls (PR_DAYS_BACK * 24) */
-  PR_HOURS_BACK: 7 * 24,
+  PR_HOURS_BACK: 10 * 24,
   /** Default number of days for commit stats */
-  COMMIT_DAYS_BACK: 7,
+  COMMIT_DAYS_BACK: 10,
   /** Max PRs to display in recent activity widget */
   RECENT_PR_DISPLAY_COUNT: 25,
 } as const;

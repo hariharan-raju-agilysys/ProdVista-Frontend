@@ -135,6 +135,7 @@ export interface PRInfo {
   createdBy: string;
   createdByEmail?: string;
   creationDate: string;
+  closedDate?: string;
   sourceBranch: string;
   targetBranch: string;
   repositoryName: string;
@@ -158,11 +159,13 @@ export interface PRSummaryResponse {
   drafts: number;
   myCreatedCount?: number;
   toReviewCount?: number;
+  completedCount?: number;
   scope?: string;
   currentUserEmail?: string;
   notConfigured?: boolean;
   message?: string;
   prs: PRInfo[];
+  completedPrs?: PRInfo[];
 }
 
 export interface CommitInfo {
@@ -341,7 +344,7 @@ export const getPRSummary = (connectionId?: string, scope: 'all' | 'mine' = 'all
   return api.get<PRSummaryResponse>(`${BASE}/pr-summary${qs ? `?${qs}` : ''}`).then(r => r.data);
 };
 
-export const getCommitStats = (connectionId?: string, daysBack = 7, myCommitsOnly?: boolean) => {
+export const getCommitStats = (connectionId?: string, daysBack: number = DashboardConstants.COMMIT_DAYS_BACK, myCommitsOnly?: boolean) => {
   const p = new URLSearchParams();
   if (connectionId) p.append('connectionId', connectionId);
   p.append('daysBack', daysBack.toString());
