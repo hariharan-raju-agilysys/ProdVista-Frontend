@@ -389,13 +389,13 @@ export default function QualityCommandCenterPage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                  className={`flex items-center gap-2 px-5 py-2.5 text-base font-medium rounded-t-lg transition-colors ${
                     isActive
                       ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 border border-b-0 border-gray-200 dark:border-gray-700 shadow-sm -mb-px'
                       : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-800/50'
                   }`}
                 >
-                  <Icon size={14} />
+                  <Icon size={16} />
                   {tab.label}
                 </button>
               );
@@ -511,22 +511,22 @@ function OverviewTab({ kpi, kpiLoading, criticalBugs, staleCount, trend, trendLo
 
       {/* Critical Alert */}
       {criticalBugs.length > 0 && (
-        <div className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border border-red-200 dark:border-red-800 rounded-xl p-5 flex items-center gap-4">
-          <div className="flex-shrink-0 w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
-            <Flame size={24} className="text-white" />
+        <div className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6 flex items-center gap-4">
+          <div className="flex-shrink-0 w-14 h-14 bg-red-500 rounded-full flex items-center justify-center">
+            <Flame size={28} className="text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-base font-bold text-red-800 dark:text-red-200">
+            <h3 className="text-lg font-bold text-red-800 dark:text-red-200">
               {criticalBugs.length} Critical Bug{criticalBugs.length > 1 ? 's' : ''} Require Immediate Attention
             </h3>
-            <p className="text-sm text-red-600 dark:text-red-300 mt-1">
+            <p className="text-base text-red-600 dark:text-red-300 mt-1">
               Oldest: {Math.max(...criticalBugs.map(b => b.ageDays))} days open
               {' · '}Customer-reported: {criticalBugs.filter(b => b.customer).length}
               {' · '}Avg age: {Math.round(criticalBugs.reduce((s, b) => s + b.ageDays, 0) / criticalBugs.length)} days
             </p>
           </div>
-          <button onClick={onViewCritical} className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors flex items-center gap-1.5">
-            <Eye size={14} /> View All
+          <button onClick={onViewCritical} className="px-5 py-2.5 bg-red-600 text-white text-base font-medium rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2">
+            <Eye size={16} /> View All
           </button>
         </div>
       )}
@@ -564,21 +564,21 @@ function OverviewTab({ kpi, kpiLoading, criticalBugs, staleCount, trend, trendLo
           {isLeadership && (
             <Card title="Customer Issues" icon={Users} iconColor="text-blue-500" loading={customerLoading}>
               {customerIssues.length > 0 ? (
-                <div className="max-h-[280px] overflow-y-auto space-y-1">
+                <div className="max-h-[360px] overflow-y-auto space-y-1.5">
                   {customerIssues.slice(0, 8).map(ci => (
-                    <div key={ci.customerName} className="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
-                      <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center text-xs font-bold text-blue-700 dark:text-blue-300 flex-shrink-0">
+                    <div key={ci.customerName} className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
+                      <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center text-sm font-bold text-blue-700 dark:text-blue-300 flex-shrink-0">
                         {ci.customerName.slice(0, 2).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{ci.customerName}</div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-base font-medium text-gray-800 dark:text-gray-200 truncate">{ci.customerName}</div>
+                        <div className="text-sm text-gray-500">
                           {ci.activeIssues} active · {ci.criticalIssues > 0 ? <span className="text-red-600 font-medium">{ci.criticalIssues} critical</span> : <span>{ci.resolvedIssues} resolved</span>}
                         </div>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <div className="text-lg font-bold text-gray-800 dark:text-gray-200">{ci.totalIssues}</div>
-                        <div className="text-xs text-gray-400">{ci.avgResolutionDays.toFixed(0)}d avg</div>
+                        <div className="text-xl font-bold text-gray-800 dark:text-gray-200">{ci.totalIssues}</div>
+                        <div className="text-sm text-gray-400">{ci.avgResolutionDays.toFixed(0)}d avg</div>
                       </div>
                     </div>
                   ))}
@@ -590,17 +590,17 @@ function OverviewTab({ kpi, kpiLoading, criticalBugs, staleCount, trend, trendLo
           {/* Top Area Hotspots */}
           {kpi && kpi.topAreas && kpi.topAreas.length > 0 && (
             <Card title="Bug Hotspot Areas" icon={Shield} iconColor="text-pink-500">
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {kpi.topAreas.slice(0, 6).map((area, i) => (
-                  <div key={area.area} className="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
-                    <span className="text-sm font-bold text-gray-400 w-4">{i + 1}</span>
-                    <span className="text-sm text-gray-800 dark:text-gray-200 flex-1 truncate">{area.area}</span>
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                  <div key={area.area} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <span className="text-base font-bold text-gray-400 w-5">{i + 1}</span>
+                    <span className="text-base text-gray-800 dark:text-gray-200 flex-1 truncate">{area.area}</span>
+                    <div className="flex items-center gap-2.5 flex-shrink-0">
                       {area.critical > 0 && (
-                        <span className="text-xs bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 px-2 py-0.5 rounded font-medium">{area.critical}C</span>
+                        <span className="text-sm bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 px-2.5 py-0.5 rounded font-medium">{area.critical}C</span>
                       )}
-                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{area.total}</span>
-                      <span className={`text-xs ${area.avgAge > 14 ? 'text-red-500' : 'text-gray-400'}`}>{area.avgAge.toFixed(0)}d</span>
+                      <span className="text-base font-semibold text-gray-700 dark:text-gray-300">{area.total}</span>
+                      <span className={`text-sm ${area.avgAge > 14 ? 'text-red-500' : 'text-gray-400'}`}>{area.avgAge.toFixed(0)}d</span>
                     </div>
                   </div>
                 ))}
@@ -632,21 +632,21 @@ function TriageTab({ bugs, bugsLoading, bugView, setBugView, isLeadership, expan
         <div className="flex items-center gap-3">
           <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
             <button onClick={() => setBugView('priority')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${bugView === 'priority' ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 shadow-sm' : 'text-gray-500'}`}>
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${bugView === 'priority' ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 shadow-sm' : 'text-gray-500'}`}>
               {isLeadership ? 'All Bugs' : 'Priority'}
             </button>
             <button onClick={() => setBugView('mine')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${bugView === 'mine' ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 shadow-sm' : 'text-gray-500'}`}>
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${bugView === 'mine' ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 shadow-sm' : 'text-gray-500'}`}>
               My Bugs
             </button>
           </div>
-          <span className="text-sm text-gray-500 dark:text-gray-400">{bugs.length} items</span>
+          <span className="text-base text-gray-500 dark:text-gray-400">{bugs.length} items</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500">Group by:</span>
+          <span className="text-sm text-gray-500">Group by:</span>
           {(['severity', 'area', 'assignee'] as const).map(g => (
             <button key={g} onClick={() => setTriageGroupBy(g)}
-              className={`px-2.5 py-1 text-xs rounded-md transition-colors ${triageGroupBy === g ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${triageGroupBy === g ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
               {g.charAt(0).toUpperCase() + g.slice(1)}
             </button>
           ))}
@@ -659,10 +659,10 @@ function TriageTab({ bugs, bugsLoading, bugView, setBugView, isLeadership, expan
         <section key={groupName} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between bg-gray-50/50 dark:bg-gray-900/30">
             <div className="flex items-center gap-2">
-              <span className={`text-xs font-medium px-2 py-0.5 rounded ${triageGroupBy === 'severity' ? getSeverityColor(groupName) : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>
+              <span className={`text-sm font-medium px-2.5 py-1 rounded ${triageGroupBy === 'severity' ? getSeverityColor(groupName) : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>
                 {groupName}
               </span>
-              <span className="text-xs text-gray-500">{groupBugs.length} bug{groupBugs.length !== 1 ? 's' : ''}</span>
+              <span className="text-sm text-gray-500">{groupBugs.length} bug{groupBugs.length !== 1 ? 's' : ''}</span>
             </div>
           </div>
           <BugTable bugs={groupBugs} expandedBugId={expandedBugId} setExpandedBugId={setExpandedBugId} />
@@ -701,10 +701,10 @@ function MyWorkTab({ myBugs, bugsLoading, expandedBugId, setExpandedBugId, userN
       {/* Active Items */}
       <section className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
         <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
-          <Bug size={14} className="text-red-500" />
-          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{userName ? `${userName}'s` : 'My'} Active Bugs</h3>
-          <span className="text-xs bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-full px-2 py-0.5">{activeBugs.length}</span>
-          {bugsLoading && <Loader2 size={12} className="animate-spin text-gray-400 ml-auto" />}
+          <Bug size={16} className="text-red-500" />
+          <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200">{userName ? `${userName}'s` : 'My'} Active Bugs</h3>
+          <span className="text-sm bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-full px-2.5 py-0.5">{activeBugs.length}</span>
+          {bugsLoading && <Loader2 size={14} className="animate-spin text-gray-400 ml-auto" />}
         </div>
         {activeBugs.length > 0 ? (
           <BugTable bugs={activeBugs} expandedBugId={expandedBugId} setExpandedBugId={setExpandedBugId} />
@@ -719,9 +719,9 @@ function MyWorkTab({ myBugs, bugsLoading, expandedBugId, setExpandedBugId, userN
       {resolvedBugs.length > 0 && (
         <section className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
-            <Shield size={14} className="text-green-500" />
-            <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Recently Resolved</h3>
-            <span className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded-full px-2 py-0.5">{resolvedBugs.length}</span>
+            <Shield size={16} className="text-green-500" />
+            <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200">Recently Resolved</h3>
+            <span className="text-sm bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded-full px-2.5 py-0.5">{resolvedBugs.length}</span>
           </div>
           <BugTable bugs={resolvedBugs.slice(0, 10)} expandedBugId={expandedBugId} setExpandedBugId={setExpandedBugId} />
         </section>
@@ -772,20 +772,20 @@ function AnalyticsTab({ kpi, trend, trendLoading, aging, agingLoading, efficienc
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card title="Team Efficiency" icon={BarChart3} iconColor="text-emerald-500" loading={efficiencyLoading}>
           {efficiency.length > 0 ? (
-            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+            <div className="space-y-2 max-h-[360px] overflow-y-auto">
               {efficiency.map(e => (
-                <div key={e.ownerName} className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
-                  <div className="w-8 h-8 bg-emerald-100 dark:bg-emerald-900 rounded-full flex items-center justify-center text-xs font-bold text-emerald-700 dark:text-emerald-300 flex-shrink-0">
+                <div key={e.ownerName} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
+                  <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900 rounded-full flex items-center justify-center text-sm font-bold text-emerald-700 dark:text-emerald-300 flex-shrink-0">
                     {e.ownerName.slice(0, 1)}
                   </div>
-                  <span className="text-sm text-gray-800 dark:text-gray-200 flex-1 truncate">{e.ownerName.split(' <')[0]}</span>
-                  <div className="flex items-center gap-3 text-sm flex-shrink-0">
+                  <span className="text-base text-gray-800 dark:text-gray-200 flex-1 truncate">{e.ownerName.split(' <')[0]}</span>
+                  <div className="flex items-center gap-3 text-base flex-shrink-0">
                     <span className="text-gray-500">{e.resolved}/{e.totalAssigned}</span>
-                    <div className="w-16 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div className="w-20 h-2.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                       <div className={`h-full rounded-full ${e.efficiencyScore >= 70 ? 'bg-green-500' : e.efficiencyScore >= 40 ? 'bg-yellow-400' : 'bg-red-500'}`}
                         style={{ width: `${Math.min(100, e.efficiencyScore)}%` }} />
                     </div>
-                    <span className={`font-bold w-8 text-right ${e.efficiencyScore >= 70 ? 'text-green-600' : e.efficiencyScore >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
+                    <span className={`font-bold w-10 text-right ${e.efficiencyScore >= 70 ? 'text-green-600' : e.efficiencyScore >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
                       {e.efficiencyScore.toFixed(0)}%
                     </span>
                   </div>
@@ -796,17 +796,17 @@ function AnalyticsTab({ kpi, trend, trendLoading, aging, agingLoading, efficienc
         </Card>
         <Card title="Customer Impact" icon={Users} iconColor="text-blue-500" loading={customerLoading}>
           {customerIssues.length > 0 ? (
-            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+            <div className="space-y-2 max-h-[360px] overflow-y-auto">
               {customerIssues.slice(0, 10).map(ci => (
-                <div key={ci.customerName} className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
-                  <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center text-xs font-bold text-blue-700 dark:text-blue-300 flex-shrink-0">
+                <div key={ci.customerName} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
+                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center text-sm font-bold text-blue-700 dark:text-blue-300 flex-shrink-0">
                     {ci.customerName.slice(0, 2).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{ci.customerName}</div>
-                    <div className="text-xs text-gray-500">{ci.activeIssues} active · {ci.resolvedIssues} resolved</div>
+                    <div className="text-base font-medium text-gray-800 dark:text-gray-200 truncate">{ci.customerName}</div>
+                    <div className="text-sm text-gray-500">{ci.activeIssues} active · {ci.resolvedIssues} resolved</div>
                   </div>
-                  <div className="text-sm font-bold text-gray-800 dark:text-gray-200">{ci.totalIssues}</div>
+                  <div className="text-base font-bold text-gray-800 dark:text-gray-200">{ci.totalIssues}</div>
                 </div>
               ))}
             </div>
@@ -951,12 +951,12 @@ function Card({ title, icon: Icon, iconColor, loading, children }: {
 }) {
   return (
     <section className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
-      <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2.5">
-        <Icon size={18} className={iconColor} />
-        <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200">{title}</h3>
+      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2.5">
+        <Icon size={20} className={iconColor} />
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">{title}</h3>
         {loading && <Loader2 size={14} className="animate-spin text-gray-400 ml-auto" />}
       </div>
-      <div className="p-5">{children}</div>
+      <div className="p-6">{children}</div>
     </section>
   );
 }
@@ -965,18 +965,18 @@ function MiniStatCard({ label, value, icon: Icon, color, bg }: {
   label: string; value: string | number; icon: React.ElementType; color: string; bg: string;
 }) {
   return (
-    <div className={`${bg} rounded-xl p-5 border border-gray-100 dark:border-gray-700`}>
+    <div className={`${bg} rounded-xl p-6 border border-gray-100 dark:border-gray-700`}>
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{label}</span>
-        <Icon size={18} className={color} />
+        <span className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{label}</span>
+        <Icon size={20} className={color} />
       </div>
-      <div className="text-3xl font-bold text-gray-900 dark:text-white">{value}</div>
+      <div className="text-4xl font-bold text-gray-900 dark:text-white">{value}</div>
     </div>
   );
 }
 
 function EmptyState({ text }: { text: string }) {
-  return <div className="h-32 flex items-center justify-center text-xs text-gray-400">{text}</div>;
+  return <div className="h-40 flex items-center justify-center text-sm text-gray-400">{text}</div>;
 }
 
 // ============================================================================
@@ -1148,15 +1148,15 @@ function KpiStrip({ kpi, loading, criticalCount, staleCount }: { kpi: KpiSummary
   return (
     <div className={`grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 ${loading ? 'opacity-60' : ''}`}>
       {cards.map(c => (
-        <div key={c.label} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200/80 dark:border-gray-700 p-5 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5">
+        <div key={c.label} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200/80 dark:border-gray-700 p-6 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{c.label}</span>
-            <div className={`w-9 h-9 ${c.bg} rounded-lg flex items-center justify-center`}>
-              <c.icon size={18} className={c.color} />
+            <span className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{c.label}</span>
+            <div className={`w-10 h-10 ${c.bg} rounded-lg flex items-center justify-center`}>
+              <c.icon size={20} className={c.color} />
             </div>
           </div>
-          <div className="text-3xl font-bold text-gray-900 dark:text-white">{typeof c.value === 'number' ? c.value.toLocaleString() : String(c.value)}</div>
-          <div className="text-sm text-gray-400 mt-1.5">{c.sub}</div>
+          <div className="text-4xl font-bold text-gray-900 dark:text-white">{typeof c.value === 'number' ? c.value.toLocaleString() : String(c.value)}</div>
+          <div className="text-sm text-gray-400 mt-2">{c.sub}</div>
         </div>
       ))}
     </div>
@@ -1168,17 +1168,17 @@ function KpiStrip({ kpi, loading, criticalCount, staleCount }: { kpi: KpiSummary
 // ============================================================================
 function SeverityBreakdown({ kpi }: { kpi: KpiSummary }) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {Object.entries(kpi.bySeverity || {}).sort().map(([sev, count]) => {
         const total = Object.values(kpi.bySeverity).reduce((s, v) => s + v, 0);
         const pct = total > 0 ? (count / total) * 100 : 0;
         return (
           <div key={sev}>
-            <div className="flex items-center justify-between mb-1.5">
-              <span className={`text-sm font-medium px-2 py-0.5 rounded ${getSeverityColor(sev)}`}>{sev}</span>
-              <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{count}</span>
+            <div className="flex items-center justify-between mb-2">
+              <span className={`text-sm font-medium px-2.5 py-1 rounded ${getSeverityColor(sev)}`}>{sev}</span>
+              <span className="text-base font-bold text-gray-700 dark:text-gray-300">{count}</span>
             </div>
-            <div className="w-full h-2.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+            <div className="w-full h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all ${sev.includes('Critical') ? 'bg-red-500' : sev.includes('High') ? 'bg-orange-500' : sev.includes('Medium') ? 'bg-yellow-400' : 'bg-green-400'}`}
                 style={{ width: `${pct}%` }}
@@ -1195,8 +1195,8 @@ function SeverityBreakdown({ kpi }: { kpi: KpiSummary }) {
 // Charts
 // ============================================================================
 function MiniTrendChart({ data }: { data: QualityTrendPointDto[] }) {
-  const h = 180, w = 500;
-  const padL = 36, padR = 10, padT = 10, padB = 28;
+  const h = 300, w = 700;
+  const padL = 48, padR = 16, padT = 16, padB = 40;
   const chartW = w - padL - padR;
   const chartH = h - padT - padB;
   const maxVal = Math.max(...data.map(d => Math.max(d.opened, d.closed, d.cumulativeActive)), 1);
@@ -1211,46 +1211,46 @@ function MiniTrendChart({ data }: { data: QualityTrendPointDto[] }) {
   };
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-48">
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-72">
       {[0, 0.25, 0.5, 0.75, 1].map(f => {
         const y = padT + chartH * (1 - f);
         return <line key={f} x1={padL} x2={w - padR} y1={y} y2={y} stroke="#f0f0f0" strokeWidth={1} />;
       })}
-      <path d={buildPath(d => d.cumulativeActive)} fill="none" stroke="#a78bfa" strokeWidth={2.5} opacity={0.5} />
-      <path d={buildPath(d => d.opened)} fill="none" stroke="#ef4444" strokeWidth={2} />
-      <path d={buildPath(d => d.closed)} fill="none" stroke="#22c55e" strokeWidth={2} />
-      <text x={padL - 4} y={padT + 6} fill="#9ca3af" fontSize={10} textAnchor="end">{maxVal}</text>
-      <text x={padL - 4} y={padT + chartH + 4} fill="#9ca3af" fontSize={10} textAnchor="end">0</text>
-      <circle cx={padL + 10} cy={h - 6} r={4} fill="#ef4444" />
-      <text x={padL + 18} y={h - 2} fill="#6b7280" fontSize={10}>Opened</text>
-      <circle cx={padL + 75} cy={h - 6} r={4} fill="#22c55e" />
-      <text x={padL + 83} y={h - 2} fill="#6b7280" fontSize={10}>Closed</text>
-      <circle cx={padL + 135} cy={h - 6} r={4} fill="#a78bfa" />
-      <text x={padL + 143} y={h - 2} fill="#6b7280" fontSize={10}>Active</text>
+      <path d={buildPath(d => d.cumulativeActive)} fill="none" stroke="#a78bfa" strokeWidth={3} opacity={0.5} />
+      <path d={buildPath(d => d.opened)} fill="none" stroke="#ef4444" strokeWidth={2.5} />
+      <path d={buildPath(d => d.closed)} fill="none" stroke="#22c55e" strokeWidth={2.5} />
+      <text x={padL - 6} y={padT + 8} fill="#9ca3af" fontSize={13} textAnchor="end">{maxVal}</text>
+      <text x={padL - 6} y={padT + chartH + 6} fill="#9ca3af" fontSize={13} textAnchor="end">0</text>
+      <circle cx={padL + 14} cy={h - 10} r={5} fill="#ef4444" />
+      <text x={padL + 24} y={h - 5} fill="#6b7280" fontSize={13}>Opened</text>
+      <circle cx={padL + 100} cy={h - 10} r={5} fill="#22c55e" />
+      <text x={padL + 110} y={h - 5} fill="#6b7280" fontSize={13}>Closed</text>
+      <circle cx={padL + 180} cy={h - 10} r={5} fill="#a78bfa" />
+      <text x={padL + 190} y={h - 5} fill="#6b7280" fontSize={13}>Active</text>
     </svg>
   );
 }
 
 function AgingBarChart({ data }: { data: BugAgingDistributionDto[] }) {
-  const h = 180, w = 500;
-  const padL = 10, padR = 10, padT = 10, padB = 36;
+  const h = 300, w = 700;
+  const padL = 16, padR = 16, padT = 16, padB = 50;
   const chartH = h - padT - padB;
   const maxCount = Math.max(...data.map(d => d.count), 1);
-  const barW = Math.min(50, (w - padL - padR) / data.length - 10);
+  const barW = Math.min(65, (w - padL - padR) / data.length - 14);
   const colors = ['#22c55e', '#86efac', '#fbbf24', '#f97316', '#ef4444', '#dc2626'];
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-48">
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-72">
       {data.map((d, i) => {
         const barH = (d.count / maxCount) * chartH;
         const x = padL + i * ((w - padL - padR) / data.length) + ((w - padL - padR) / data.length - barW) / 2;
         const y = padT + chartH - barH;
         return (
           <g key={d.range}>
-            <rect x={x} y={y} width={barW} height={barH} fill={colors[i % colors.length]} rx={4} />
-            <text x={x + barW / 2} y={y - 6} fill="#374151" fontSize={11} textAnchor="middle" fontWeight="bold">{d.count}</text>
-            <text x={x + barW / 2} y={h - padB + 14} fill="#6b7280" fontSize={10} textAnchor="middle">{d.range}</text>
-            <text x={x + barW / 2} y={h - padB + 28} fill="#9ca3af" fontSize={9} textAnchor="middle">{d.percentage.toFixed(0)}%</text>
+            <rect x={x} y={y} width={barW} height={barH} fill={colors[i % colors.length]} rx={5} />
+            <text x={x + barW / 2} y={y - 8} fill="#374151" fontSize={14} textAnchor="middle" fontWeight="bold">{d.count}</text>
+            <text x={x + barW / 2} y={h - padB + 18} fill="#6b7280" fontSize={13} textAnchor="middle">{d.range}</text>
+            <text x={x + barW / 2} y={h - padB + 36} fill="#9ca3af" fontSize={12} textAnchor="middle">{d.percentage.toFixed(0)}%</text>
           </g>
         );
       })}
@@ -1269,29 +1269,29 @@ function QualityHealthScore({ kpi, criticalCount, staleCount }: { kpi: KpiSummar
   const color = score >= 80 ? 'text-green-500' : score >= 50 ? 'text-yellow-500' : 'text-red-500';
   const label = score >= 80 ? 'Healthy' : score >= 50 ? 'Needs Attention' : 'Critical';
   const ringColor = score >= 80 ? '#22c55e' : score >= 50 ? '#eab308' : '#ef4444';
-  const circumference = 2 * Math.PI * 45;
+  const circumference = 2 * Math.PI * 60;
   const offset = circumference * (1 - score / 100);
 
   return (
-    <div className="flex items-center gap-8">
+    <div className="flex items-center gap-10">
       <div className="relative">
-        <svg width={120} height={120} viewBox="0 0 120 120">
-          <circle cx={60} cy={60} r={45} fill="none" stroke="#e5e7eb" strokeWidth={8} />
-          <circle cx={60} cy={60} r={45} fill="none" stroke={ringColor} strokeWidth={8}
+        <svg width={160} height={160} viewBox="0 0 160 160">
+          <circle cx={80} cy={80} r={60} fill="none" stroke="#e5e7eb" strokeWidth={10} />
+          <circle cx={80} cy={80} r={60} fill="none" stroke={ringColor} strokeWidth={10}
             strokeDasharray={circumference} strokeDashoffset={offset}
-            strokeLinecap="round" transform="rotate(-90 60 60)" className="transition-all duration-700" />
+            strokeLinecap="round" transform="rotate(-90 80 80)" className="transition-all duration-700" />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className={`text-3xl font-bold ${color}`}>{score}</span>
-          <span className="text-xs text-gray-400">/ 100</span>
+          <span className={`text-4xl font-bold ${color}`}>{score}</span>
+          <span className="text-sm text-gray-400">/ 100</span>
         </div>
       </div>
-      <div className="space-y-2">
-        <div className={`text-xl font-bold ${color}`}>{label}</div>
-        <div className="text-sm text-gray-500 dark:text-gray-400 space-y-1">
+      <div className="space-y-3">
+        <div className={`text-2xl font-bold ${color}`}>{label}</div>
+        <div className="text-base text-gray-500 dark:text-gray-400 space-y-1.5">
           <div>Critical bugs: <span className="font-medium text-gray-700 dark:text-gray-300">-{criticalCount * 15}pts</span></div>
           <div>Stale items: <span className="font-medium text-gray-700 dark:text-gray-300">-{staleCount * 3}pts</span></div>
-          <div className="text-xs text-gray-400 mt-1">Based on critical bugs, staleness, and resolution rate</div>
+          <div className="text-sm text-gray-400 mt-2">Based on critical bugs, staleness, and resolution rate</div>
         </div>
       </div>
     </div>
