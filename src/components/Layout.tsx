@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useState, useRef, useEffect, useCallback, Suspense } from 'react'
 import { 
   LayoutDashboard, 
@@ -50,6 +50,10 @@ import {
   TrendingUp,
   BookOpen,
   Trophy,
+  MessageSquare,
+  Share2,
+  Lightbulb,
+  Radio,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../context/AuthContext'
@@ -61,6 +65,15 @@ import CommandPalette from './CommandPalette'
 import FloatingAIButton from './FloatingAIButton'
 import PersistentChatWidget from './PersistentChatWidget'
 import { getTodayNotifications, markAsRead, markAllAsRead, dismissNotification, getUnreadCount, type UserNotification } from '../services/notificationService'
+
+// ── Team Updates data (extend with API calls to getKnowledgeShares later)
+const TEAM_UPDATES = [
+  { id: 1, type: 'knowledge', icon: <Lightbulb className="w-4 h-4 text-amber-500" />, title: 'Shift4 ZIP code race condition fix', author: 'Hariharan', time: '1h ago', body: 'Always include ZIP for external gift card methods. See PaymentBusinessLogicHandler line 1372.' },
+  { id: 2, type: 'share', icon: <Share2 className="w-4 h-4 text-blue-500" />, title: 'New API pattern: Refit async variants', author: 'Deepika', time: '3h ago', body: 'Use *ServiceAsync variants everywhere. Never mix sync/async patterns in the payment flow.' },
+  { id: 3, type: 'update', icon: <Radio className="w-4 h-4 text-green-500" />, title: 'Release 26.2.0.92 deployed to AKS', author: 'Pipeline', time: '4h ago', body: 'Tools-Activities-API-CICD build #92 deployed successfully to agys-v1 namespace.' },
+  { id: 4, type: 'knowledge', icon: <Lightbulb className="w-4 h-4 text-amber-500" />, title: 'EF Core global query filter tip', author: 'Ravi', time: '6h ago', body: 'All TenantAwareEntity queries are auto-filtered. No need to add .Where(e => e.TenantId == id).' },
+  { id: 5, type: 'share', icon: <Share2 className="w-4 h-4 text-blue-500" />, title: 'PR Review: Folio payment null ref fix', author: 'Srinidhi', time: 'Yesterday', body: 'Added null guard on response.Result.Items before .First(). PR #344 — please review.' },
+]
 
 // Icon mapping for dynamic icons
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -78,8 +91,10 @@ export default function Layout() {
   const { menuItems, loadNavigation } = useMenuStore()
   const { features, loadFeatures } = useFeatureStore()
   const navigate = useNavigate()
+  const location = useLocation()
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
+  const [showTeamUpdates, setShowTeamUpdates] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['releases', 'quality', 'engineering', 'customers']))
@@ -93,34 +108,39 @@ export default function Layout() {
     })
   }
 
-  // Reusable nav link renderer
+  // ── Enterprise light nav item
   const navItem = (to: string, icon: React.ReactNode, label: string, badge?: string) => (
     <NavLink
       key={to}
       to={to}
+      end={to === '/'}
       onClick={() => setSidebarOpen(false)}
       className={({ isActive }) =>
         clsx(
-          'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors group',
+          'flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-all group',
           isActive
-            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-900/40'
-            : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+            ? 'bg-blue-50 text-blue-700 font-semibold border-l-2 border-blue-600'
+            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-l-2 border-transparent'
         )
       }
     >
       <span className="flex-shrink-0">{icon}</span>
       <span className="flex-1 truncate">{label}</span>
-      {badge && <span className="text-[10px] bg-indigo-500/30 text-indigo-300 px-1.5 py-0.5 rounded font-semibold shrink-0">{badge}</span>}
+      {badge && (
+        <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold shrink-0 uppercase tracking-wide">
+          {badge}
+        </span>
+      )}
     </NavLink>
   )
 
-  // Collapsible nav group header
+  // ── Enterprise light nav group header
   const navGroup = (key: string, label: string, icon: React.ReactNode) => (
     <button
       onClick={() => toggleGroup(key)}
-      className="w-full flex items-center gap-1.5 px-2 py-1.5 mt-1 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-slate-400 transition-colors"
+      className="w-full flex items-center gap-1.5 px-2 py-1.5 mt-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest hover:text-gray-600 transition-colors"
     >
-      <span className="text-slate-600">{icon}</span>
+      <span className="text-gray-400">{icon}</span>
       <span className="flex-1 text-left">{label}</span>
       <ChevronRight className={clsx('w-3 h-3 transition-transform duration-200', expandedGroups.has(key) && 'rotate-90')} />
     </button>
@@ -139,6 +159,7 @@ export default function Layout() {
 
   const profileRef = useRef<HTMLDivElement>(null)
   const notifRef = useRef<HTMLDivElement>(null)
+  const teamUpdatesRef = useRef<HTMLDivElement>(null)
 
   // Load navigation from API on mount
   useEffect(() => {
@@ -172,12 +193,9 @@ export default function Layout() {
   // Close dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
-        setShowProfileMenu(false)
-      }
-      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
-        setShowNotifications(false)
-      }
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) setShowProfileMenu(false)
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) setShowNotifications(false)
+      if (teamUpdatesRef.current && !teamUpdatesRef.current.contains(event.target as Node)) setShowTeamUpdates(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
@@ -245,7 +263,7 @@ export default function Layout() {
   })
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div 
@@ -256,34 +274,34 @@ export default function Layout() {
 
       {/* Sidebar */}
       <aside className={clsx(
-        "fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white flex flex-col",
+        "fixed inset-y-0 left-0 z-50 w-60 bg-white border-r border-gray-200 flex flex-col shadow-sm",
         "transition-transform duration-300 ease-out will-change-transform",
         "lg:translate-x-0",
         sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       )}>
-        <div className="flex items-center h-16 px-4 border-b border-slate-800 shrink-0">
-          <img src={`${import.meta.env.VITE_BASE_PATH || ''}/logo.svg`} alt="ProdVista" className="w-10 h-10 mr-3" />
+        <div className="flex items-center h-14 px-4 border-b border-gray-200 shrink-0 gap-3">
+          <img src={`${import.meta.env.VITE_BASE_PATH || ''}/logo.svg`} alt="ProdVista" className="w-8 h-8" />
           <div>
-            <h1 className="text-lg font-bold">
-              <span className="text-purple-400">Prod</span><span className="text-blue-400">Vista</span>
+            <h1 className="text-sm font-bold text-gray-900">
+              <span className="text-blue-600">Prod</span><span className="text-indigo-600">Vista</span>
             </h1>
-            <p className="text-[10px] text-slate-400 -mt-0.5">Engineering Command Center</p>
+            <p className="text-[10px] text-gray-400 -mt-0.5 leading-tight">Engineering Command Center</p>
           </div>
         </div>
         
         {/* Role Badge */}
         {isManager && (
-          <div className="mx-3 mt-3 px-3 py-1.5 bg-purple-500/20 rounded-lg flex items-center gap-2 shrink-0">
-            <Shield className="w-4 h-4 text-purple-400" />
-            <span className="text-xs font-medium text-purple-300">Manager Access</span>
+          <div className="mx-3 mt-2 px-3 py-1.5 bg-blue-50 rounded-lg flex items-center gap-2 shrink-0">
+            <Shield className="w-3.5 h-3.5 text-blue-600" />
+            <span className="text-xs font-semibold text-blue-700">Manager Access</span>
           </div>
         )}
 
         {/* Guest/Organization Badge */}
         {isGuest && orgInfo && (
-          <div className="mx-3 mt-3 px-3 py-1.5 bg-blue-500/20 rounded-lg flex items-center gap-2 shrink-0">
-            <Building2 className="w-4 h-4 text-blue-400" />
-            <span className="text-xs font-medium text-blue-300 truncate">{orgInfo.name}</span>
+          <div className="mx-3 mt-2 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg flex items-center gap-2 shrink-0">
+            <Building2 className="w-3.5 h-3.5 text-gray-500" />
+            <span className="text-xs font-medium text-gray-600 truncate">{orgInfo.name}</span>
           </div>
         )}
         
@@ -292,16 +310,16 @@ export default function Layout() {
         <div className="mx-3 mt-3 shrink-0">
           <button
             onClick={openCommandPalette}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg bg-slate-800/80 border border-slate-700 text-slate-400 hover:text-slate-300 hover:bg-slate-800 hover:border-slate-600 transition-all text-sm"
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md bg-gray-50 border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-all text-sm"
           >
-            <Search className="w-4 h-4" />
+            <Search className="w-3.5 h-3.5" />
             <span className="flex-1 text-left text-xs">Search...</span>
-            <kbd className="px-1.5 py-0.5 text-[10px] bg-slate-700 text-slate-400 rounded font-mono">Ctrl+K</kbd>
+            <kbd className="px-1.5 py-0.5 text-[10px] bg-white border border-gray-200 text-gray-400 rounded font-mono">Ctrl+K</kbd>
           </button>
         </div>
 
         {/* Scrollable nav section */}
-        <nav className="mt-2 px-2 flex-1 overflow-y-auto min-h-0 pb-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent hover:scrollbar-thumb-slate-600">
+        <nav className="mt-2 px-2 flex-1 overflow-y-auto min-h-0 pb-2 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent hover:scrollbar-thumb-gray-300">
 
           {/* Home */}
           {navItem('/', <Rocket className="w-4 h-4" />, 'Home')}
@@ -408,146 +426,170 @@ export default function Layout() {
 
         </nav>
 
-        {/* Bottom Actions - properly sized with flex */}
-        <div className="shrink-0 px-3 py-2 space-y-1 border-t border-slate-800 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-          
-          {/* Overview — prominent standalone link */}
-          <NavLink
-            to="/"
-            onClick={() => setSidebarOpen(false)}
-            className={({ isActive }) =>
-              clsx(
-                'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-1',
-                isActive
-                  ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg shadow-indigo-500/20'
-                  : 'text-indigo-300 hover:text-indigo-200 hover:bg-slate-800 border border-slate-700'
-              )
-            }
-          >
-            <Rocket className="w-4 h-4" />
-            Overview
-            <span className="ml-auto text-[8px] font-bold uppercase tracking-wider opacity-70">Hub</span>
-          </NavLink>
-
-          {/* AI Assistant — quick access if enabled */}
-          {features.enableAI && (
-            <NavLink
-              to="/ai-chat"
-              onClick={() => setSidebarOpen(false)}
-              className={({ isActive }) =>
-                clsx(
-                  'w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm transition-colors',
-                  isActive
-                    ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-500/20'
-                    : 'text-violet-300 hover:text-violet-200 hover:bg-slate-800'
-                )
-              }
-            >
-              <Bot className="w-4 h-4" />
-              AI Assistant
-              <kbd className="ml-auto px-1.5 py-0.5 text-[9px] bg-slate-700 text-slate-400 rounded font-mono">Ctrl+Shift+A</kbd>
-            </NavLink>
-          )}
-
-          {/* Tools Hub — single entry point for all tools */}
-          <NavLink
-            to="/tools"
-            onClick={() => setSidebarOpen(false)}
-            className={({ isActive }) =>
-              clsx(
-                'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-lg shadow-cyan-500/20'
-                  : 'text-cyan-300 hover:text-cyan-200 hover:bg-slate-800 border border-slate-700'
-              )
-            }
-          >
-            <Zap className="w-4 h-4" />
-            Tools
-            <span className="ml-auto text-[8px] font-bold uppercase tracking-wider opacity-70">All</span>
-          </NavLink>
-
-          {/* Separator */}
-          <div className="border-t border-slate-800 my-1" />
-          
-          {/* For guests, show login button */}
+        {/* Bottom Actions — clean, minimal */}
+        <div className="shrink-0 px-2 py-2 space-y-0.5 border-t border-gray-100">
           {isGuest && (
             <button
               onClick={() => navigate('/login')}
-              className="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-blue-400 hover:text-blue-300 hover:bg-slate-800 rounded-lg transition-colors"
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
             >
               <LogIn className="w-4 h-4" />
               Manager Login
             </button>
           )}
-          
-          {/* Switch Organization button */}
           <button
             onClick={() => { exitOrg(); navigate('/org') }}
-            className="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-colors"
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
           >
-            <Building2 className="w-4 h-4" />
+            <Building2 className="w-4 h-4 text-gray-400" />
             Switch Organization
           </button>
-          
-          {/* For authenticated users, show logout */}
           {isAuthenticated && (
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-red-400 hover:text-red-300 hover:bg-slate-800 rounded-lg transition-colors"
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors"
             >
               <LogOut className="w-4 h-4" />
-              Logout
+              Sign Out
             </button>
           )}
         </div>
       </aside>
 
       {/* Main content */}
-      <div className="lg:pl-64 min-h-screen flex flex-col">
+      <div className="lg:pl-60 min-h-screen flex flex-col">
         {/* Header */}
-        <header className="sticky top-0 z-10 flex items-center justify-between h-16 px-4 sm:px-6 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <header className="sticky top-0 z-10 flex items-center justify-between h-14 px-4 sm:px-6 bg-white border-b border-gray-200 shadow-sm">
           <div className="flex items-center gap-3">
             {/* Mobile menu button */}
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 -ml-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+              className="lg:hidden p-1.5 -ml-1 text-gray-500 hover:text-gray-700 rounded-md hover:bg-gray-100"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-white truncate">
-              {orgInfo?.name || 'ProdVista'}
-            </h2>
+            <div>
+              <h2 className="text-sm font-semibold text-gray-800 truncate leading-tight">
+                {location.pathname === '/' ? 'Developer Home' :
+                 location.pathname.startsWith('/quality') ? 'Bug Command Center' :
+                 location.pathname.startsWith('/engineering') ? 'Engineering' :
+                 location.pathname.startsWith('/releases') ? 'Releases' :
+                 location.pathname.startsWith('/customers') ? 'Customers' :
+                 location.pathname.startsWith('/azure') ? 'Azure Cloud' :
+                 location.pathname.startsWith('/ai-chat') ? 'AI Chat' :
+                 location.pathname.startsWith('/ai-query') ? 'Smart Query' :
+                 location.pathname.startsWith('/tools') ? 'Tools Hub' :
+                 location.pathname.startsWith('/settings') ? 'Settings' :
+                 location.pathname.startsWith('/users') ? 'User Management' :
+                 location.pathname.startsWith('/pull-requests') ? 'Pull Requests' :
+                 location.pathname.startsWith('/jenkins') ? 'Jenkins CI/CD' :
+                 location.pathname.startsWith('/observability') ? 'Observability' :
+                 location.pathname.startsWith('/release-notes') ? 'Release Notes' :
+                 location.pathname.startsWith('/knowledge-center') ? 'Knowledge Center' :
+                 location.pathname.startsWith('/career-milestones') ? 'Career Milestones' :
+                 location.pathname.startsWith('/upcoming-go-lives') ? 'Upcoming Go-Lives' :
+                 location.pathname.startsWith('/bug-analytics') ? 'Bug Analytics' :
+                 location.pathname.startsWith('/devops') ? 'DevOps Overview' :
+                 (orgInfo?.name || 'ProdVista')}
+              </h2>
+              {orgInfo?.name && (
+                <p className="text-[10px] text-gray-400 leading-tight">{orgInfo.name}</p>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {/* Quick Search Button in Header */}
             <button
               onClick={openCommandPalette}
-              className="hidden sm:flex items-center gap-2 px-3 py-1.5 text-sm text-gray-400 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              className="hidden sm:flex items-center gap-2 px-2.5 py-1.5 text-sm text-gray-400 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100 hover:text-gray-600 transition-colors"
             >
-              <Search className="w-4 h-4" />
-              <span className="text-xs">Search...</span>
-              <kbd className="px-1.5 py-0.5 text-[10px] bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded text-gray-400 font-mono">Ctrl+K</kbd>
+              <Search className="w-3.5 h-3.5" />
+              <span className="text-xs text-gray-400">Search...</span>
+              <kbd className="px-1 py-0.5 text-[10px] bg-white border border-gray-200 rounded text-gray-400 font-mono">Ctrl+K</kbd>
             </button>
             {/* Show Login button for guests */}
             {isGuest && (
               <button
                 onClick={() => navigate('/login')}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-xs font-semibold"
               >
-                <LogIn className="w-4 h-4" />
-                Manager Login
+                <LogIn className="w-3.5 h-3.5" />
+                Login
               </button>
             )}
             
             {isAuthenticated && <AzureStatusIndicator />}
 
+            {/* Team Updates button — knowledge shares + group chat */}
+            {isAuthenticated && (
+              <div className="relative" ref={teamUpdatesRef}>
+                <button
+                  onClick={() => { setShowTeamUpdates(!showTeamUpdates); setShowNotifications(false); setShowProfileMenu(false) }}
+                  className={clsx(
+                    'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors border',
+                    showTeamUpdates
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-100'
+                  )}
+                  title="Team Updates"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span className="hidden sm:inline">Team Updates</span>
+                  <span className="w-4 h-4 flex items-center justify-center bg-blue-600 text-white text-[9px] font-bold rounded-full ml-0.5">5</span>
+                </button>
+                {showTeamUpdates && (
+                  <div className="absolute right-0 mt-2 w-96 bg-white rounded-xl shadow-xl border border-gray-100 z-50 max-h-[520px] flex flex-col">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-900">Team Updates</h3>
+                        <p className="text-[11px] text-gray-400">Latest knowledge & team activity</p>
+                      </div>
+                      <button onClick={() => setShowTeamUpdates(false)} className="text-gray-400 hover:text-gray-600">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="overflow-y-auto flex-1 divide-y divide-gray-50">
+                      {TEAM_UPDATES.map(update => (
+                        <div key={update.id} className="px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer">
+                          <div className="flex items-start gap-2.5">
+                            <div className="mt-0.5 shrink-0">{update.icon}</div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-sm font-medium text-gray-900 truncate">{update.title}</p>
+                                <span className="text-[11px] text-gray-400 whitespace-nowrap">{update.time}</span>
+                              </div>
+                              <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{update.body}</p>
+                              <p className="text-[11px] text-gray-400 mt-1">by {update.author}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="px-4 py-2.5 border-t border-gray-100 flex items-center justify-between bg-gray-50 rounded-b-xl">
+                      <button
+                        onClick={() => { setShowTeamUpdates(false); navigate('/knowledge-center') }}
+                        className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                      >
+                        Knowledge Center →
+                      </button>
+                      <button
+                        onClick={() => { setShowTeamUpdates(false); navigate('/ai-chat') }}
+                        className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                      >
+                        Open AI Chat →
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Notifications Dropdown - only show for authenticated users */}
             {isAuthenticated && (
             <div className="relative" ref={notifRef}>
               <button 
-                onClick={() => { setShowNotifications(!showNotifications); setShowProfileMenu(false) }}
-                className="relative p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+                onClick={() => { setShowNotifications(!showNotifications); setShowProfileMenu(false); setShowTeamUpdates(false) }}
+                className="relative p-2 text-gray-500 hover:text-gray-700 rounded-md hover:bg-gray-100"
               >
                 <Bell className="w-5 h-5" />
                 {unreadCount > 0 && (
@@ -557,9 +599,9 @@ export default function Layout() {
                 )}
               </button>
               {showNotifications && (
-                <div className="absolute right-0 mt-2 w-96 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 max-h-[480px] flex flex-col">
-                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 dark:border-gray-700">
-                    <h3 className="text-sm font-semibold text-gray-800 dark:text-white">Today's Notifications</h3>
+                <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-[480px] flex flex-col">
+                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
+                    <h3 className="text-sm font-semibold text-gray-800">Today's Notifications</h3>
                     <div className="flex items-center gap-2">
                       {notifications.some(n => !n.isRead) && (
                         <button onClick={handleMarkAllRead} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
@@ -635,22 +677,12 @@ export default function Layout() {
             </div>
             )}
 
-            {/* Settings - only for authenticated users */}
-            {isAuthenticated && (
-            <button 
-              onClick={() => navigate('/settings')}
-              className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              <Settings className="w-5 h-5" />
-            </button>
-            )}
-
             {/* Profile Dropdown - only for authenticated users */}
             {isAuthenticated && (
             <div className="relative" ref={profileRef}>
               <button
-                onClick={() => { setShowProfileMenu(!showProfileMenu); setShowNotifications(false) }}
-                className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 border border-transparent hover:border-gray-200 dark:hover:border-gray-600"
+                onClick={() => { setShowProfileMenu(!showProfileMenu); setShowNotifications(false); setShowTeamUpdates(false) }}
+                className="flex items-center gap-3 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-all duration-200"
               >
                 <div className="relative">
                   <img
@@ -668,7 +700,7 @@ export default function Layout() {
                   <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
                 </div>
                 <div className="hidden sm:block text-left">
-                  <p className="text-sm font-semibold text-gray-800 dark:text-white leading-tight">
+                  <p className="text-sm font-semibold text-gray-800 leading-tight">
                     {user?.displayName || 'User'}
                   </p>
                   <p className="text-xs text-gray-500 leading-tight flex items-center gap-1">
@@ -683,7 +715,7 @@ export default function Layout() {
               </button>
 
               {showProfileMenu && (
-                <div className="absolute right-0 mt-3 w-80 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                   {/* Profile Header with Gradient */}
                   <div className="relative px-5 pt-5 pb-4 bg-gradient-to-br from-primary-500 via-primary-600 to-purple-600">
                     <div className="absolute inset-0 bg-black/10"></div>
@@ -728,36 +760,35 @@ export default function Layout() {
                   </div>
 
                   {/* Quick Stats */}
-                  <div className="grid grid-cols-3 gap-0.5 p-1 bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-3 text-center">
-                      <div className="text-lg font-bold text-primary-600">12</div>
-                      <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">Dashboards</div>
+                  <div className="grid grid-cols-3 gap-0.5 p-1 bg-gray-50 border-b border-gray-100">
+                    <div className="bg-white rounded-xl p-3 text-center">
+                      <div className="text-lg font-bold text-blue-600">12</div>
+                      <div className="text-[10px] text-gray-500 uppercase tracking-wide">Dashboards</div>
                     </div>
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-3 text-center">
+                    <div className="bg-white rounded-xl p-3 text-center">
                       <div className="text-lg font-bold text-green-600">98%</div>
-                      <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">Uptime</div>
+                      <div className="text-[10px] text-gray-500 uppercase tracking-wide">Uptime</div>
                     </div>
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-3 text-center">
+                    <div className="bg-white rounded-xl p-3 text-center">
                       <div className="text-lg font-bold text-purple-600">24</div>
-                      <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">Widgets</div>
+                      <div className="text-[10px] text-gray-500 uppercase tracking-wide">Widgets</div>
                     </div>
                   </div>
 
-                  {/* Recent Activity */}
-                  <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-700">
-                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-2">
+                  <div className="px-3 py-2 border-b border-gray-100">
+                    <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
                       <Activity className="w-3 h-3" />
                       <span className="font-medium uppercase tracking-wide">Recent Activity</span>
                     </div>
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-700 text-xs">
+                      <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-gray-50 text-xs">
                         <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                        <span className="flex-1 text-gray-600 dark:text-gray-300">Logged in from Windows</span>
+                        <span className="flex-1 text-gray-600">Logged in from Windows</span>
                         <span className="text-gray-400">Just now</span>
                       </div>
-                      <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-xs transition-colors">
+                      <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-50 text-xs transition-colors">
                         <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-                        <span className="flex-1 text-gray-600 dark:text-gray-300">Updated dashboard widgets</span>
+                        <span className="flex-1 text-gray-600">Updated dashboard widgets</span>
                         <span className="text-gray-400">2h ago</span>
                       </div>
                     </div>
@@ -767,10 +798,10 @@ export default function Layout() {
                   <div className="p-2">
                     <button
                       onClick={() => { setShowProfileMenu(false); navigate('/settings') }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors group"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors group"
                     >
-                      <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center group-hover:bg-blue-100 dark:group-hover:bg-blue-900/50 transition-colors">
-                        <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                        <User className="w-4 h-4 text-blue-600" />
                       </div>
                       <div className="flex-1 text-left">
                         <div className="font-medium">My Profile</div>
@@ -781,10 +812,10 @@ export default function Layout() {
                     
                     <button
                       onClick={() => { setShowProfileMenu(false); navigate('/settings') }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors group"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors group"
                     >
-                      <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center group-hover:bg-purple-100 dark:group-hover:bg-purple-900/50 transition-colors">
-                        <Settings className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                      <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center group-hover:bg-purple-100 transition-colors">
+                        <Settings className="w-4 h-4 text-purple-600" />
                       </div>
                       <div className="flex-1 text-left">
                         <div className="font-medium">Settings</div>
@@ -796,10 +827,10 @@ export default function Layout() {
                     {isManager && (
                       <button
                         onClick={() => { setShowProfileMenu(false); navigate('/dashboard') }}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors group"
+                        className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors group"
                       >
-                        <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center group-hover:bg-amber-100 dark:group-hover:bg-amber-900/50 transition-colors">
-                          <PanelTop className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                        <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center group-hover:bg-amber-100 transition-colors">
+                          <PanelTop className="w-4 h-4 text-amber-600" />
                         </div>
                         <div className="flex-1 text-left">
                           <div className="font-medium flex items-center gap-2">
@@ -812,23 +843,23 @@ export default function Layout() {
                     )}
 
                     <button
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors group"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors group"
                     >
-                      <div className="w-8 h-8 rounded-lg bg-green-50 dark:bg-green-900/30 flex items-center justify-center group-hover:bg-green-100 dark:group-hover:bg-green-900/50 transition-colors">
-                        <Keyboard className="w-4 h-4 text-green-600 dark:text-green-400" />
+                      <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center group-hover:bg-green-100 transition-colors">
+                        <Keyboard className="w-4 h-4 text-green-600" />
                       </div>
                       <div className="flex-1 text-left">
                         <div className="font-medium">Keyboard Shortcuts</div>
                         <div className="text-xs text-gray-400">Learn quick actions</div>
                       </div>
-                      <kbd className="px-1.5 py-0.5 text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded font-mono">?</kbd>
+                      <kbd className="px-1.5 py-0.5 text-[10px] bg-gray-100 text-gray-500 rounded font-mono">?</kbd>
                     </button>
 
                     <button
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors group"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors group"
                     >
-                      <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/50 transition-colors">
-                        <HelpCircle className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                      <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
+                        <HelpCircle className="w-4 h-4 text-indigo-600" />
                       </div>
                       <div className="flex-1 text-left">
                         <div className="font-medium">Help & Support</div>
@@ -837,16 +868,13 @@ export default function Layout() {
                     </button>
                   </div>
 
-                  {/* Theme Switcher */}
-                  <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50">
-                    {/* Theme toggle removed — light mode only */}
-                  </div>
+                  {/* Theme toggle removed — light mode only */}
 
                   {/* Logout */}
-                  <div className="p-2 border-t border-gray-100 dark:border-gray-700">
+                  <div className="p-2 border-t border-gray-100">
                     <button
                       onClick={() => { setShowProfileMenu(false); handleLogout() }}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-xl transition-colors"
                     >
                       <LogOut className="w-4 h-4" />
                       Sign Out
@@ -854,9 +882,9 @@ export default function Layout() {
                   </div>
 
                   {/* Footer */}
-                  <div className="px-4 py-2 bg-gray-50 dark:bg-gray-900 border-t border-gray-100 dark:border-gray-700 text-center">
+                  <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 text-center">
                     <p className="text-[10px] text-gray-400">
-                      ProdVista v2.0 · <span className="text-primary-500">What's new?</span>
+                      ProdVista v2.0 · <span className="text-blue-500">What's new?</span>
                     </p>
                   </div>
                 </div>
