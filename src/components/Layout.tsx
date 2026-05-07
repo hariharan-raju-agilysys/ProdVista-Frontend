@@ -54,6 +54,8 @@ import {
   Share2,
   Lightbulb,
   Radio,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../context/AuthContext'
@@ -98,6 +100,15 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['releases', 'quality', 'engineering', 'customers']))
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem('pv_sidebar_collapsed') === 'true' } catch { return false }
+  })
+
+  const toggleSidebar = () => setSidebarCollapsed(prev => {
+    const next = !prev
+    try { localStorage.setItem('pv_sidebar_collapsed', String(next)) } catch { /* */ }
+    return next
+  })
 
   const toggleGroup = (key: string) => {
     setExpandedGroups(prev => {
@@ -108,43 +119,63 @@ export default function Layout() {
     })
   }
 
-  // ── Enterprise light nav item
+  // ── Enterprise nav item — supports collapsed (icon-only) mode
   const navItem = (to: string, icon: React.ReactNode, label: string, badge?: string) => (
     <NavLink
       key={to}
       to={to}
       end={to === '/'}
       onClick={() => setSidebarOpen(false)}
+      title={sidebarCollapsed ? label : undefined}
       className={({ isActive }) =>
         clsx(
-          'flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all group',
+          'flex items-center rounded-lg text-[13px] font-medium transition-all duration-150 group relative',
+          sidebarCollapsed ? 'justify-center px-0 py-2.5 mx-1' : 'gap-3 px-3 py-2.5',
           isActive
-            ? 'bg-blue-50 text-blue-700 font-semibold border-l-2 border-blue-600'
-            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 border-l-2 border-transparent'
+            ? 'bg-white/15 text-white border-l-2 border-blue-400'
+            : 'text-slate-300 hover:bg-white/10 hover:text-white border-l-2 border-transparent'
         )
       }
     >
-      <span className="flex-shrink-0 opacity-80 group-hover:opacity-100">{icon}</span>
-      <span className="flex-1 truncate">{label}</span>
-      {badge && (
-        <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-bold shrink-0 uppercase tracking-wide">
-          {badge}
-        </span>
+      <span className="flex-shrink-0">{icon}</span>
+      {!sidebarCollapsed && (
+        <>
+          <span className="flex-1 truncate">{label}</span>
+          {badge && (
+            <span className="text-[9px] bg-blue-500/30 text-blue-200 px-1.5 py-0.5 rounded-full font-bold shrink-0 uppercase tracking-wide">
+              {badge}
+            </span>
+          )}
+        </>
+      )}
+      {/* Tooltip in collapsed mode */}
+      {sidebarCollapsed && (
+        <div className="absolute left-full ml-2 px-2.5 py-1.5 bg-gray-900 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg border border-white/10">
+          {label}
+          {badge && <span className="ml-1.5 text-blue-300">{badge}</span>}
+        </div>
       )}
     </NavLink>
   )
 
-  // ── Enterprise light nav group header
-  const navGroup = (key: string, label: string, icon: React.ReactNode) => (
-    <button
-      onClick={() => toggleGroup(key)}
-      className="w-full flex items-center gap-2 px-2 py-2 mt-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-600 transition-colors rounded-md hover:bg-gray-50"
-    >
-      <span className="text-gray-400">{icon}</span>
-      <span className="flex-1 text-left">{label}</span>
-      <ChevronRight className={clsx('w-3.5 h-3.5 transition-transform duration-200 text-gray-300', expandedGroups.has(key) && 'rotate-90')} />
-    </button>
-  )
+  // ── Enterprise nav group header
+  const navGroup = (key: string, label: string, icon: React.ReactNode) => {
+    if (sidebarCollapsed) {
+      return (
+        <div className="mx-1 mt-3 h-px bg-white/10" />
+      )
+    }
+    return (
+      <button
+        onClick={() => toggleGroup(key)}
+        className="w-full flex items-center gap-2 px-3 py-2 mt-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-slate-200 transition-colors rounded-md"
+      >
+        <span className="text-slate-500">{icon}</span>
+        <span className="flex-1 text-left">{label}</span>
+        <ChevronRight className={clsx('w-3 h-3 transition-transform duration-200 text-slate-500', expandedGroups.has(key) && 'rotate-90')} />
+      </button>
+    )
+  }
 
   // Theme — light mode only (dark mode disabled)
 
@@ -177,6 +208,11 @@ export default function Layout() {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault()
         setShowCommandPalette(prev => !prev)
+      }
+      // Ctrl+B — toggle sidebar collapse
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+        e.preventDefault()
+        toggleSidebar()
       }
       // Ctrl+Shift+A — go to AI Chat
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'A') {
@@ -274,53 +310,95 @@ export default function Layout() {
 
       {/* Sidebar */}
       <aside className={clsx(
-        "fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm",
-        "transition-transform duration-300 ease-out will-change-transform",
+        "fixed inset-y-0 left-0 z-50 flex flex-col transition-all duration-300 ease-in-out will-change-transform",
+        "bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800",
+        "border-r border-white/5 shadow-xl",
+        sidebarCollapsed ? "w-16" : "w-72",
         "lg:translate-x-0",
         sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       )}>
-        <div className="flex items-center h-14 px-4 border-b border-gray-200 shrink-0 gap-3">
-          <img src={`${import.meta.env.VITE_BASE_PATH || ''}/logo.svg`} alt="ProdVista" className="w-8 h-8" />
-          <div>
-            <h1 className="text-sm font-bold text-gray-900">
-              <span className="text-blue-600">Prod</span><span className="text-indigo-600">Vista</span>
-            </h1>
-            <p className="text-[10px] text-gray-400 -mt-0.5 leading-tight">Engineering Command Center</p>
-          </div>
+        {/* Logo + Collapse Toggle */}
+        <div className={clsx(
+          "flex items-center h-14 border-b border-white/10 shrink-0",
+          sidebarCollapsed ? "justify-center px-2" : "px-4 gap-3"
+        )}>
+          {!sidebarCollapsed && (
+            <>
+              <img src={`${import.meta.env.VITE_BASE_PATH || ''}/logo.svg`} alt="ProdVista" className="w-8 h-8 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <h1 className="text-sm font-bold text-white">
+                  <span className="text-blue-400">Prod</span><span className="text-indigo-400">Vista</span>
+                </h1>
+                <p className="text-[10px] text-slate-400 -mt-0.5 leading-tight">Engineering Command Center</p>
+              </div>
+            </>
+          )}
+          {sidebarCollapsed && (
+            <img src={`${import.meta.env.VITE_BASE_PATH || ''}/logo.svg`} alt="ProdVista" className="w-7 h-7" />
+          )}
+          {/* Collapse button — only visible on desktop */}
+          <button
+            onClick={toggleSidebar}
+            className={clsx(
+              "hidden lg:flex items-center justify-center w-7 h-7 rounded-md text-slate-400 hover:text-white hover:bg-white/10 transition-colors shrink-0",
+              sidebarCollapsed && "mt-0"
+            )}
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {sidebarCollapsed
+              ? <PanelLeftOpen className="w-4 h-4" />
+              : <PanelLeftClose className="w-4 h-4" />
+            }
+          </button>
         </div>
-        
+
         {/* Role Badge */}
-        {isManager && (
-          <div className="mx-3 mt-2 px-3 py-1.5 bg-blue-50 rounded-lg flex items-center gap-2 shrink-0">
-            <Shield className="w-3.5 h-3.5 text-blue-600" />
-            <span className="text-xs font-semibold text-blue-700">Manager Access</span>
+        {isManager && !sidebarCollapsed && (
+          <div className="mx-3 mt-3 px-3 py-1.5 bg-blue-500/20 border border-blue-400/20 rounded-lg flex items-center gap-2 shrink-0">
+            <Shield className="w-3.5 h-3.5 text-blue-400" />
+            <span className="text-xs font-semibold text-blue-300">Manager Access</span>
+          </div>
+        )}
+        {isManager && sidebarCollapsed && (
+          <div className="mx-auto mt-3 w-8 h-8 flex items-center justify-center bg-blue-500/20 border border-blue-400/20 rounded-lg shrink-0" title="Manager Access">
+            <Shield className="w-4 h-4 text-blue-400" />
           </div>
         )}
 
         {/* Guest/Organization Badge */}
-        {isGuest && orgInfo && (
-          <div className="mx-3 mt-2 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg flex items-center gap-2 shrink-0">
-            <Building2 className="w-3.5 h-3.5 text-gray-500" />
-            <span className="text-xs font-medium text-gray-600 truncate">{orgInfo.name}</span>
+        {isGuest && orgInfo && !sidebarCollapsed && (
+          <div className="mx-3 mt-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg flex items-center gap-2 shrink-0">
+            <Building2 className="w-3.5 h-3.5 text-slate-400" />
+            <span className="text-xs font-medium text-slate-300 truncate">{orgInfo.name}</span>
           </div>
         )}
-        
 
-        {/* Quick Search Bar in Sidebar */}
-        <div className="mx-3 mt-3 shrink-0">
+        {/* Quick Search Bar */}
+        {!sidebarCollapsed && (
+          <div className="mx-3 mt-3 shrink-0">
+            <button
+              onClick={openCommandPalette}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all text-sm"
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span className="flex-1 text-left text-xs text-slate-400">Search...</span>
+              <kbd className="px-1.5 py-0.5 text-[10px] bg-black/20 border border-white/10 text-slate-500 rounded font-mono">⌘K</kbd>
+            </button>
+          </div>
+        )}
+        {sidebarCollapsed && (
           <button
             onClick={openCommandPalette}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md bg-gray-50 border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-all text-sm"
+            className="mx-auto mt-3 w-9 h-9 flex items-center justify-center rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+            title="Search (Ctrl+K)"
           >
-            <Search className="w-3.5 h-3.5" />
-            <span className="flex-1 text-left text-xs">Search...</span>
-            <kbd className="px-1.5 py-0.5 text-[10px] bg-white border border-gray-200 text-gray-400 rounded font-mono">Ctrl+K</kbd>
+            <Search className="w-4 h-4" />
           </button>
-        </div>
+        )}
 
         {/* Scrollable nav section */}
-        <nav className="mt-2 px-3 flex-1 overflow-y-auto min-h-0 pb-4"
-          style={{ scrollbarWidth: 'thin', scrollbarColor: '#e5e7eb transparent' }}>
+        <nav className={clsx('mt-2 flex-1 overflow-y-auto min-h-0 pb-4', sidebarCollapsed ? 'px-1' : 'px-3')}
+          style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.1) transparent' }}>
 
           {/* Home */}
           {navItem('/', <Rocket className="w-4 h-4" />, 'Home')}
@@ -427,38 +505,50 @@ export default function Layout() {
 
         </nav>
 
-        {/* Bottom Actions — clean, minimal */}
-        <div className="shrink-0 px-2 py-2 space-y-0.5 border-t border-gray-100">
+        {/* Bottom Actions */}
+        <div className={clsx('shrink-0 py-2 space-y-0.5 border-t border-white/10', sidebarCollapsed ? 'px-1' : 'px-2')}>
           {isGuest && (
             <button
               onClick={() => navigate('/login')}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
+              title={sidebarCollapsed ? 'Manager Login' : undefined}
+              className={clsx(
+                'w-full flex items-center text-sm font-medium text-blue-300 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg transition-colors',
+                sidebarCollapsed ? 'justify-center p-2.5' : 'gap-2.5 px-3 py-2'
+              )}
             >
-              <LogIn className="w-4 h-4" />
-              Manager Login
+              <LogIn className="w-4 h-4 shrink-0" />
+              {!sidebarCollapsed && 'Manager Login'}
             </button>
           )}
           <button
             onClick={() => { exitOrg(); navigate('/org') }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+            title={sidebarCollapsed ? 'Switch Organization' : undefined}
+            className={clsx(
+              'w-full flex items-center text-sm text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors',
+              sidebarCollapsed ? 'justify-center p-2.5' : 'gap-2.5 px-3 py-2'
+            )}
           >
-            <Building2 className="w-4 h-4 text-gray-400" />
-            Switch Organization
+            <Building2 className="w-4 h-4 shrink-0" />
+            {!sidebarCollapsed && 'Switch Organization'}
           </button>
           {isAuthenticated && (
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors"
+              title={sidebarCollapsed ? 'Sign Out' : undefined}
+              className={clsx(
+                'w-full flex items-center text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors',
+                sidebarCollapsed ? 'justify-center p-2.5' : 'gap-2.5 px-3 py-2'
+              )}
             >
-              <LogOut className="w-4 h-4" />
-              Sign Out
+              <LogOut className="w-4 h-4 shrink-0" />
+              {!sidebarCollapsed && 'Sign Out'}
             </button>
           )}
         </div>
       </aside>
 
       {/* Main content */}
-      <div className="lg:pl-64 min-h-screen flex flex-col">
+      <div className={clsx('min-h-screen flex flex-col transition-all duration-300 ease-in-out', sidebarCollapsed ? 'lg:pl-16' : 'lg:pl-72')}>
         {/* Header */}
         <header className="sticky top-0 z-10 flex items-center justify-between h-14 px-4 sm:px-6 bg-white border-b border-gray-200 shadow-sm">
           <div className="flex items-center gap-3">
