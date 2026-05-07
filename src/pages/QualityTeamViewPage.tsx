@@ -434,12 +434,16 @@ export default function QualityTeamViewPage() {
                                   <div className="space-y-1.5">
                                     {userDetail.recentBugs.slice(0, 5).map(bug => (
                                       <a key={bug.id} href={bug.devOpsUrl} target="_blank" rel="noopener noreferrer"
-                                        className="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group">
+                                        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group border-l-4 ${
+                                          bug.severity === '1 - Critical' ? 'border-red-500 bg-red-50/30 dark:bg-red-950/10' :
+                                          bug.severity?.includes('High') ? 'border-orange-400' :
+                                          'border-transparent'
+                                        }`}>
                                         <span className="text-sm font-mono font-bold text-blue-600">#{bug.id}</span>
-                                        <span className={`text-xs px-2 py-0.5 rounded-md font-semibold ${getStateColor(bug.state)}`}>{bug.state}</span>
-                                        {bug.severity && <span className={`text-xs px-2 py-0.5 rounded-md font-semibold ${getSeverityColor(bug.severity)}`}>{bug.severity.split(' - ')[1]}</span>}
-                                        <span className="text-sm text-gray-700 dark:text-gray-300 truncate flex-1">{bug.title}</span>
-                                        <span className="text-xs text-gray-400 font-mono">{bug.ageDays}d</span>
+                                        <span className={`text-xs px-2.5 py-1 rounded-lg font-bold ${getStateColor(bug.state)}`}>{bug.state}</span>
+                                        {bug.severity && <span className={`text-xs px-2.5 py-1 rounded-lg font-bold ${getSeverityColor(bug.severity)}`}>{bug.severity.split(' - ')[1]}</span>}
+                                        <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate flex-1">{bug.title}</span>
+                                        <span className={`text-xs font-bold font-mono ${bug.ageDays > 14 ? 'text-red-600' : bug.ageDays > 7 ? 'text-amber-600' : 'text-gray-400'}`}>{bug.ageDays}d</span>
                                         <ExternalLink className="w-3.5 h-3.5 text-gray-300 group-hover:text-blue-500 transition-colors" />
                                       </a>
                                     ))}
@@ -554,14 +558,19 @@ export default function QualityTeamViewPage() {
               </thead>
               <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
                 {allBugs.slice(0, 100).map(bug => (
-                  <tr key={bug.id} className={`hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors ${bug.severity === '1 - Critical' ? 'bg-red-50/40 dark:bg-red-950/20' : ''}`}>
+                  <tr key={bug.id} className={`hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors border-l-4 ${
+                    bug.severity === '1 - Critical' ? 'bg-red-50/60 dark:bg-red-950/30 border-red-500' :
+                    bug.severity?.includes('High') ? 'bg-orange-50/30 dark:bg-orange-950/10 border-orange-400' :
+                    bug.severity?.includes('Medium') ? 'border-yellow-300' :
+                    'border-transparent'
+                  }`}>
                     <td className="px-6 py-3.5">
                       <a href={bug.devOpsUrl} target="_blank" rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 text-base font-mono font-bold text-blue-600 hover:text-blue-800 hover:underline">
                         {bug.id} <ExternalLink className="w-3.5 h-3.5" />
                       </a>
                     </td>
-                    <td className="px-4 py-3.5 text-base text-gray-800 dark:text-gray-200 max-w-[320px] truncate font-medium" title={bug.title}>{bug.title}</td>
+                    <td className="px-4 py-3.5 text-base text-gray-900 dark:text-gray-100 max-w-[320px] truncate font-semibold" title={bug.title}>{bug.title}</td>
                     <td className="px-4 py-3.5">
                       <span className={`inline-block px-3 py-1 rounded-lg text-sm font-semibold ${getSeverityColor(bug.severity)}`}>
                         {bug.severity || 'N/A'}
@@ -625,14 +634,14 @@ function HeroCard({ label, value, sub, gradient, icon, pulse, suffix }: {
 
       <div className="relative">
         <div className="flex items-center justify-between mb-4">
-          <span className="text-base font-bold text-white/80 uppercase tracking-wider">{label}</span>
-          <div className="text-white/40">{icon}</div>
+          <span className="text-xs font-black text-white/70 uppercase tracking-widest">{label}</span>
+          <div className="text-white/50 bg-white/10 rounded-xl p-2">{icon}</div>
         </div>
         <div className={`flex items-baseline gap-2 ${pulse ? 'animate-pulse' : ''}`}>
-          <span className="text-5xl font-extrabold">{value}</span>
-          {suffix && <span className="text-2xl font-semibold text-white/60">{suffix}</span>}
+          <span className="text-6xl font-black leading-none">{value}</span>
+          {suffix && <span className="text-2xl font-bold text-white/60">{suffix}</span>}
         </div>
-        <p className="text-base text-white/70 mt-3 font-medium">{sub}</p>
+        <p className="text-sm text-white/80 mt-3 font-semibold">{sub}</p>
       </div>
     </div>
   );
@@ -645,12 +654,13 @@ function MetricTile({ label, value, icon, color }: {
   label: string; value: string | number; icon: React.ReactNode; color: string;
 }) {
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5 shadow-sm hover:shadow-md transition-all">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{label}</span>
-        <span className={color}>{icon}</span>
+    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5 shadow-sm hover:shadow-md transition-all relative overflow-hidden">
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-current to-transparent opacity-30" style={{ color: 'currentColor' }} />
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">{label}</span>
+        <span className={`${color} bg-gray-50 dark:bg-gray-800 rounded-lg p-1.5`}>{icon}</span>
       </div>
-      <span className={`text-3xl font-extrabold text-gray-900 dark:text-white`}>{typeof value === 'number' ? value.toLocaleString() : value}</span>
+      <span className={`text-4xl font-black text-gray-900 dark:text-white`}>{typeof value === 'number' ? value.toLocaleString() : value}</span>
     </div>
   );
 }
@@ -660,9 +670,9 @@ function MetricTile({ label, value, icon, color }: {
 // ============================================================================
 function MiniCard({ label, value, color }: { label: string; value: string | number; color: string }) {
   return (
-    <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 text-center">
-      <span className={`text-xl font-extrabold ${color}`}>{value}</span>
-      <span className="text-xs text-gray-400 block mt-0.5 font-medium uppercase tracking-wider">{label}</span>
+    <div className="bg-white dark:bg-gray-800 rounded-xl p-3.5 text-center border border-gray-100 dark:border-gray-700 shadow-sm">
+      <span className={`text-2xl font-black ${color}`}>{value}</span>
+      <span className="text-[10px] text-gray-400 block mt-1 font-bold uppercase tracking-wider">{label}</span>
     </div>
   );
 }

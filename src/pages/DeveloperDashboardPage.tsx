@@ -174,7 +174,9 @@ export default function DeveloperDashboardPage() {
   const { user, isManager, isAdmin } = useAuth()
   const navigate = useNavigate()
   const [view, setView] = useState<'mine' | 'team'>('mine')
-  const isDevView = !isManager && !isAdmin
+  const [viewOverride, setViewOverride] = useState<'auto' | 'dev'>('auto')
+  const canOverrideView = isManager || isAdmin
+  const isDevView = viewOverride === 'dev' ? true : (!isManager && !isAdmin)
 
   // shared state
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
@@ -244,6 +246,19 @@ export default function DeveloperDashboardPage() {
     fetchTechPulse().then(setTechPulse).finally(() => setTechLoading(false))
   }, [isDevView])
 
+  // ── Role-view shortcut: Ctrl+Shift+V (Admin/Manager only) ──────────────────
+  useEffect(() => {
+    if (!canOverrideView) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && (e.key === 'V' || e.key === 'v')) {
+        e.preventDefault()
+        setViewOverride(v => v === 'dev' ? 'auto' : 'dev')
+      }
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [canOverrideView])
+
   // ── derived ────────────────────────────────────────────────────────────────
   const openBugs         = qualitySummary?.activeBugs ?? 0
   const criticalBugs     = qualitySummary?.criticalBugs ?? 0
@@ -296,6 +311,23 @@ export default function DeveloperDashboardPage() {
           <RefreshCw className={clsx('w-3.5 h-3.5', loading && 'animate-spin')} />
           Refresh
         </button>
+        {canOverrideView && (
+          <button
+            onClick={() => setViewOverride(v => v === 'dev' ? 'auto' : 'dev')}
+            title="Ctrl+Shift+V — toggle role view"
+            className={clsx(
+              'flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border transition-all',
+              viewOverride === 'dev'
+                ? 'bg-violet-100 text-violet-700 border-violet-300 shadow-sm'
+                : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+            )}
+          >
+            {viewOverride === 'dev'
+              ? <><Code2 className="w-3.5 h-3.5" /><span>Dev Preview</span></>
+              : <><Crown className="w-3.5 h-3.5" /><span>Mgr View</span></>
+            }
+          </button>
+        )}
       </div>
     </div>
   )
@@ -496,6 +528,20 @@ export default function DeveloperDashboardPage() {
   return (
     <div className="p-6 max-w-[1400px] mx-auto space-y-6">
       {header}
+
+      {/* Admin/Manager Dev Preview mode indicator */}
+      {canOverrideView && viewOverride === 'dev' && (
+        <div className="flex items-center gap-2.5 px-4 py-2.5 bg-violet-50 border border-violet-200 rounded-xl text-sm text-violet-700 font-medium">
+          <Code2 className="w-4 h-4 flex-shrink-0" />
+          <span>Dev Preview — you are viewing the <strong>developer perspective</strong></span>
+          <button
+            onClick={() => setViewOverride('auto')}
+            className="ml-auto text-xs text-violet-500 hover:text-violet-700 underline underline-offset-2"
+          >
+            Exit preview
+          </button>
+        </div>
+      )}
 
       {/* ── KPI row ─────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

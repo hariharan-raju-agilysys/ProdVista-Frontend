@@ -104,6 +104,12 @@ export default function LoginPage() {
   const [focusedInput, setFocusedInput] = useState(false);
   // Detected SSO user from shared Microsoft session (e.g. already logged into Azure Portal / DevOps)
   const [detectedSsoUser, setDetectedSsoUser] = useState<string | null>(null);
+  // Form ref for programmatic submission (auto-login countdown)
+  const formRef = useRef<HTMLFormElement>(null);
+  // Auto-login countdown — starts at 3 when stored org code is available and no cooldown
+  const [autoLoginSecs, setAutoLoginSecs] = useState<number>(() =>
+    storedOrgCode && !ssoCooldownActive ? 3 : -1
+  );
 
   // Already authenticated — go straight to app
   useEffect(() => {
@@ -402,6 +408,21 @@ export default function LoginPage() {
     }
   };
 
+  // ── Auto-login countdown when stored org code is available ─────────────────
+  useEffect(() => {
+    if (autoLoginSecs <= 0 || phase !== 'tenant' || loading) return;
+    const t = setTimeout(() => setAutoLoginSecs(s => s - 1), 1000);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoLoginSecs, phase, loading]);
+  useEffect(() => {
+    if (autoLoginSecs !== 0 || phase !== 'tenant' || loading) return;
+    localStorage.removeItem('prodvista_sso_cooldown');
+    formRef.current?.requestSubmit();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoLoginSecs]);
+  useEffect(() => { if (error) setAutoLoginSecs(-1); }, [error]);
+
   /* ================================================================ */
   /*  Connecting screen — full-page animated loader                   */
   /* ================================================================ */
@@ -425,6 +446,18 @@ export default function LoginPage() {
             backgroundImage: `radial-gradient(circle at 1px 1px, rgba(255,255,255,0.3) 1px, transparent 0)`,
             backgroundSize: '32px 32px',
           }}
+        />
+
+        {/* Animated glow orbs */}
+        <motion.div
+          animate={{ scale: [1, 1.25, 1], opacity: [0.15, 0.28, 0.15] }}
+          transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute -top-24 -right-24 w-96 h-96 bg-blue-300 rounded-full blur-3xl pointer-events-none"
+        />
+        <motion.div
+          animate={{ scale: [1, 1.3, 1], opacity: [0.1, 0.2, 0.1] }}
+          transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut', delay: 2.5 }}
+          className="absolute -bottom-24 -left-24 w-80 h-80 bg-violet-400 rounded-full blur-3xl pointer-events-none"
         />
 
         {/* Content */}
@@ -464,10 +497,10 @@ export default function LoginPage() {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.4, delay: 0.3 + i * 0.08 }}
-                  className="flex items-start gap-3.5"
+                  className="flex items-start gap-3.5 bg-white/[0.07] backdrop-blur-sm rounded-xl p-3 hover:bg-white/[0.11] transition-colors"
                 >
-                  <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <feat.icon className="w-4.5 h-4.5 text-blue-200" />
+                  <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <feat.icon className="w-4.5 h-4.5 text-blue-100" />
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-white">{feat.title}</p>
@@ -483,19 +516,18 @@ export default function LoginPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.8 }}
-            className="flex items-center gap-3 pt-6 border-t border-white/10"
+            className="flex items-center gap-5 pt-6 border-t border-white/10"
           >
-            <div className="flex -space-x-2">
-              {['bg-blue-300', 'bg-emerald-300', 'bg-purple-300', 'bg-amber-300'].map((bg, i) => (
-                <div key={i} className={`w-7 h-7 rounded-full ${bg} border-2 border-indigo-700 flex items-center justify-center text-[10px] font-bold text-indigo-900`}>
-                  {String.fromCharCode(65 + i)}
-                </div>
-              ))}
-            </div>
-            <div>
-              <p className="text-xs text-blue-100/80 font-medium">Trusted by engineering teams</p>
-              <p className="text-[11px] text-blue-200/50">Azure-native & enterprise-ready</p>
-            </div>
+            {[
+              { val: '99.9%', label: 'Uptime SLA' },
+              { val: 'Azure', label: 'Native SSO' },
+              { val: 'RBAC', label: 'Role Secured' },
+            ].map(({ val, label }, i) => (
+              <div key={i} className="flex flex-col items-center gap-0.5">
+                <span className="text-xl font-extrabold text-white">{val}</span>
+                <span className="text-[11px] text-blue-200/60 font-medium uppercase tracking-wide">{label}</span>
+              </div>
+            ))}
           </motion.div>
         </div>
       </div>
@@ -527,12 +559,33 @@ export default function LoginPage() {
                   initial={{ scale: 0, rotate: -180 }}
                   animate={{ scale: 1, rotate: 0 }}
                   transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.15 }}
-                  className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mx-auto mb-5 shadow-lg shadow-blue-200/50"
+                  className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-lg ${
+                    storedOrgCode
+                      ? 'bg-gradient-to-br from-indigo-500 via-blue-600 to-blue-700 shadow-blue-300/50'
+                      : 'bg-gradient-to-br from-blue-500 to-indigo-600 shadow-blue-200/50'
+                  }`}
                 >
-                  <Building2 className="w-7 h-7 text-white" />
+                  {storedOrgCode ? (
+                    <span className="text-2xl font-black text-white">
+                      {(storedOrgInfo?.name || storedOrgCode || 'O')[0].toUpperCase()}
+                    </span>
+                  ) : (
+                    <Building2 className="w-7 h-7 text-white" />
+                  )}
                 </motion.div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1.5">Welcome back</h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Enter your organization code to sign in</p>
+                {storedOrgCode ? (
+                  <>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">Welcome back</h2>
+                    <p className="text-base font-semibold text-indigo-600 dark:text-indigo-400">
+                      {storedOrgInfo?.name || storedOrgCode}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1.5">Welcome back</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Enter your organization code to sign in</p>
+                  </>
+                )}
               </div>
 
               {/* Detected SSO session hint */}
@@ -576,7 +629,37 @@ export default function LoginPage() {
                 )}
               </AnimatePresence>
 
-              <form onSubmit={handleTenantSubmit} className="space-y-5">
+              {/* Quick Connect — auto-login countdown when stored org is available */}
+              {storedOrgCode && !ssoCooldownActive && autoLoginSecs !== -1 && (
+                <div className="mb-5 p-4 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200/80">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                      <span className="text-sm font-semibold text-blue-800">
+                        {autoLoginSecs > 0 ? `Auto-connecting in ${autoLoginSecs}s` : 'Connecting…'}
+                      </span>
+                    </div>
+                    {autoLoginSecs > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setAutoLoginSecs(-1)}
+                        className="text-xs text-blue-400 hover:text-blue-600 px-2 py-0.5 rounded-md hover:bg-blue-100 transition-colors font-medium"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                  <div className="h-1.5 bg-blue-100 rounded-full overflow-hidden">
+                    <motion.div
+                      className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full"
+                      animate={{ width: `${Math.max(0, (autoLoginSecs / 3) * 100)}%` }}
+                      transition={{ duration: 1, ease: 'linear' }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <form ref={formRef} onSubmit={handleTenantSubmit} className="space-y-5">
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                     Organization Code
@@ -594,7 +677,7 @@ export default function LoginPage() {
                     <input
                       type="text"
                       value={tenantCode}
-                      onChange={(e) => setTenantCode(e.target.value)}
+                      onChange={(e) => { setTenantCode(e.target.value); if (autoLoginSecs > 0) setAutoLoginSecs(-1); }}
                       onFocus={() => setFocusedInput(true)}
                       onBlur={() => setFocusedInput(false)}
                       className="w-full pl-3 pr-4 py-3 bg-transparent text-gray-900 placeholder-gray-400 text-sm focus:outline-none border-0 rounded-xl"
