@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   getPatStatus,
   testPatConnection,
@@ -42,6 +42,32 @@ export default function DevOpsConnectionSetup({ onConnectionChange, mode = 'badg
   const [saveResult, setSaveResult] = useState<{ success: boolean; message: string } | null>(null);
   const [removing, setRemoving] = useState(false);
   const [showPat, setShowPat] = useState(false);
+
+  // Click-outside + Escape to close (badge mode)
+  const panelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!expanded) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setExpanded(false);
+        setTestResult(null);
+        setSaveResult(null);
+      }
+    };
+    const handleClickOutside = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        setExpanded(false);
+        setTestResult(null);
+        setSaveResult(null);
+      }
+    };
+    document.addEventListener('keydown', handleKey);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('keydown', handleKey);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [expanded]);
 
   const loadStatus = useCallback(async () => {
     try {
@@ -201,7 +227,7 @@ export default function DevOpsConnectionSetup({ onConnectionChange, mode = 'badg
 
   // Expanded panel
   return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg p-4 space-y-4 text-sm animate-in fade-in slide-in-from-top-2 duration-200">
+    <div ref={panelRef} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg p-4 space-y-4 text-sm animate-in fade-in slide-in-from-top-2 duration-200">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
