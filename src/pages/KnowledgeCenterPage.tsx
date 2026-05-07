@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import {
-  BookOpen, Search, ExternalLink, Star, BookMarked, Code2, Rocket,
-  Users, Wrench, ShieldCheck, GitBranch, Database, Cloud, Plus, X, ChevronDown, ChevronUp
+  BookOpen, Search, ExternalLink, Star, BookMarked,
+  Users, Wrench, ShieldCheck, GitBranch, Database, Plus, X, ChevronDown, ChevronUp
 } from 'lucide-react'
 
 // ---------------------------------------------------------------------------

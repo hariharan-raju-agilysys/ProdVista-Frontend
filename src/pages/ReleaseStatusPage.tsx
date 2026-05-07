@@ -265,8 +265,8 @@ function ReleaseCard({
               <div className="h-2 bg-white rounded-full border border-gray-100">
                 <div
                   className={`h-2 rounded-full transition-all ${
-                    cfg.type === 'HF' ? 'bg-amber-400' :
-                    cfg.type === 'Minor' ? 'bg-blue-400' : 'bg-purple-400'
+                    panel.type === 'HF' ? 'bg-amber-400' :
+                    panel.type === 'Minor' ? 'bg-blue-400' : 'bg-purple-400'
                   }`}
                   style={{ width: `${Math.min(100, r.completionRate)}%` }}
                 />
@@ -311,7 +311,6 @@ export default function ReleaseStatusPage() {
   const [connections, setConnections] = useState<QualityConnection[]>([])
   const [selectedConnection, setSelectedConnection] = useState<string>('')
   const [allReleases, setAllReleases] = useState<QualityReleaseDto[]>([])
-  const [branches, setBranches] = useState<ReleaseBranch[]>([])
   const [panels, setPanels] = useState<ReleasePanel[]>([
     { type: 'HF', release: null, workItems: [], branch: null, workItemsLoading: false, expanded: false },
     { type: 'Minor', release: null, workItems: [], branch: null, workItemsLoading: false, expanded: false },
@@ -339,7 +338,6 @@ export default function ReleaseStatusPage() {
         getReleaseBranches(),
       ])
       setAllReleases(releasesData)
-      setBranches(branchesData)
 
       // Find most-recent active release of each type
       const byType: Record<ReleaseType, QualityReleaseDto | null> = { HF: null, Minor: null, Major: null }
@@ -364,7 +362,7 @@ export default function ReleaseStatusPage() {
           return bn.includes(name) || name.includes(b.name?.toLowerCase() || '') || (
             type === 'HF' && b.branchType === 'Hotfix'
           )
-        }) || (type === 'HF' ? branchesData.find(b => b.branchType === 'Hotfix') : null)
+        }) ?? (type === 'HF' ? branchesData.find(b => b.branchType === 'Hotfix') ?? null : null)
       }
 
       const newPanels: ReleasePanel[] = (['HF', 'Minor', 'Major'] as ReleaseType[]).map(t => ({
@@ -427,7 +425,7 @@ export default function ReleaseStatusPage() {
               className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               {connections.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+                <option key={c.id} value={c.id}>{c.connectionName}</option>
               ))}
             </select>
           )}

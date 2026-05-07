@@ -117,17 +117,17 @@ export default function Layout() {
       onClick={() => setSidebarOpen(false)}
       className={({ isActive }) =>
         clsx(
-          'flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-all group',
+          'flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all group',
           isActive
             ? 'bg-blue-50 text-blue-700 font-semibold border-l-2 border-blue-600'
-            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-l-2 border-transparent'
+            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 border-l-2 border-transparent'
         )
       }
     >
-      <span className="flex-shrink-0">{icon}</span>
+      <span className="flex-shrink-0 opacity-80 group-hover:opacity-100">{icon}</span>
       <span className="flex-1 truncate">{label}</span>
       {badge && (
-        <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold shrink-0 uppercase tracking-wide">
+        <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-bold shrink-0 uppercase tracking-wide">
           {badge}
         </span>
       )}
@@ -138,11 +138,11 @@ export default function Layout() {
   const navGroup = (key: string, label: string, icon: React.ReactNode) => (
     <button
       onClick={() => toggleGroup(key)}
-      className="w-full flex items-center gap-1.5 px-2 py-1.5 mt-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest hover:text-gray-600 transition-colors"
+      className="w-full flex items-center gap-2 px-2 py-2 mt-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-600 transition-colors rounded-md hover:bg-gray-50"
     >
       <span className="text-gray-400">{icon}</span>
       <span className="flex-1 text-left">{label}</span>
-      <ChevronRight className={clsx('w-3 h-3 transition-transform duration-200', expandedGroups.has(key) && 'rotate-90')} />
+      <ChevronRight className={clsx('w-3.5 h-3.5 transition-transform duration-200 text-gray-300', expandedGroups.has(key) && 'rotate-90')} />
     </button>
   )
 
@@ -274,7 +274,7 @@ export default function Layout() {
 
       {/* Sidebar */}
       <aside className={clsx(
-        "fixed inset-y-0 left-0 z-50 w-60 bg-white border-r border-gray-200 flex flex-col shadow-sm",
+        "fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm",
         "transition-transform duration-300 ease-out will-change-transform",
         "lg:translate-x-0",
         sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
@@ -319,15 +319,16 @@ export default function Layout() {
         </div>
 
         {/* Scrollable nav section */}
-        <nav className="mt-2 px-2 flex-1 overflow-y-auto min-h-0 pb-2 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent hover:scrollbar-thumb-gray-300">
+        <nav className="mt-2 px-3 flex-1 overflow-y-auto min-h-0 pb-4"
+          style={{ scrollbarWidth: 'thin', scrollbarColor: '#e5e7eb transparent' }}>
 
           {/* Home */}
           {navItem('/', <Rocket className="w-4 h-4" />, 'Home')}
 
           {/* --- Release Intelligence --- */}
-          {navGroup('releases', 'Release', <Layers className="w-3 h-3" />)}
+          {navGroup('releases', 'Release', <Layers className="w-3.5 h-3.5" />)}
           {expandedGroups.has('releases') && (
-            <div className="pl-2 space-y-0.5 mb-1">
+            <div className="pl-1 space-y-0.5 mb-1">
               {navItem('/releases', <Package className="w-4 h-4" />, 'Releases')}
               {navItem('/release-status', <TrendingUp className="w-4 h-4" />, 'Release Status', 'New')}
               {navItem('/work-items-by-release', <ListFilter className="w-4 h-4" />, 'Work Items by Release', 'New')}
@@ -336,9 +337,9 @@ export default function Layout() {
           )}
 
           {/* --- Quality Center --- */}
-          {navGroup('quality', 'Quality', <ShieldCheck className="w-3 h-3" />)}
+          {navGroup('quality', 'Quality', <ShieldCheck className="w-3.5 h-3.5" />)}
           {expandedGroups.has('quality') && (
-            <div className="pl-2 space-y-0.5 mb-1">
+            <div className="pl-1 space-y-0.5 mb-1">
               {navItem('/quality', <Bug className="w-4 h-4" />, 'Bug Command Center')}
               {navItem('/aging-work-items', <Clock className="w-4 h-4" />, 'Aging Work Items', 'New')}
               {navItem('/bug-analytics', <BarChart3 className="w-4 h-4" />, 'Bug Analytics')}
@@ -347,9 +348,9 @@ export default function Layout() {
           )}
 
           {/* --- Engineering --- */}
-          {navGroup('engineering', 'Engineering', <Code2 className="w-3 h-3" />)}
+          {navGroup('engineering', 'Engineering', <Code2 className="w-3.5 h-3.5" />)}
           {expandedGroups.has('engineering') && (
-            <div className="pl-2 space-y-0.5 mb-1">
+            <div className="pl-1 space-y-0.5 mb-1">
               {navItem('/engineering', <Code2 className="w-4 h-4" />, 'Engineering')}
               {navItem('/pull-requests', <GitBranch className="w-4 h-4" />, 'Pull Requests')}
               {navItem('/devops-overview', <Workflow className="w-4 h-4" />, 'DevOps Overview')}
@@ -359,9 +360,9 @@ export default function Layout() {
           )}
 
           {/* --- Customers --- */}
-          {navGroup('customers', 'Customers', <Globe className="w-3 h-3" />)}
+          {navGroup('customers', 'Customers', <Globe className="w-3.5 h-3.5" />)}
           {expandedGroups.has('customers') && (
-            <div className="pl-2 space-y-0.5 mb-1">
+            <div className="pl-1 space-y-0.5 mb-1">
               {navItem('/upcoming-go-lives', <CalendarDays className="w-4 h-4" />, 'Upcoming Go Lives', 'New')}
               {navItem('/customers', <Users className="w-4 h-4" />, 'Customer Dashboard')}
               {navItem('/knowledge-center', <BookOpen className="w-4 h-4" />, 'Knowledge Center', 'New')}
@@ -372,9 +373,9 @@ export default function Layout() {
           {/* --- AI Intelligence --- */}
           {features.enableAI && (
             <>
-              {navGroup('ai', 'AI Intelligence', <Bot className="w-3 h-3" />)}
+              {navGroup('ai', 'AI Intelligence', <Bot className="w-3.5 h-3.5" />)}
               {expandedGroups.has('ai') && (
-                <div className="pl-2 space-y-0.5 mb-1">
+                <div className="pl-1 space-y-0.5 mb-1">
                   {navItem('/ai-chat', <Bot className="w-4 h-4" />, 'AI Chat')}
                   {navItem('/ai-query', <Search className="w-4 h-4" />, 'Smart Query')}
                 </div>
@@ -383,9 +384,9 @@ export default function Layout() {
           )}
 
           {/* --- Azure & Observability --- */}
-          {navGroup('azure', 'Azure & Cloud', <Cloud className="w-3 h-3" />)}
+          {navGroup('azure', 'Azure & Cloud', <Cloud className="w-3.5 h-3.5" />)}
           {expandedGroups.has('azure') && (
-            <div className="pl-2 space-y-0.5 mb-1">
+            <div className="pl-1 space-y-0.5 mb-1">
               {navItem('/azure', <Cloud className="w-4 h-4" />, 'Azure Cloud')}
               {navItem('/observability-query', <FileText className="w-4 h-4" />, 'KQL Query')}
               {navItem('/logs', <FileText className="w-4 h-4" />, 'Logs & Traces')}
@@ -393,9 +394,9 @@ export default function Layout() {
           )}
 
           {/* --- Tools & Admin --- */}
-          {navGroup('admin', 'Tools & Admin', <Cog className="w-3 h-3" />)}
+          {navGroup('admin', 'Tools & Admin', <Cog className="w-3.5 h-3.5" />)}
           {expandedGroups.has('admin') && (
-            <div className="pl-2 space-y-0.5 mb-1">
+            <div className="pl-1 space-y-0.5 mb-1">
               {navItem('/tools', <Zap className="w-4 h-4" />, 'Tools Hub')}
               {navItem('/mcp-tools', <Cog className="w-4 h-4" />, 'MCP Tools')}
               {navItem('/automation', <Workflow className="w-4 h-4" />, 'Automation')}
@@ -409,9 +410,9 @@ export default function Layout() {
           {/* Custom dynamic pages (from DB) */}
           {menuItems.filter(m => m.href.startsWith('/p/')).length > 0 && (
             <>
-              {navGroup('custom', 'Custom Pages', <PanelTop className="w-3 h-3" />)}
+              {navGroup('custom', 'Custom Pages', <PanelTop className="w-3.5 h-3.5" />)}
               {expandedGroups.has('custom') && (
-                <div className="pl-2 space-y-0.5 mb-1">
+                <div className="pl-1 space-y-0.5 mb-1">
                   {menuItems
                     .filter(m => m.href.startsWith('/p/'))
                     .sort((a, b) => a.displayOrder - b.displayOrder)
@@ -457,7 +458,7 @@ export default function Layout() {
       </aside>
 
       {/* Main content */}
-      <div className="lg:pl-60 min-h-screen flex flex-col">
+      <div className="lg:pl-64 min-h-screen flex flex-col">
         {/* Header */}
         <header className="sticky top-0 z-10 flex items-center justify-between h-14 px-4 sm:px-6 bg-white border-b border-gray-200 shadow-sm">
           <div className="flex items-center gap-3">

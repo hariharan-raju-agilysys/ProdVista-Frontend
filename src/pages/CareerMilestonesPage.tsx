@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
-  Cake, Trophy, RefreshCw, AlertCircle, Users, Calendar,
-  Star, Gift, Briefcase, Filter, ChevronLeft, ChevronRight
+  Cake, Trophy, AlertCircle, Calendar,
+  Briefcase
 } from 'lucide-react'
 import { getBirthdays, getEmployees, type HrBirthday, type HrEmployee } from '../services/hrPortalService'
 import { DataFreshnessBadge } from '../components/DataFreshnessBadge'
