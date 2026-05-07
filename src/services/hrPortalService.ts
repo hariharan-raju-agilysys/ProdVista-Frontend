@@ -20,6 +20,7 @@ export interface HrConnection {
   defaultDepartmentName?: string;
   employeeCount: number;
   departmentCount: number;
+  greythrDepartmentIdsJson?: string; // JSON array of int dept IDs e.g. "[2044,2630]"
 }
 
 export interface HrDepartment {
@@ -121,6 +122,7 @@ export const createConnection = async (dto: {
   useSso: boolean;
   defaultDepartmentCode?: string;
   defaultDepartmentName?: string;
+  greythrDepartmentIds?: number[];
 }) => {
   const { data } = await api.post(`${BASE}/connections`, dto);
   return data;
@@ -135,6 +137,7 @@ export const updateConnection = async (id: string, dto: {
   useSso: boolean;
   defaultDepartmentCode?: string;
   defaultDepartmentName?: string;
+  greythrDepartmentIds?: number[];
 }) => {
   const { data } = await api.put(`${BASE}/connections/${id}`, dto);
   return data;

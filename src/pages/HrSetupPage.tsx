@@ -25,7 +25,7 @@ export default function HrSetupPage() {
   // Connection form
   const [showConnectionForm, setShowConnectionForm] = useState(false)
   const [editingConnectionId, setEditingConnectionId] = useState<string | null>(null)
-  const [connForm, setConnForm] = useState({ connectionName: '', providerType: 'GreytHR', baseUrl: '', clientId: '', apiKey: '', useSso: false, defaultDepartmentCode: '', defaultDepartmentName: '' })
+  const [connForm, setConnForm] = useState({ connectionName: '', providerType: 'GreytHR', baseUrl: '', clientId: '', apiKey: '', useSso: false, defaultDepartmentCode: '', defaultDepartmentName: '', greythrDepartmentIds: [] as number[] })
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null)
   const [testing, setTesting] = useState(false)
   const [ssoStatus, setSsoStatus] = useState<HrAuthStatus | null>(null)
@@ -105,7 +105,7 @@ export default function HrSetupPage() {
       }
       setShowConnectionForm(false)
       setEditingConnectionId(null)
-      setConnForm({ connectionName: '', providerType: 'GreytHR', baseUrl: '', clientId: '', apiKey: '', useSso: false, defaultDepartmentCode: '', defaultDepartmentName: '' })
+      setConnForm({ connectionName: '', providerType: 'GreytHR', baseUrl: '', clientId: '', apiKey: '', useSso: false, defaultDepartmentCode: '', defaultDepartmentName: '', greythrDepartmentIds: [] })
       setPreviewResult(null)
       setPreviewDepartments([])
       loadData()
@@ -122,7 +122,10 @@ export default function HrSetupPage() {
       apiKey: '',
       useSso: conn.useSso,
       defaultDepartmentCode: conn.defaultDepartmentCode || '',
-      defaultDepartmentName: conn.defaultDepartmentName || ''
+      defaultDepartmentName: conn.defaultDepartmentName || '',
+      greythrDepartmentIds: conn.greythrDepartmentIdsJson
+        ? JSON.parse(conn.greythrDepartmentIdsJson) as number[]
+        : []
     })
     setPreviewResult(null)
     setPreviewDepartments([])
@@ -842,6 +845,60 @@ export default function HrSetupPage() {
                   </div>
                 )}
               </div>
+
+              {/* GreytHR v3 Department IDs */}
+              {connForm.providerType === 'GreytHR' && (
+                <div className="border border-indigo-200 rounded-lg p-3 space-y-2 bg-indigo-50">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-3.5 h-3.5 text-indigo-600" />
+                    <label className="text-xs font-medium text-indigo-700">GreytHR Department IDs</label>
+                    <span className="text-[10px] text-indigo-500 ml-auto">Required for v3 API sync</span>
+                  </div>
+                  <p className="text-[10px] text-indigo-600">
+                    Enter integer department IDs from GreytHR (e.g. 2044). Multiple departments per tenant are supported.
+                  </p>
+                  <div className="space-y-1.5">
+                    {connForm.greythrDepartmentIds.map((id, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          value={id}
+                          onChange={e => {
+                            const val = parseInt(e.target.value, 10)
+                            setConnForm(p => {
+                              const ids = [...p.greythrDepartmentIds]
+                              ids[idx] = isNaN(val) ? 0 : val
+                              return { ...p, greythrDepartmentIds: ids }
+                            })
+                          }}
+                          placeholder="e.g. 2044"
+                          className="flex-1 text-xs border border-indigo-200 rounded px-3 py-1.5 focus:ring-2 focus:ring-indigo-400 bg-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setConnForm(p => ({ ...p, greythrDepartmentIds: p.greythrDepartmentIds.filter((_, i) => i !== idx) }))}
+                          className="text-red-400 hover:text-red-600 transition-colors"
+                        >
+                          <XCircle className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setConnForm(p => ({ ...p, greythrDepartmentIds: [...p.greythrDepartmentIds, 0] }))}
+                      className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add Department ID
+                    </button>
+                  </div>
+                  {connForm.greythrDepartmentIds.filter(id => id > 0).length > 0 && (
+                    <div className="text-[10px] text-indigo-600 bg-indigo-100 rounded px-2 py-1 flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3" />
+                      Syncing {connForm.greythrDepartmentIds.filter(id => id > 0).length} department(s): {connForm.greythrDepartmentIds.filter(id => id > 0).join(', ')}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* SSO Toggle */}
               <div className="border border-gray-200 rounded-lg p-3 space-y-2">
