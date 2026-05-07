@@ -154,77 +154,40 @@ export default function FloatingAIButton({ onOpenCommandPalette }: FloatingAIBut
       )}
 
       {/* Floating Action Buttons Container */}
-      <div className="relative flex items-center justify-end">
-        
-        {/* AI Assistant Button - Flies left on hover */}
-        <button
-          onClick={handleOpenAIAssistant}
-          className={clsx(
-            'absolute flex items-center gap-2 h-12 rounded-full shadow-lg transition-all duration-500 ease-out overflow-hidden',
-            'bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700',
-            'hover:shadow-violet-500/40 hover:shadow-xl',
-            isHovered && !showToolbox
-              ? 'opacity-100 translate-x-0 scale-100 right-[70px] px-4'
-              : 'opacity-0 translate-x-8 scale-75 right-0 px-0 pointer-events-none'
-          )}
-        >
-          <div className={clsx(
-            'flex items-center justify-center transition-all duration-300',
-            isHovered ? 'w-8 h-8' : 'w-0 h-0'
-          )}>
-            <Bot className="w-5 h-5 text-white animate-pulse" />
-          </div>
-          <span className={clsx(
-            'text-sm font-medium text-white whitespace-nowrap transition-all duration-300',
-            isHovered ? 'opacity-100 max-w-24' : 'opacity-0 max-w-0'
-          )}>
-            AI Chat
-          </span>
-          {/* Sparkle effect */}
-          <div className={clsx(
-            'absolute -top-1 -right-1 w-3 h-3 transition-all duration-500',
-            isHovered ? 'opacity-100 scale-100' : 'opacity-0 scale-0'
-          )}>
-            <Sparkles className="w-3 h-3 text-yellow-300 animate-spin" style={{ animationDuration: '3s' }} />
-          </div>
-        </button>
+      <div className="relative flex items-end justify-end gap-2">
 
-        {/* Tools Button - Flies up-left on hover */}
-        <button
-          onClick={handleOpenTools}
-          className={clsx(
-            'absolute flex items-center gap-2 h-12 rounded-full shadow-lg transition-all duration-500 ease-out overflow-hidden',
-            'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700',
-            'hover:shadow-blue-500/40 hover:shadow-xl',
-            isHovered && !showToolbox
-              ? 'opacity-100 translate-y-0 scale-100 right-[70px] bottom-[56px] px-4'
-              : 'opacity-0 translate-y-4 scale-75 right-0 bottom-0 px-0 pointer-events-none'
-          )}
-          style={{ transitionDelay: isHovered ? '50ms' : '0ms' }}
-        >
-          <div className={clsx(
-            'flex items-center justify-center transition-all duration-300',
-            isHovered ? 'w-8 h-8' : 'w-0 h-0'
-          )}>
-            <Shield className="w-5 h-5 text-white" />
-          </div>
-          <span className={clsx(
-            'text-sm font-medium text-white whitespace-nowrap transition-all duration-300',
-            isHovered ? 'opacity-100 max-w-16' : 'opacity-0 max-w-0'
-          )}>
-            Tools
-          </span>
-          {/* Shield glow effect */}
-          <div className={clsx(
-            'absolute inset-0 bg-white/10 rounded-full transition-all duration-300',
-            isHovered ? 'animate-pulse' : ''
-          )} />
-        </button>
+        {/* Hover quick-action pills — appear to the left of FAB */}
+        <div className={clsx(
+          'flex flex-col gap-2 items-end transition-all duration-300 origin-bottom-right mb-0',
+          isHovered && !showToolbox
+            ? 'opacity-100 translate-y-0 pointer-events-auto'
+            : 'opacity-0 translate-y-3 pointer-events-none'
+        )}>
+          {/* Tools pill */}
+          <button
+            onClick={handleOpenTools}
+            className="flex items-center gap-2.5 pl-3 pr-4 h-10 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/25 text-white text-sm font-medium whitespace-nowrap hover:scale-105 transition-transform"
+            style={{ transitionDelay: isHovered ? '40ms' : '0ms' }}
+          >
+            <Shield className="w-4 h-4 shrink-0" />
+            <span>AI Tools</span>
+          </button>
+          {/* AI Chat pill */}
+          <button
+            onClick={handleOpenAIAssistant}
+            className="flex items-center gap-2.5 pl-3 pr-4 h-10 rounded-full bg-gradient-to-r from-violet-500 to-purple-600 shadow-lg shadow-violet-500/25 text-white text-sm font-medium whitespace-nowrap hover:scale-105 transition-transform"
+          >
+            <Bot className="w-4 h-4 shrink-0" />
+            <span>AI Chat</span>
+          </button>
+        </div>
+
+
 
         {/* Main FAB Button */}
         <button
           className={clsx(
-            'relative w-14 h-14 rounded-2xl shadow-lg transition-all duration-300 flex items-center justify-center',
+            'relative w-14 h-14 rounded-2xl shadow-lg transition-all duration-300 flex items-center justify-center shrink-0',
             'bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600',
             'hover:shadow-2xl hover:shadow-violet-500/30',
             showToolbox ? 'rotate-45 scale-95' : 'rotate-0 scale-100',
@@ -253,33 +216,12 @@ export default function FloatingAIButton({ onOpenCommandPalette }: FloatingAIBut
             isHovered && !showToolbox ? 'scale-110' : ''
           )} />
           
-          {/* Floating particles on hover */}
-          {isHovered && !showToolbox && (
-            <>
-              <span className="absolute w-1.5 h-1.5 bg-yellow-300 rounded-full animate-bounce" style={{ top: '-4px', right: '8px', animationDelay: '0ms' }} />
-              <span className="absolute w-1 h-1 bg-pink-300 rounded-full animate-bounce" style={{ top: '4px', right: '-4px', animationDelay: '100ms' }} />
-              <span className="absolute w-1.5 h-1.5 bg-cyan-300 rounded-full animate-bounce" style={{ bottom: '-4px', left: '12px', animationDelay: '200ms' }} />
-            </>
-          )}
-          
           {/* Pulse ring */}
           <span className={clsx(
             'absolute inset-0 rounded-2xl bg-violet-400 pointer-events-none transition-opacity duration-300',
             isHovered ? 'opacity-30 animate-ping' : 'opacity-0'
           )} />
         </button>
-      </div>
-
-      {/* Hover hint label */}
-      <div className={clsx(
-        'absolute -top-8 right-0 whitespace-nowrap transition-all duration-300',
-        isHovered && !showToolbox
-          ? 'opacity-100 translate-y-0'
-          : 'opacity-0 translate-y-2 pointer-events-none'
-      )}>
-        <span className="px-3 py-1 text-xs font-medium text-white bg-gray-800/90 rounded-full shadow-lg">
-          ✨ Choose your path
-        </span>
       </div>
     </div>
   )
