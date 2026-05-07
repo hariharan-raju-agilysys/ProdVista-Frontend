@@ -89,6 +89,7 @@ export default function Layout() {
   const [showTeamUpdates, setShowTeamUpdates] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
+  const [showShortcuts, setShowShortcuts] = useState(false)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['releases', 'quality', 'engineering', 'customers']))
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try { return localStorage.getItem('pv_sidebar_collapsed') === 'true' } catch { return false }
@@ -196,25 +197,52 @@ export default function Layout() {
   // Global keyboard shortcuts
   useEffect(() => {
     function handleGlobalKeyDown(e: KeyboardEvent) {
-      // Ctrl+K or Cmd+K — open command palette
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      const tag = (e.target as HTMLElement).tagName
+      const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement).isContentEditable
+      // ? — open shortcuts panel (when not typing)
+      if (e.key === '?' && !inInput && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault()
+        setShowShortcuts(true)
+        return
+      }
+      // Ctrl+K or Cmd+K — command palette
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'k') {
         e.preventDefault()
         setShowCommandPalette(prev => !prev)
       }
-      // Ctrl+B — toggle sidebar collapse
-      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+      // Ctrl+B — toggle sidebar
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'b') {
         e.preventDefault()
         toggleSidebar()
       }
-      // Ctrl+Shift+A — go to AI Chat
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'A') {
+      // ── Developer screen shortcuts (Ctrl+Shift+Letter) ──
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
         e.preventDefault()
-        navigate('/ai-chat')
+        switch (e.key) {
+          case 'A': navigate('/ai-chat'); break
+          case 'Q': navigate('/ai-query'); break
+          case 'O': navigate('/observability'); break
+          case 'R': navigate('/release-notes'); break
+          case 'E': navigate('/engineering'); break
+          case 'B': navigate('/bugs'); break
+          case 'P': navigate('/production'); break
+          case 'D': navigate('/developer-toolkit'); break
+          case 'J': navigate('/jenkins'); break
+          case 'G': navigate('/devops'); break
+        }
       }
     }
     document.addEventListener('keydown', handleGlobalKeyDown)
     return () => document.removeEventListener('keydown', handleGlobalKeyDown)
   }, [navigate])
+
+  // Esc closes shortcuts modal
+  useEffect(() => {
+    if (!showShortcuts) return
+    function onEsc(e: KeyboardEvent) { if (e.key === 'Escape') setShowShortcuts(false) }
+    document.addEventListener('keydown', onEsc)
+    return () => document.removeEventListener('keydown', onEsc)
+  }, [showShortcuts])
 
   const openCommandPalette = useCallback(() => setShowCommandPalette(true), [])
 
@@ -898,22 +926,40 @@ export default function Layout() {
                     </div>
                   </div>
 
+                  {/* Dev Quick Nav */}
                   <div className="px-3 py-2 border-b border-gray-100">
-                    <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
-                      <Activity className="w-3 h-3" />
-                      <span className="font-medium uppercase tracking-wide">Recent Activity</span>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                        <Code2 className="w-3 h-3" />
+                        <span className="font-semibold uppercase tracking-wide">Dev Quick Nav</span>
+                      </div>
+                      <button
+                        onClick={() => { setShowProfileMenu(false); setShowShortcuts(true) }}
+                        className="flex items-center gap-1 text-[10px] text-indigo-500 hover:text-indigo-700 font-medium transition-colors"
+                      >
+                        <Keyboard className="w-3 h-3" />
+                        all shortcuts
+                      </button>
                     </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-gray-50 text-xs">
-                        <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                        <span className="flex-1 text-gray-600">Logged in from Windows</span>
-                        <span className="text-gray-400">Just now</span>
-                      </div>
-                      <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-50 text-xs transition-colors">
-                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-                        <span className="flex-1 text-gray-600">Updated dashboard widgets</span>
-                        <span className="text-gray-400">2h ago</span>
-                      </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {([
+                        { label: 'AI Chat',      route: '/ai-chat',           icon: Bot,        bg: 'bg-violet-50 hover:bg-violet-100', txt: 'text-violet-600', key: '⇧A' },
+                        { label: 'Observability',route: '/observability',      icon: TrendingUp,  bg: 'bg-teal-50 hover:bg-teal-100',     txt: 'text-teal-600',   key: '⇧O' },
+                        { label: 'Engineering',  route: '/engineering',        icon: Code2,       bg: 'bg-indigo-50 hover:bg-indigo-100', txt: 'text-indigo-600', key: '⇧E' },
+                        { label: 'Bug Analytics',route: '/bugs',               icon: Bug,         bg: 'bg-red-50 hover:bg-red-100',       txt: 'text-red-600',    key: '⇧B' },
+                        { label: 'Production',   route: '/production',         icon: Server,      bg: 'bg-orange-50 hover:bg-orange-100', txt: 'text-orange-600', key: '⇧P' },
+                        { label: 'Dev Toolkit',  route: '/developer-toolkit',  icon: Activity,    bg: 'bg-blue-50 hover:bg-blue-100',     txt: 'text-blue-600',   key: '⇧D' },
+                      ] as const).map(({ label, route, icon: Icon, bg, txt, key }) => (
+                        <button
+                          key={route}
+                          onClick={() => { setShowProfileMenu(false); navigate(route) }}
+                          className={clsx('flex flex-col items-center gap-1 p-2 rounded-xl transition-all hover:scale-105 cursor-pointer text-center', bg)}
+                        >
+                          <Icon className={clsx('w-4 h-4', txt)} />
+                          <span className={clsx('text-[10px] font-semibold leading-tight', txt)}>{label}</span>
+                          <span className="text-[9px] text-gray-400 font-mono">^{key}</span>
+                        </button>
+                      ))}
                     </div>
                   </div>
 
@@ -966,6 +1012,7 @@ export default function Layout() {
                     )}
 
                     <button
+                      onClick={() => { setShowProfileMenu(false); setShowShortcuts(true) }}
                       className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors group"
                     >
                       <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center group-hover:bg-green-100 transition-colors">
@@ -973,7 +1020,7 @@ export default function Layout() {
                       </div>
                       <div className="flex-1 text-left">
                         <div className="font-medium">Keyboard Shortcuts</div>
-                        <div className="text-xs text-gray-400">Learn quick actions</div>
+                        <div className="text-xs text-gray-400">11 developer shortcuts</div>
                       </div>
                       <kbd className="px-1.5 py-0.5 text-[10px] bg-gray-100 text-gray-500 rounded font-mono">?</kbd>
                     </button>
@@ -1028,6 +1075,108 @@ export default function Layout() {
           </Suspense>
         </main>
       </div>
+
+      {/* Keyboard Shortcuts Modal */}
+      {showShortcuts && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowShortcuts(false) }}
+        >
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowShortcuts(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-purple-50">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center">
+                  <Keyboard className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-gray-900">Keyboard Shortcuts</h2>
+                  <p className="text-xs text-gray-500">Quick access for developers · press <kbd className="px-1 py-0.5 text-[10px] bg-white border border-gray-200 rounded font-mono">?</kbd> to toggle</p>
+                </div>
+              </div>
+              <button onClick={() => setShowShortcuts(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors">
+                <X className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-4 overflow-y-auto max-h-[72vh]">
+              {/* Navigation group */}
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-2 px-1">
+                  <Zap className="w-3.5 h-3.5 text-amber-500" />
+                  <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Navigation</span>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-1 space-y-0.5">
+                  {([
+                    { label: 'Command Palette',  keys: ['Ctrl', 'K'],   icon: Search,        color: 'text-blue-500' },
+                    { label: 'Toggle Sidebar',   keys: ['Ctrl', 'B'],   icon: PanelLeftClose, color: 'text-gray-500' },
+                    { label: 'Show Shortcuts',   keys: ['?'],           icon: Keyboard,      color: 'text-green-500' },
+                  ] as const).map(({ label, keys, icon: Icon, color }) => (
+                    <div key={label} className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white transition-colors">
+                      <div className="flex items-center gap-2.5">
+                        <Icon className={clsx('w-4 h-4 shrink-0', color)} />
+                        <span className="text-sm text-gray-700">{label}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {keys.map((k) => (
+                          <kbd key={k} className="px-2 py-0.5 text-[11px] bg-white border border-gray-200 text-gray-600 rounded-md font-mono shadow-sm">{k}</kbd>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Developer screens group */}
+              <div>
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <div className="flex items-center gap-2">
+                    <Code2 className="w-3.5 h-3.5 text-indigo-500" />
+                    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Developer Screens</span>
+                  </div>
+                  <span className="text-[10px] text-gray-300">click to navigate</span>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-1 space-y-0.5">
+                  {([
+                    { label: 'AI Chat',         keys: ['Ctrl', '⇧', 'A'], icon: Bot,        color: 'text-violet-500', route: '/ai-chat' },
+                    { label: 'AI Query',        keys: ['Ctrl', '⇧', 'Q'], icon: Zap,        color: 'text-amber-500',  route: '/ai-query' },
+                    { label: 'Observability',   keys: ['Ctrl', '⇧', 'O'], icon: TrendingUp, color: 'text-teal-500',   route: '/observability' },
+                    { label: 'Release Notes',   keys: ['Ctrl', '⇧', 'R'], icon: FileText,   color: 'text-green-500',  route: '/release-notes' },
+                    { label: 'Engineering',     keys: ['Ctrl', '⇧', 'E'], icon: Code2,      color: 'text-indigo-500', route: '/engineering' },
+                    { label: 'Bug Analytics',   keys: ['Ctrl', '⇧', 'B'], icon: Bug,        color: 'text-red-500',    route: '/bugs' },
+                    { label: 'Production',      keys: ['Ctrl', '⇧', 'P'], icon: Server,     color: 'text-orange-500', route: '/production' },
+                    { label: 'Developer Toolkit', keys: ['Ctrl', '⇧', 'D'], icon: Activity, color: 'text-blue-500',   route: '/developer-toolkit' },
+                    { label: 'Jenkins',         keys: ['Ctrl', '⇧', 'J'], icon: Workflow,   color: 'text-gray-600',   route: '/jenkins' },
+                    { label: 'DevOps Overview', keys: ['Ctrl', '⇧', 'G'], icon: GitBranch,  color: 'text-cyan-500',   route: '/devops' },
+                  ] as const).map(({ label, keys, icon: Icon, color, route }) => (
+                    <button
+                      key={route}
+                      onClick={() => { navigate(route); setShowShortcuts(false) }}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white transition-colors group text-left"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Icon className={clsx('w-4 h-4 shrink-0', color)} />
+                        <span className="text-sm text-gray-700 group-hover:text-gray-900">{label}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {keys.map((k) => (
+                          <kbd key={k} className="px-2 py-0.5 text-[11px] bg-white border border-gray-200 text-gray-600 rounded-md font-mono shadow-sm">{k}</kbd>
+                        ))}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+              <p className="text-[11px] text-gray-400">Press <kbd className="px-1.5 py-0.5 text-[10px] bg-white border border-gray-200 rounded font-mono">Esc</kbd> to close</p>
+              <span className="text-[11px] text-gray-400">11 developer shortcuts</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Command Palette (Ctrl+K) */}
       <CommandPalette isOpen={showCommandPalette} onClose={() => setShowCommandPalette(false)} />
