@@ -8,8 +8,8 @@ import { getStoredOrgCode, getStoredOrgInfo } from '../context/AuthContext';
 import { graphScopes, armScopes, devopsScopes, isMsalConfigured } from '../config/msalConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Building2, Loader2, ArrowRight, Terminal, Shield,
-  BarChart3, Zap, Globe, Lock, Info, UserCheck,
+  Building2, Loader2, ArrowRight, Terminal,
+  Lock, Info, UserCheck,
 } from 'lucide-react';
 import BrandedSplash from '../components/BrandedSplash';
 
@@ -33,16 +33,6 @@ function ConnectingScreen({ orgName }: { orgName?: string }) {
     />
   );
 }
-
-/* ------------------------------------------------------------------ */
-/*  Feature showcase for left panel                                   */
-/* ------------------------------------------------------------------ */
-const features = [
-  { icon: BarChart3, title: 'Real-time Analytics', desc: 'Live metrics & dashboards with Azure Monitor' },
-  { icon: Shield, title: 'Enterprise Security', desc: 'SSO with Microsoft Entra ID & RBAC' },
-  { icon: Zap, title: 'AI-Powered Insights', desc: 'Natural language queries via Azure OpenAI' },
-  { icon: Globe, title: 'Multi-Tenant SaaS', desc: 'Isolated data with per-tenant config' },
-];
 
 /* ------------------------------------------------------------------ */
 /*  Main component                                                    */
@@ -479,36 +469,85 @@ export default function LoginPage() {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.15 }}
+              className="mb-8"
             >
-              <h1 className="text-4xl font-extrabold text-white leading-tight mb-4 tracking-tight">
-                Engineering{' '}
-                <span className="text-blue-200">Command Center</span>
+              {/* Eyebrow badge */}
+              <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-3 py-1 mb-6">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-[11px] font-semibold text-white/75 tracking-widest uppercase">Agilysys · ProdVista</span>
+              </div>
+              <h1 className="text-5xl font-black text-white leading-[1.1] mb-5 tracking-tight">
+                One platform.<br />
+                <span className="text-blue-200/90">Complete clarity.</span>
               </h1>
-              <p className="text-base text-blue-100/80 leading-relaxed mb-10">
-                Production monitoring, DevOps analytics, and AI-powered insights — all in one place.
+              <p className="text-[15px] text-blue-100/70 leading-relaxed">
+                Real-time monitoring, DevOps pipelines, and AI analytics — purpose-built for engineering teams.
               </p>
             </motion.div>
 
-            {/* Feature list */}
-            <div className="space-y-4">
-              {features.map((feat, i) => (
-                <motion.div
-                  key={feat.title}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.4, delay: 0.3 + i * 0.08 }}
-                  className="flex items-start gap-3.5 bg-white/[0.07] backdrop-blur-sm rounded-xl p-3 hover:bg-white/[0.11] transition-colors"
-                >
-                  <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <feat.icon className="w-4.5 h-4.5 text-blue-100" />
+            {/* Product preview mockup */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+              className="rounded-2xl overflow-hidden border border-white/15"
+              style={{ background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(8px)' }}
+            >
+              {/* Browser chrome */}
+              <div
+                className="flex items-center gap-1.5 px-4 py-2.5 border-b border-white/10"
+                style={{ background: 'rgba(0,0,0,0.14)' }}
+              >
+                <div className="w-2 h-2 rounded-full bg-red-400/55" />
+                <div className="w-2 h-2 rounded-full bg-yellow-400/55" />
+                <div className="w-2 h-2 rounded-full bg-green-400/55" />
+                <div className="ml-3 flex-1 bg-white/10 rounded px-2 py-0.5 text-[10px] text-white/30 truncate">
+                  app.prodvista.com / engineering
+                </div>
+              </div>
+
+              {/* Dashboard content */}
+              <div className="p-4">
+                {/* KPI row */}
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  {[
+                    { val: '99.9%', label: 'SLA', color: '#86efac' },
+                    { val: '4.2K',  label: 'Deploys', color: '#93c5fd' },
+                    { val: '23ms',  label: 'P95 Latency', color: '#c4b5fd' },
+                  ].map((m, i) => (
+                    <div key={i} className="rounded-xl p-2.5" style={{ background: 'rgba(255,255,255,0.07)' }}>
+                      <div className="text-sm font-bold mb-0.5" style={{ color: m.color }}>{m.val}</div>
+                      <div className="text-[10px] text-white/40">{m.label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Deploy frequency chart */}
+                <div className="rounded-xl p-3" style={{ background: 'rgba(0,0,0,0.14)' }}>
+                  <div className="text-[10px] text-white/30 mb-2.5">Deploy frequency · 12 mo</div>
+                  <div className="flex items-end gap-1" style={{ height: 40 }}>
+                    {[28, 46, 38, 64, 52, 74, 57, 84, 68, 78, 65, 92].map((h, i) => (
+                      <div
+                        key={i}
+                        className="flex-1 rounded-sm"
+                        style={{
+                          height: `${h}%`,
+                          background: i === 11
+                            ? 'rgba(99,102,241,0.9)'
+                            : i >= 9
+                            ? 'rgba(255,255,255,0.24)'
+                            : 'rgba(255,255,255,0.10)',
+                        }}
+                      />
+                    ))}
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold text-white">{feat.title}</p>
-                    <p className="text-xs text-blue-200/70 leading-relaxed">{feat.desc}</p>
+                  <div className="flex justify-between mt-1.5">
+                    <span className="text-[9px] text-white/22">Jan</span>
+                    <span className="text-[9px] text-white/22">Dec</span>
                   </div>
-                </motion.div>
-              ))}
-            </div>
+                </div>
+              </div>
+            </motion.div>
           </div>
 
           {/* Trust bar */}
