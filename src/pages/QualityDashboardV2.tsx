@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, memo } from 'react';
+import { DataFreshnessBadge } from '../components/DataFreshnessBadge';
 import {
   getConnections, getBugs, getMyBugs,
   getReleases, getReleaseWorkItems, getOwnerEfficiency, getFilterOptions,
@@ -63,6 +64,9 @@ const QualityDashboardV2: React.FC = () => {
   const [filterOptions, setFilterOptions] = useState<QualityFilterOptionsDto | null>(null);
   const [trendData, setTrendData] = useState<QualityTrendPointDto[]>([]);
   const [agingData, setAgingData] = useState<BugAgingDistributionDto[]>([]);
+
+  // Data freshness
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
 
   // Today Activity (PRs + Commits grouped by Repo)
   const [todayActivity, setTodayActivity] = useState<TodayActivity | null>(null);
@@ -155,6 +159,7 @@ const QualityDashboardV2: React.FC = () => {
       setTrendData(trendResult);
       setAgingData(agingResult);
       setTodayActivity(activityData);
+      setLastRefreshed(new Date());
     } catch (err: any) {
       setError(err?.response?.data?.error || err.message || 'Failed to load quality data');
     } finally {
@@ -421,6 +426,11 @@ const QualityDashboardV2: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <DataFreshnessBadge
+                    lastRefreshed={lastRefreshed}
+                    onRefresh={handleRefresh}
+                    isRefreshing={loading}
+                  />
                   {loading && (
                     <span className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2.5 py-1 rounded-full animate-pulse">
                       <Loader2 className="w-3 h-3 animate-spin" /> Syncing

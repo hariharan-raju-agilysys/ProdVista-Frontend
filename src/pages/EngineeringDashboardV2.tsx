@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { DataFreshnessBadge } from '../components/DataFreshnessBadge';
 import { useNavigate } from 'react-router-dom';
 import { MetricCard, StatusBadge } from '../components/MetricCard';
 import { ChartCard } from '../components/Charts';
@@ -290,12 +291,14 @@ export default function EngineeringDashboardV2() {
           <p className="text-gray-500 dark:text-gray-400 flex items-center gap-2">
             <Building2 size={16} />
             {config.organizationUrl.replace('https://dev.azure.com/', '')} / {config.projectName}
-            {lastRefresh && (
-              <span className="text-xs">• Last updated: {lastRefresh.toLocaleTimeString()}</span>
-            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <DataFreshnessBadge
+            lastRefreshed={lastRefresh}
+            onRefresh={loadDashboardData}
+            isRefreshing={isLoading}
+          />
           <button
             onClick={loadDashboardData}
             disabled={isLoading}

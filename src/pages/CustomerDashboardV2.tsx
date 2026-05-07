@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { DataFreshnessBadge } from '../components/DataFreshnessBadge';
 import { useAuth } from '../context/AuthContext';
 import {
   getCustomerSummary,
@@ -53,6 +54,13 @@ const CustomerDashboardV2: React.FC = () => {
   const [syncingAliases, setSyncingAliases] = useState(false);
   const [syncResult, setSyncResult] = useState<SyncAliasesResult | null>(null);
 
+  // Data freshness
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+
+  // Open tickets filter + sort
+  const [openTicketsOnly, setOpenTicketsOnly] = useState(false);
+  const [sortByOpenTickets, setSortByOpenTickets] = useState(false);
+
   // Load data on mount
   useEffect(() => {
     loadData();
@@ -102,6 +110,7 @@ const CustomerDashboardV2: React.FC = () => {
       setSummary(summaryData);
       setCustomers(customersData);
       setAllCustomers(customersData);
+      setLastRefreshed(new Date());
     } catch (err: any) {
       setError(err.message || 'Failed to load customer data');
     } finally {
@@ -255,7 +264,7 @@ const CustomerDashboardV2: React.FC = () => {
   };
 
   const renderFilters = () => {
-    const hasActiveFilters = filters.status || filters.region || filters.priority || filters.deploymentType || searchTerm || propertyIdSearch || tenantIdSearch || subPropertySearch;
+    const hasActiveFilters = filters.status || filters.region || filters.priority || filters.deploymentType || searchTerm || propertyIdSearch || tenantIdSearch || subPropertySearch || openTicketsOnly;
 
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-4">
@@ -361,10 +370,27 @@ const CustomerDashboardV2: React.FC = () => {
             </select>
           </div>
 
+          {/* Has Open Tickets Filter */}
+          <button
+            onClick={() => setOpenTicketsOnly(v => !v)}
+            className={`px-3 py-2 text-sm rounded-lg flex items-center gap-1.5 transition-colors border ${
+              openTicketsOnly
+                ? 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-300 dark:border-red-700 font-medium'
+                : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-orange-400'
+            }`}
+            title="Show only customers with open support tickets"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+            </svg>
+            Has Open Tickets
+            {openTicketsOnly && <span className="ml-0.5 w-2 h-2 bg-red-500 rounded-full"></span>}
+          </button>
+
           {/* Clear Filters */}
           {hasActiveFilters && (
             <button
-              onClick={clearFilters}
+              onClick={() => { clearFilters(); setOpenTicketsOnly(false); setSortByOpenTickets(false); }}
               className="px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
             >
               Clear All
@@ -417,6 +443,14 @@ const CustomerDashboardV2: React.FC = () => {
   };
 
   const renderCustomerTable = () => {
+    // Apply open-tickets filtering + sorting on top of server-filtered customers
+    let displayCustomers = openTicketsOnly
+      ? customers.filter(c => (c.openTickets ?? 0) > 0)
+      : customers;
+    if (sortByOpenTickets) {
+      displayCustomers = [...displayCustomers].sort((a, b) => (b.openTickets ?? 0) - (a.openTickets ?? 0));
+    }
+
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
@@ -432,10 +466,19 @@ const CustomerDashboardV2: React.FC = () => {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Products</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Health</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Last Active</th>
+                <th
+                  className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer select-none hover:text-orange-600 dark:hover:text-orange-400 transition-colors"
+                  onClick={() => setSortByOpenTickets(s => !s)}
+                  title="Click to sort by open tickets"
+                >
+                  <span className={sortByOpenTickets ? 'text-orange-600 dark:text-orange-400' : 'text-gray-500 dark:text-gray-400'}>
+                    Open Tickets {sortByOpenTickets ? '▼' : ''}
+                  </span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {customers.map((customer) => (
+              {displayCustomers.map((customer) => (
                 <tr
                   key={customer.id}
                   onClick={() => setSelectedCustomer(customer)}
@@ -498,6 +541,15 @@ const CustomerDashboardV2: React.FC = () => {
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500">
                     {formatRelativeTime(customer.lastActivityDate)}
+                  </td>
+                  <td className="px-4 py-3">
+                    {(customer.openTickets ?? 0) > 0 ? (
+                      <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold rounded-full bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800">
+                        {customer.openTickets}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-400">—</span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -1018,6 +1070,11 @@ const CustomerDashboardV2: React.FC = () => {
           <p className="text-sm text-gray-500 dark:text-gray-400">Manage and monitor all customers</p>
         </div>
         <div className="flex items-center gap-2">
+          <DataFreshnessBadge
+            lastRefreshed={lastRefreshed}
+            onRefresh={loadData}
+            isRefreshing={loading}
+          />
           <button
             onClick={async () => {
               setSyncingAliases(true);

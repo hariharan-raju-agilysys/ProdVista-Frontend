@@ -63,6 +63,12 @@ const TenantAdminPage = lazyWithRetry(() => import('./pages/TenantAdminPage'))
 const MenuManagementPage = lazyWithRetry(() => import('./pages/MenuManagementPage'))
 const AccessDeniedPage = lazyWithRetry(() => import('./pages/AccessDeniedPage'))
 const ReleaseBranchSetupPage = lazyWithRetry(() => import('./pages/ReleaseBranchSetupPage'))
+const UpcomingGoLivesPage = lazyWithRetry(() => import('./pages/UpcomingGoLivesPage'))
+const AgingWorkItemsPage = lazyWithRetry(() => import('./pages/AgingWorkItemsPage'))
+const WorkItemsByReleasePage = lazyWithRetry(() => import('./pages/WorkItemsByReleasePage'))
+const ReleaseStatusPage = lazyWithRetry(() => import('./pages/ReleaseStatusPage'))
+const KnowledgeCenterPage = lazyWithRetry(() => import('./pages/KnowledgeCenterPage'))
+const CareerMilestonesPage = lazyWithRetry(() => import('./pages/CareerMilestonesPage'))
 
 // ---------------------------------------------------------------------------
 // Routes
@@ -133,6 +139,12 @@ function AppRoutes() {
         <Route path="menu-management" element={<ManagerRoute><MenuManagementPage /></ManagerRoute>} />
         <Route path="users" element={<ManagerRoute><UserManagement /></ManagerRoute>} />
         <Route path="release-branches" element={<ManagerRoute><ReleaseBranchSetupPage /></ManagerRoute>} />
+        <Route path="upcoming-go-lives" element={<UpcomingGoLivesPage />} />
+        <Route path="aging-work-items" element={<AgingWorkItemsPage />} />
+        <Route path="work-items-by-release" element={<WorkItemsByReleasePage />} />
+        <Route path="release-status" element={<ReleaseStatusPage />} />
+        <Route path="knowledge-center" element={<KnowledgeCenterPage />} />
+        <Route path="career-milestones" element={<CareerMilestonesPage />} />
       </Route>
       
       {/* Access Denied page */}

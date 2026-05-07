@@ -19,6 +19,7 @@ import {
   Workflow,
   User,
   ChevronDown,
+  ChevronRight,
   PanelTop,
   X,
   Building2,
@@ -39,6 +40,16 @@ import {
   AlertTriangle,
   Info,
   XCircle,
+  GitBranch,
+  CalendarDays,
+  Clock,
+  Layers,
+  ListFilter,
+  BarChart3,
+  Globe,
+  TrendingUp,
+  BookOpen,
+  Trophy,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../context/AuthContext'
@@ -49,7 +60,6 @@ import { getProfilePictureUrl, getInitials } from '../utils/gravatar'
 import CommandPalette from './CommandPalette'
 import FloatingAIButton from './FloatingAIButton'
 import PersistentChatWidget from './PersistentChatWidget'
-import FunLoader from './FunLoader'
 import { getTodayNotifications, markAsRead, markAllAsRead, dismissNotification, getUnreadCount, type UserNotification } from '../services/notificationService'
 
 // Icon mapping for dynamic icons
@@ -65,14 +75,56 @@ function getIcon(iconName?: string): React.ComponentType<{ className?: string }>
 
 export default function Layout() {
   const { user, isManager, isGuest, isAuthenticated, orgInfo, logout, exitOrg } = useAuth()
-  const { menuItems, isLoading, loadNavigation, initializeMenuItems } = useMenuStore()
+  const { menuItems, loadNavigation } = useMenuStore()
   const { features, loadFeatures } = useFeatureStore()
   const navigate = useNavigate()
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
-  const [isInitializing, setIsInitializing] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['releases', 'quality', 'engineering', 'customers']))
+
+  const toggleGroup = (key: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  // Reusable nav link renderer
+  const navItem = (to: string, icon: React.ReactNode, label: string, badge?: string) => (
+    <NavLink
+      key={to}
+      to={to}
+      onClick={() => setSidebarOpen(false)}
+      className={({ isActive }) =>
+        clsx(
+          'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors group',
+          isActive
+            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-900/40'
+            : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+        )
+      }
+    >
+      <span className="flex-shrink-0">{icon}</span>
+      <span className="flex-1 truncate">{label}</span>
+      {badge && <span className="text-[10px] bg-indigo-500/30 text-indigo-300 px-1.5 py-0.5 rounded font-semibold shrink-0">{badge}</span>}
+    </NavLink>
+  )
+
+  // Collapsible nav group header
+  const navGroup = (key: string, label: string, icon: React.ReactNode) => (
+    <button
+      onClick={() => toggleGroup(key)}
+      className="w-full flex items-center gap-1.5 px-2 py-1.5 mt-1 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-slate-400 transition-colors"
+    >
+      <span className="text-slate-600">{icon}</span>
+      <span className="flex-1 text-left">{label}</span>
+      <ChevronRight className={clsx('w-3 h-3 transition-transform duration-200', expandedGroups.has(key) && 'rotate-90')} />
+    </button>
+  )
 
   // Theme — light mode only (dark mode disabled)
 
@@ -184,12 +236,6 @@ export default function Layout() {
     navigate('/org')
   }
 
-  const handleInitializeMenu = async () => {
-    setIsInitializing(true)
-    await initializeMenuItems()
-    setIsInitializing(false)
-  }
-
   const userInitial = getInitials(user?.displayName || user?.email || '')
   const profilePicUrl = getProfilePictureUrl({
     profilePictureUrl: (user as any)?.profilePictureUrl,
@@ -255,59 +301,111 @@ export default function Layout() {
         </div>
 
         {/* Scrollable nav section */}
-        <nav className="mt-3 px-3 flex-1 overflow-y-auto min-h-0 pb-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent hover:scrollbar-thumb-slate-600">
-          {isLoading ? (
-            <FunLoader inline className="py-8 justify-center w-full flex" />
-          ) : menuItems.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-slate-500 text-sm mb-3">No menu items</p>
-              {isManager && (
-                <button
-                  onClick={handleInitializeMenu}
-                  disabled={isInitializing}
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg disabled:opacity-50 flex items-center gap-2 mx-auto"
-                >
-                  {isInitializing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Initializing...
-                    </>
-                  ) : (
-                    'Initialize Menu'
-                  )}
-                </button>
-              )}
+        <nav className="mt-2 px-2 flex-1 overflow-y-auto min-h-0 pb-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent hover:scrollbar-thumb-slate-600">
+
+          {/* Home */}
+          {navItem('/', <Rocket className="w-4 h-4" />, 'Home')}
+
+          {/* --- Release Intelligence --- */}
+          {navGroup('releases', 'Release', <Layers className="w-3 h-3" />)}
+          {expandedGroups.has('releases') && (
+            <div className="pl-2 space-y-0.5 mb-1">
+              {navItem('/releases', <Package className="w-4 h-4" />, 'Releases')}
+              {navItem('/release-status', <TrendingUp className="w-4 h-4" />, 'Release Status', 'New')}
+              {navItem('/work-items-by-release', <ListFilter className="w-4 h-4" />, 'Work Items by Release', 'New')}
+              {isManager && navItem('/release-branches', <GitBranch className="w-4 h-4" />, 'Branch Setup')}
             </div>
-          ) : (
-            (() => {
-              // Show only these items in this specific order
-              const visibleItems = ['Overview', 'Quality', 'Customers']
-              return menuItems
-                .filter((item) => visibleItems.includes(item.name))
-                .sort((a, b) => visibleItems.indexOf(a.name) - visibleItems.indexOf(b.name))
-                .map((item) => {
-                  const Icon = getIcon(item.icon)
-                  return (
-                    <NavLink
-                      key={item.id}
-                      to={item.href}
-                      onClick={() => setSidebarOpen(false)}
-                      className={({ isActive }) =>
-                        clsx(
-                          'flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 transition-colors',
-                          isActive
-                            ? 'bg-primary-600 text-white'
-                            : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                        )
-                      }
-                    >
-                      <Icon className="w-5 h-5" />
-                      {item.name}
-                    </NavLink>
-                  )
-                })
-            })()
           )}
+
+          {/* --- Quality Center --- */}
+          {navGroup('quality', 'Quality', <ShieldCheck className="w-3 h-3" />)}
+          {expandedGroups.has('quality') && (
+            <div className="pl-2 space-y-0.5 mb-1">
+              {navItem('/quality', <Bug className="w-4 h-4" />, 'Bug Command Center')}
+              {navItem('/aging-work-items', <Clock className="w-4 h-4" />, 'Aging Work Items', 'New')}
+              {navItem('/bug-analytics', <BarChart3 className="w-4 h-4" />, 'Bug Analytics')}
+              {navItem('/quality-team', <Users className="w-4 h-4" />, 'Team View')}
+            </div>
+          )}
+
+          {/* --- Engineering --- */}
+          {navGroup('engineering', 'Engineering', <Code2 className="w-3 h-3" />)}
+          {expandedGroups.has('engineering') && (
+            <div className="pl-2 space-y-0.5 mb-1">
+              {navItem('/engineering', <Code2 className="w-4 h-4" />, 'Engineering')}
+              {navItem('/pull-requests', <GitBranch className="w-4 h-4" />, 'Pull Requests')}
+              {navItem('/devops-overview', <Workflow className="w-4 h-4" />, 'DevOps Overview')}
+              {navItem('/observability', <Activity className="w-4 h-4" />, 'Observability')}
+              {features.enableJenkins && navItem('/jenkins', <Zap className="w-4 h-4" />, 'Jenkins')}
+            </div>
+          )}
+
+          {/* --- Customers --- */}
+          {navGroup('customers', 'Customers', <Globe className="w-3 h-3" />)}
+          {expandedGroups.has('customers') && (
+            <div className="pl-2 space-y-0.5 mb-1">
+              {navItem('/upcoming-go-lives', <CalendarDays className="w-4 h-4" />, 'Upcoming Go Lives', 'New')}
+              {navItem('/customers', <Users className="w-4 h-4" />, 'Customer Dashboard')}
+              {navItem('/knowledge-center', <BookOpen className="w-4 h-4" />, 'Knowledge Center', 'New')}
+              {navItem('/career-milestones', <Trophy className="w-4 h-4" />, 'Career Milestones', 'New')}
+            </div>
+          )}
+
+          {/* --- AI Intelligence --- */}
+          {features.enableAI && (
+            <>
+              {navGroup('ai', 'AI Intelligence', <Bot className="w-3 h-3" />)}
+              {expandedGroups.has('ai') && (
+                <div className="pl-2 space-y-0.5 mb-1">
+                  {navItem('/ai-chat', <Bot className="w-4 h-4" />, 'AI Chat')}
+                  {navItem('/ai-query', <Search className="w-4 h-4" />, 'Smart Query')}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* --- Azure & Observability --- */}
+          {navGroup('azure', 'Azure & Cloud', <Cloud className="w-3 h-3" />)}
+          {expandedGroups.has('azure') && (
+            <div className="pl-2 space-y-0.5 mb-1">
+              {navItem('/azure', <Cloud className="w-4 h-4" />, 'Azure Cloud')}
+              {navItem('/observability-query', <FileText className="w-4 h-4" />, 'KQL Query')}
+              {navItem('/logs', <FileText className="w-4 h-4" />, 'Logs & Traces')}
+            </div>
+          )}
+
+          {/* --- Tools & Admin --- */}
+          {navGroup('admin', 'Tools & Admin', <Cog className="w-3 h-3" />)}
+          {expandedGroups.has('admin') && (
+            <div className="pl-2 space-y-0.5 mb-1">
+              {navItem('/tools', <Zap className="w-4 h-4" />, 'Tools Hub')}
+              {navItem('/mcp-tools', <Cog className="w-4 h-4" />, 'MCP Tools')}
+              {navItem('/automation', <Workflow className="w-4 h-4" />, 'Automation')}
+              {isManager && navItem('/settings', <Settings className="w-4 h-4" />, 'Settings')}
+              {isManager && navItem('/tenant-admin', <Shield className="w-4 h-4" />, 'Tenant Admin')}
+              {isManager && navItem('/users', <UserCog className="w-4 h-4" />, 'Users')}
+              {isManager && navItem('/menu-management', <PanelTop className="w-4 h-4" />, 'Menu Setup')}
+            </div>
+          )}
+
+          {/* Custom dynamic pages (from DB) */}
+          {menuItems.filter(m => m.href.startsWith('/p/')).length > 0 && (
+            <>
+              {navGroup('custom', 'Custom Pages', <PanelTop className="w-3 h-3" />)}
+              {expandedGroups.has('custom') && (
+                <div className="pl-2 space-y-0.5 mb-1">
+                  {menuItems
+                    .filter(m => m.href.startsWith('/p/'))
+                    .sort((a, b) => a.displayOrder - b.displayOrder)
+                    .map(item => {
+                      const Icon = getIcon(item.icon)
+                      return navItem(item.href, <Icon className="w-4 h-4" />, item.name)
+                    })}
+                </div>
+              )}
+            </>
+          )}
+
         </nav>
 
         {/* Bottom Actions - properly sized with flex */}

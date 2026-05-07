@@ -212,6 +212,10 @@ export default function QualityCommandCenterPage() {
   // Bug table view
   const [bugView, setBugView] = useState<'priority' | 'mine'>(isLeadership ? 'priority' : 'mine');
 
+  // Team-only + BA filter
+  const [teamOnly, setTeamOnly] = useState(false);
+  const [baOwnerFilter, setBaOwnerFilter] = useState<string>('');
+
   // Smart query
   const [prompt, setPrompt] = useState('');
   const [queryLoading, setQueryLoading] = useState(false);
@@ -394,8 +398,23 @@ export default function QualityCommandCenterPage() {
   const criticalBugs = useMemo(() => allBugs.filter(b => b.severity === '1 - Critical' && (b.state === 'Active' || b.state === 'New')), [allBugs]);
   const staleCount = useMemo(() => allBugs.filter(b => b.ageDays > 14 && (b.state === 'Active' || b.state === 'New')).length, [allBugs]);
 
+  // All BA owners derived from loaded bugs
+  const allBaOwners = useMemo(() => {
+    const owners = new Set<string>();
+    [...allBugs, ...myBugsData].forEach(b => { if (b.baOwner) owners.add(b.baOwner.split(' <')[0]) });
+    return Array.from(owners).sort();
+  }, [allBugs, myBugsData]);
+
   const displayBugs = useMemo(() => {
     let bugs = bugView === 'mine' ? myBugsData : allBugs;
+    if (teamOnly) {
+      // Filter to bugs where assignedTo contains known dev/BA team names (not customers)
+      // Heuristic: exclude unassigned and non-team (dev team = bugs that have assignedTo set)
+      bugs = bugs.filter(b => !!b.assignedTo);
+    }
+    if (baOwnerFilter) {
+      bugs = bugs.filter(b => b.baOwner?.toLowerCase().includes(baOwnerFilter.toLowerCase()));
+    }
     if (customerFilter) {
       bugs = bugs.filter(b =>
         b.customer?.toLowerCase() === customerFilter.toLowerCase() ||
@@ -407,7 +426,7 @@ export default function QualityCommandCenterPage() {
       else if (filterType === 'aging') bugs = bugs.filter(b => b.ageDays > 7 && (b.state === 'Active' || b.state === 'New'));
     }
     return bugs;
-  }, [bugView, myBugsData, allBugs, customerFilter, filterType]);
+  }, [bugView, myBugsData, allBugs, customerFilter, filterType, teamOnly, baOwnerFilter]);
 
   // Triage grouped data
   const triageGroups = useMemo(() => {
@@ -535,6 +554,9 @@ export default function QualityCommandCenterPage() {
             expandedBugId={expandedBugId} setExpandedBugId={setExpandedBugId}
             triageGroupBy={triageGroupBy} setTriageGroupBy={setTriageGroupBy}
             triageGroups={triageGroups}
+            teamOnly={teamOnly} setTeamOnly={setTeamOnly}
+            baOwnerFilter={baOwnerFilter} setBaOwnerFilter={setBaOwnerFilter}
+            allBaOwners={allBaOwners}
           />
         )}
 
@@ -703,19 +725,23 @@ function OverviewTab({ kpi, kpiLoading, criticalBugs, staleCount, trend, trendLo
 // Triage Tab
 // ============================================================================
 function TriageTab({ bugs, bugsLoading, bugView, setBugView, isLeadership, expandedBugId, setExpandedBugId,
-  triageGroupBy, setTriageGroupBy, triageGroups
+  triageGroupBy, setTriageGroupBy, triageGroups,
+  teamOnly, setTeamOnly, baOwnerFilter, setBaOwnerFilter, allBaOwners
 }: {
   bugs: QualityWorkItemDto[]; bugsLoading: boolean; bugView: 'priority' | 'mine';
   setBugView: (v: 'priority' | 'mine') => void; isLeadership: boolean;
   expandedBugId: number | null; setExpandedBugId: (id: number | null) => void;
   triageGroupBy: 'severity' | 'area' | 'assignee'; setTriageGroupBy: (g: 'severity' | 'area' | 'assignee') => void;
   triageGroups: [string, QualityWorkItemDto[]][];
+  teamOnly: boolean; setTeamOnly: (v: boolean) => void;
+  baOwnerFilter: string; setBaOwnerFilter: (v: string) => void;
+  allBaOwners: string[];
 }) {
   return (
     <div className="space-y-6">
       {/* Triage Controls */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
             <button onClick={() => setBugView('priority')}
               className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${bugView === 'priority' ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 shadow-sm' : 'text-gray-500'}`}>
@@ -726,7 +752,41 @@ function TriageTab({ bugs, bugsLoading, bugView, setBugView, isLeadership, expan
               My Bugs
             </button>
           </div>
-          <span className="text-base text-gray-500 dark:text-gray-400">{bugs.length} items</span>
+
+          {/* Team-only toggle */}
+          <button
+            onClick={() => setTeamOnly(!teamOnly)}
+            className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border transition-colors ${
+              teamOnly
+                ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 font-medium'
+                : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
+            }`}
+            title="Show only bugs assigned to team members"
+          >
+            <Users size={14} />
+            Our Team
+          </button>
+
+          {/* BA Owner filter */}
+          {allBaOwners.length > 0 && (
+            <select
+              value={baOwnerFilter}
+              onChange={e => setBaOwnerFilter(e.target.value)}
+              className={`text-sm border rounded-lg px-3 py-2 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                baOwnerFilter
+                  ? 'bg-purple-50 dark:bg-purple-900/30 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300'
+                  : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
+              }`}
+              title="Filter by BA Owner"
+            >
+              <option value="">BA Owner: All</option>
+              {allBaOwners.map(owner => (
+                <option key={owner} value={owner}>{owner}</option>
+              ))}
+            </select>
+          )}
+
+          <span className="text-sm text-gray-500 dark:text-gray-400">{bugs.length} items</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-500">Group by:</span>

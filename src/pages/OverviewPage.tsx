@@ -20,6 +20,7 @@ import {
 } from '../services/overviewService';
 import { getCustomers, type CustomerDetailDto } from '../services/customerService';
 import { AdvancedPRListModal } from '../components/AdvancedPRListModal';
+import CustomerDetailPopup from '../components/CustomerDetailPopup';
 import { WidgetConfigModal } from '../components/WidgetConfigModal';
 import DevOpsConnectionSetup from '../components/DevOpsConnectionSetup';
 
@@ -107,6 +108,7 @@ export default function OverviewPage({ isAdminView = true }: OverviewPageProps) 
   const [customerSearchResults, setCustomerSearchResults] = useState<CustomerDetailDto[]>([]);
   const [customerSearchLoading, setCustomerSearchLoading] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const [selectedSearchCustomer, setSelectedSearchCustomer] = useState<CustomerDetailDto | null>(null);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // ── Metric Detail Modal State ──
@@ -643,7 +645,7 @@ export default function OverviewPage({ isAdminView = true }: OverviewPageProps) 
                   </div>
                   {customerSearchResults.slice(0, 10).map(c => (
                     <div key={c.id} className="px-3 py-2.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border-b border-gray-50 dark:border-gray-700/50 cursor-pointer transition-colors"
-                      onClick={() => navigate('/customers')}>
+                      onClick={() => { setSelectedSearchCustomer(c); setShowSearchResults(false); }}>
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs font-semibold text-gray-900 dark:text-white truncate">
                           {c.customerNameAlias || c.customerName}
@@ -696,6 +698,11 @@ export default function OverviewPage({ isAdminView = true }: OverviewPageProps) 
       {/* Click-away for search results */}
       {showSearchResults && (
         <div className="fixed inset-0 z-40" onClick={() => setShowSearchResults(false)} />
+      )}
+
+      {/* Customer Detail Popup from search */}
+      {selectedSearchCustomer && (
+        <CustomerDetailPopup customer={selectedSearchCustomer} onClose={() => setSelectedSearchCustomer(null)} />
       )}
 
       {/* ── Row 2: Jenkins + Build Success ── */}
