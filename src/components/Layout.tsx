@@ -51,9 +51,7 @@ import {
   BookOpen,
   Trophy,
   MessageSquare,
-  Share2,
   Lightbulb,
-  Radio,
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react'
@@ -67,15 +65,7 @@ import CommandPalette from './CommandPalette'
 import FloatingAIButton from './FloatingAIButton'
 import PersistentChatWidget from './PersistentChatWidget'
 import { getTodayNotifications, markAsRead, markAllAsRead, dismissNotification, getUnreadCount, type UserNotification } from '../services/notificationService'
-
-// ── Team Updates data (extend with API calls to getKnowledgeShares later)
-const TEAM_UPDATES = [
-  { id: 1, type: 'knowledge', icon: <Lightbulb className="w-4 h-4 text-amber-500" />, title: 'Shift4 ZIP code race condition fix', author: 'Hariharan', time: '1h ago', body: 'Always include ZIP for external gift card methods. See PaymentBusinessLogicHandler line 1372.' },
-  { id: 2, type: 'share', icon: <Share2 className="w-4 h-4 text-blue-500" />, title: 'New API pattern: Refit async variants', author: 'Deepika', time: '3h ago', body: 'Use *ServiceAsync variants everywhere. Never mix sync/async patterns in the payment flow.' },
-  { id: 3, type: 'update', icon: <Radio className="w-4 h-4 text-green-500" />, title: 'Release 26.2.0.92 deployed to AKS', author: 'Pipeline', time: '4h ago', body: 'Tools-Activities-API-CICD build #92 deployed successfully to agys-v1 namespace.' },
-  { id: 4, type: 'knowledge', icon: <Lightbulb className="w-4 h-4 text-amber-500" />, title: 'EF Core global query filter tip', author: 'Ravi', time: '6h ago', body: 'All TenantAwareEntity queries are auto-filtered. No need to add .Where(e => e.TenantId == id).' },
-  { id: 5, type: 'share', icon: <Share2 className="w-4 h-4 text-blue-500" />, title: 'PR Review: Folio payment null ref fix', author: 'Srinidhi', time: 'Yesterday', body: 'Added null guard on response.Result.Items before .First(). PR #344 — please review.' },
-]
+import { getKnowledgeShares, type KnowledgeShareInfo } from '../services/overviewService'
 
 // Icon mapping for dynamic icons
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -103,6 +93,8 @@ export default function Layout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try { return localStorage.getItem('pv_sidebar_collapsed') === 'true' } catch { return false }
   })
+  const [teamUpdates, setTeamUpdates] = useState<KnowledgeShareInfo[]>([])
+  const [teamUpdatesLoading, setTeamUpdatesLoading] = useState(false)
 
   const toggleSidebar = () => setSidebarCollapsed(prev => {
     const next = !prev
@@ -132,8 +124,8 @@ export default function Layout() {
           'flex items-center rounded-lg text-[13px] font-medium transition-all duration-150 group relative',
           sidebarCollapsed ? 'justify-center px-0 py-2.5 mx-1' : 'gap-3 px-3 py-2.5',
           isActive
-            ? 'bg-white/15 text-white border-l-2 border-blue-400'
-            : 'text-slate-300 hover:bg-white/10 hover:text-white border-l-2 border-transparent'
+            ? 'bg-indigo-50 text-indigo-700 border-l-2 border-indigo-500 font-semibold'
+            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 border-l-2 border-transparent'
         )
       }
     >
@@ -142,7 +134,7 @@ export default function Layout() {
         <>
           <span className="flex-1 truncate">{label}</span>
           {badge && (
-            <span className="text-[9px] bg-blue-500/30 text-blue-200 px-1.5 py-0.5 rounded-full font-bold shrink-0 uppercase tracking-wide">
+            <span className="text-[9px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full font-bold shrink-0 uppercase tracking-wide">
               {badge}
             </span>
           )}
@@ -150,9 +142,9 @@ export default function Layout() {
       )}
       {/* Tooltip in collapsed mode */}
       {sidebarCollapsed && (
-        <div className="absolute left-full ml-2 px-2.5 py-1.5 bg-gray-900 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg border border-white/10">
+        <div className="absolute left-full ml-2 px-2.5 py-1.5 bg-gray-900 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg">
           {label}
-          {badge && <span className="ml-1.5 text-blue-300">{badge}</span>}
+          {badge && <span className="ml-1.5 text-indigo-300">{badge}</span>}
         </div>
       )}
     </NavLink>
@@ -162,17 +154,17 @@ export default function Layout() {
   const navGroup = (key: string, label: string, icon: React.ReactNode) => {
     if (sidebarCollapsed) {
       return (
-        <div className="mx-1 mt-3 h-px bg-white/10" />
+        <div className="mx-2 mt-3 h-px bg-gray-200" />
       )
     }
     return (
       <button
         onClick={() => toggleGroup(key)}
-        className="w-full flex items-center gap-2 px-3 py-2 mt-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-slate-200 transition-colors rounded-md"
+        className="w-full flex items-center gap-2 px-3 py-2 mt-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest hover:text-gray-600 transition-colors rounded-md hover:bg-gray-50"
       >
-        <span className="text-slate-500">{icon}</span>
+        <span className="text-gray-400">{icon}</span>
         <span className="flex-1 text-left">{label}</span>
-        <ChevronRight className={clsx('w-3 h-3 transition-transform duration-200 text-slate-500', expandedGroups.has(key) && 'rotate-90')} />
+        <ChevronRight className={clsx('w-3 h-3 transition-transform duration-200 text-gray-300', expandedGroups.has(key) && 'rotate-90')} />
       </button>
     )
   }
@@ -256,6 +248,16 @@ export default function Layout() {
       .finally(() => setNotifLoading(false))
   }, [showNotifications, isAuthenticated])
 
+  // Fetch real knowledge shares when Team Updates dropdown opens
+  useEffect(() => {
+    if (!showTeamUpdates || !isAuthenticated) return
+    setTeamUpdatesLoading(true)
+    getKnowledgeShares()
+      .then(setTeamUpdates)
+      .catch(() => {})
+      .finally(() => setTeamUpdatesLoading(false))
+  }, [showTeamUpdates, isAuthenticated])
+
   const handleMarkRead = async (notificationId: string) => {
     await markAsRead(notificationId)
     setNotifications(prev => prev.map(n => n.notificationId === notificationId ? { ...n, isRead: true, readAt: new Date().toISOString() } : n))
@@ -311,25 +313,24 @@ export default function Layout() {
       {/* Sidebar */}
       <aside className={clsx(
         "fixed inset-y-0 left-0 z-50 flex flex-col transition-all duration-300 ease-in-out will-change-transform",
-        "bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800",
-        "border-r border-white/5 shadow-xl",
+        "bg-white border-r border-gray-200 shadow-sm",
         sidebarCollapsed ? "w-16" : "w-72",
         "lg:translate-x-0",
         sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       )}>
         {/* Logo + Collapse Toggle */}
         <div className={clsx(
-          "flex items-center h-14 border-b border-white/10 shrink-0",
+          "flex items-center h-14 border-b border-gray-200 shrink-0",
           sidebarCollapsed ? "justify-center px-2" : "px-4 gap-3"
         )}>
           {!sidebarCollapsed && (
             <>
               <img src={`${import.meta.env.VITE_BASE_PATH || ''}/logo.svg`} alt="ProdVista" className="w-8 h-8 shrink-0" />
               <div className="flex-1 min-w-0">
-                <h1 className="text-sm font-bold text-white">
-                  <span className="text-blue-400">Prod</span><span className="text-indigo-400">Vista</span>
+                <h1 className="text-sm font-bold text-gray-900">
+                  <span className="text-indigo-600">Prod</span><span className="text-blue-600">Vista</span>
                 </h1>
-                <p className="text-[10px] text-slate-400 -mt-0.5 leading-tight">Engineering Command Center</p>
+                <p className="text-[10px] text-gray-400 -mt-0.5 leading-tight">Engineering Command Center</p>
               </div>
             </>
           )}
@@ -339,11 +340,8 @@ export default function Layout() {
           {/* Collapse button — only visible on desktop */}
           <button
             onClick={toggleSidebar}
-            className={clsx(
-              "hidden lg:flex items-center justify-center w-7 h-7 rounded-md text-slate-400 hover:text-white hover:bg-white/10 transition-colors shrink-0",
-              sidebarCollapsed && "mt-0"
-            )}
-            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="hidden lg:flex items-center justify-center w-7 h-7 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors shrink-0"
+            title={sidebarCollapsed ? "Expand sidebar (Ctrl+B)" : "Collapse sidebar (Ctrl+B)"}
           >
             {sidebarCollapsed
               ? <PanelLeftOpen className="w-4 h-4" />
@@ -354,22 +352,22 @@ export default function Layout() {
 
         {/* Role Badge */}
         {isManager && !sidebarCollapsed && (
-          <div className="mx-3 mt-3 px-3 py-1.5 bg-blue-500/20 border border-blue-400/20 rounded-lg flex items-center gap-2 shrink-0">
-            <Shield className="w-3.5 h-3.5 text-blue-400" />
-            <span className="text-xs font-semibold text-blue-300">Manager Access</span>
+          <div className="mx-3 mt-2 px-3 py-1.5 bg-indigo-50 rounded-lg flex items-center gap-2 shrink-0">
+            <Shield className="w-3.5 h-3.5 text-indigo-600" />
+            <span className="text-xs font-semibold text-indigo-700">Manager Access</span>
           </div>
         )}
         {isManager && sidebarCollapsed && (
-          <div className="mx-auto mt-3 w-8 h-8 flex items-center justify-center bg-blue-500/20 border border-blue-400/20 rounded-lg shrink-0" title="Manager Access">
-            <Shield className="w-4 h-4 text-blue-400" />
+          <div className="mx-auto mt-2 w-8 h-8 flex items-center justify-center bg-indigo-50 rounded-lg shrink-0" title="Manager Access">
+            <Shield className="w-4 h-4 text-indigo-600" />
           </div>
         )}
 
         {/* Guest/Organization Badge */}
         {isGuest && orgInfo && !sidebarCollapsed && (
-          <div className="mx-3 mt-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg flex items-center gap-2 shrink-0">
-            <Building2 className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-xs font-medium text-slate-300 truncate">{orgInfo.name}</span>
+          <div className="mx-3 mt-2 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg flex items-center gap-2 shrink-0">
+            <Building2 className="w-3.5 h-3.5 text-gray-500" />
+            <span className="text-xs font-medium text-gray-600 truncate">{orgInfo.name}</span>
           </div>
         )}
 
@@ -378,18 +376,18 @@ export default function Layout() {
           <div className="mx-3 mt-3 shrink-0">
             <button
               onClick={openCommandPalette}
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all text-sm"
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-all text-sm"
             >
               <Search className="w-3.5 h-3.5" />
-              <span className="flex-1 text-left text-xs text-slate-400">Search...</span>
-              <kbd className="px-1.5 py-0.5 text-[10px] bg-black/20 border border-white/10 text-slate-500 rounded font-mono">⌘K</kbd>
+              <span className="flex-1 text-left text-xs text-gray-400">Search...</span>
+              <kbd className="px-1.5 py-0.5 text-[10px] bg-white border border-gray-200 text-gray-400 rounded font-mono">Ctrl+K</kbd>
             </button>
           </div>
         )}
         {sidebarCollapsed && (
           <button
             onClick={openCommandPalette}
-            className="mx-auto mt-3 w-9 h-9 flex items-center justify-center rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+            className="mx-auto mt-3 w-9 h-9 flex items-center justify-center rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors shrink-0"
             title="Search (Ctrl+K)"
           >
             <Search className="w-4 h-4" />
@@ -398,7 +396,7 @@ export default function Layout() {
 
         {/* Scrollable nav section */}
         <nav className={clsx('mt-2 flex-1 overflow-y-auto min-h-0 pb-4', sidebarCollapsed ? 'px-1' : 'px-3')}
-          style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.1) transparent' }}>
+          style={{ scrollbarWidth: 'thin', scrollbarColor: '#e5e7eb transparent' }}>
 
           {/* Home */}
           {navItem('/', <Rocket className="w-4 h-4" />, 'Home')}
@@ -506,13 +504,13 @@ export default function Layout() {
         </nav>
 
         {/* Bottom Actions */}
-        <div className={clsx('shrink-0 py-2 space-y-0.5 border-t border-white/10', sidebarCollapsed ? 'px-1' : 'px-2')}>
+        <div className={clsx('shrink-0 py-2 space-y-0.5 border-t border-gray-100', sidebarCollapsed ? 'px-1' : 'px-2')}>
           {isGuest && (
             <button
               onClick={() => navigate('/login')}
               title={sidebarCollapsed ? 'Manager Login' : undefined}
               className={clsx(
-                'w-full flex items-center text-sm font-medium text-blue-300 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg transition-colors',
+                'w-full flex items-center text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors',
                 sidebarCollapsed ? 'justify-center p-2.5' : 'gap-2.5 px-3 py-2'
               )}
             >
@@ -524,11 +522,11 @@ export default function Layout() {
             onClick={() => { exitOrg(); navigate('/org') }}
             title={sidebarCollapsed ? 'Switch Organization' : undefined}
             className={clsx(
-              'w-full flex items-center text-sm text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors',
+              'w-full flex items-center text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors',
               sidebarCollapsed ? 'justify-center p-2.5' : 'gap-2.5 px-3 py-2'
             )}
           >
-            <Building2 className="w-4 h-4 shrink-0" />
+            <Building2 className="w-4 h-4 shrink-0 text-gray-400" />
             {!sidebarCollapsed && 'Switch Organization'}
           </button>
           {isAuthenticated && (
@@ -536,7 +534,7 @@ export default function Layout() {
               onClick={handleLogout}
               title={sidebarCollapsed ? 'Sign Out' : undefined}
               className={clsx(
-                'w-full flex items-center text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors',
+                'w-full flex items-center text-sm text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors',
                 sidebarCollapsed ? 'justify-center p-2.5' : 'gap-2.5 px-3 py-2'
               )}
             >
@@ -626,7 +624,11 @@ export default function Layout() {
                 >
                   <MessageSquare className="w-4 h-4" />
                   <span className="hidden sm:inline">Team Updates</span>
-                  <span className="w-4 h-4 flex items-center justify-center bg-blue-600 text-white text-[9px] font-bold rounded-full ml-0.5">5</span>
+                  {teamUpdates.length > 0 && (
+                    <span className="w-4 h-4 flex items-center justify-center bg-blue-600 text-white text-[9px] font-bold rounded-full ml-0.5">
+                      {teamUpdates.length > 9 ? '9+' : teamUpdates.length}
+                    </span>
+                  )}
                 </button>
                 {showTeamUpdates && (
                   <div className="absolute right-0 mt-2 w-96 bg-white rounded-xl shadow-xl border border-gray-100 z-50 max-h-[520px] flex flex-col">
@@ -640,21 +642,51 @@ export default function Layout() {
                       </button>
                     </div>
                     <div className="overflow-y-auto flex-1 divide-y divide-gray-50">
-                      {TEAM_UPDATES.map(update => (
-                        <div key={update.id} className="px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer">
-                          <div className="flex items-start gap-2.5">
-                            <div className="mt-0.5 shrink-0">{update.icon}</div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-2">
-                                <p className="text-sm font-medium text-gray-900 truncate">{update.title}</p>
-                                <span className="text-[11px] text-gray-400 whitespace-nowrap">{update.time}</span>
+                      {teamUpdatesLoading ? (
+                        <div className="px-4 py-6 text-center text-sm text-gray-500">
+                          <Loader2 className="w-6 h-6 mx-auto mb-2 text-gray-300 animate-spin" />
+                          Loading...
+                        </div>
+                      ) : teamUpdates.length === 0 ? (
+                        <div className="px-4 py-6 text-center text-sm text-gray-500">
+                          <BookOpen className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                          No knowledge shares yet
+                        </div>
+                      ) : (
+                        teamUpdates.map(update => (
+                          <div
+                            key={update.id}
+                            className="px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer"
+                            onClick={() => update.url ? window.open(update.url, '_blank') : undefined}
+                          >
+                            <div className="flex items-start gap-2.5">
+                              <div className="mt-0.5 shrink-0">
+                                <Lightbulb className="w-4 h-4 text-amber-500" />
                               </div>
-                              <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{update.body}</p>
-                              <p className="text-[11px] text-gray-400 mt-1">by {update.author}</p>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-sm font-medium text-gray-900 truncate">{update.title}</p>
+                                  <span className="text-[11px] text-gray-400 whitespace-nowrap">
+                                    {new Date(update.sharedDate).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                                  </span>
+                                </div>
+                                {update.description && (
+                                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{update.description}</p>
+                                )}
+                                <div className="flex items-center gap-2 mt-1">
+                                  {update.sharedBy && <p className="text-[11px] text-gray-400">by {update.sharedBy}</p>}
+                                  {update.category && (
+                                    <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">{update.category}</span>
+                                  )}
+                                  {update.url && (
+                                    <ExternalLink className="w-3 h-3 text-blue-400 ml-auto shrink-0" />
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        ))
+                      )}
                     </div>
                     <div className="px-4 py-2.5 border-t border-gray-100 flex items-center justify-between bg-gray-50 rounded-b-xl">
                       <button
