@@ -47,11 +47,61 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Check if error is due to admin consent requirement
+function isAdminConsentError(error: any): boolean {
+  const status = error.response?.status;
+  const data = error.response?.data;
+  const errorMessage = error.message || '';
+  
+  // Azure AD consent errors
+  if (status === 403 || status === 401) {
+    if (data?.error === 'admin_consent_required' || 
+        data?.error === 'AADSTS65001' || 
+        errorMessage.includes('admin consent') ||
+        data?.message?.includes('admin') ||
+        data?.errorCode?.includes('AADSTS')) {
+      return true;
+    }
+  }
+  
+  // Check response text for Azure AD errors
+  if (data?.error_description?.includes('admin_consent')) return true;
+  if (data?.error_description?.includes('AADSTS')) return true;
+  
+  return false;
+}
+
+// Get friendly error message for admin consent
+function getAdminConsentMessage(): string {
+  return `
+ProdVista requires admin approval to access Azure DevOps and other resources.
+
+Please contact your Azure AD administrator and ask them to:
+1. Sign in to the Azure Portal
+2. Navigate to Azure Active Directory > Enterprise Applications > ProdVista-Dashboard
+3. Go to Permissions tab
+4. Click "Grant admin consent for [Organization]"
+5. Confirm the permission grant
+
+After admin consent is granted, you can sign in again.
+  `.trim();
+}
+
 // Add response interceptor for 401 handling with token refresh attempt
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    
+    // Check for admin consent errors (show user-friendly message)
+    if (isAdminConsentError(error)) {
+      console.error('Admin consent required:', error);
+      window.dispatchEvent(new CustomEvent('auth:admin-consent-required', {
+        detail: { message: getAdminConsentMessage() }
+      }));
+      return Promise.reject(error);
+    }
+    
     if (error.response?.status === 401 && !originalRequest._retry) {
       // Try refreshing tokens via MSAL before giving up
       if (_tokenRefreshFn && !_isRefreshing) {

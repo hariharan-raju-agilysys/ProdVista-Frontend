@@ -11,6 +11,7 @@ import BrandedSplash from './components/BrandedSplash'
 import Layout from './components/Layout'
 import SessionExpiredModal from './components/SessionExpiredModal'
 import ProfileSetupModal from './components/ProfileSetupModal'
+import { AdminConsentModal } from './components/AdminConsentModal'
 import { registerTokenRefresh } from './services/api'
 import { graphScopes, armScopes, devopsScopes } from './config/msalConfig'
 import { lazyWithRetry, lazyNamedWithRetry } from './utils/lazyWithRetry'
@@ -325,6 +326,7 @@ function AuthModals({ children }: { children: React.ReactNode }) {
         isOpen={needsProfile}
         onComplete={handleProfileComplete}
       />
+      <AdminConsentModal />
     </>
   )
 }
