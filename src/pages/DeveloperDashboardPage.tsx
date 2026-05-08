@@ -108,8 +108,8 @@ function MiniCalendar({ events, selectedDate, onSelectDate, userBirthdayMonth, u
   events: CalendarEvent[]
   selectedDate: Date
   onSelectDate: (date: Date) => void
-  userBirthdayMonth?: number
-  userBirthdayDay?: number
+  userBirthdayMonth?: number | null
+  userBirthdayDay?: number | null
 }) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
@@ -358,8 +358,7 @@ const AI_TOOLS = [
   { label: 'AI Chat',       sub: 'Ask anything',    icon: Bot,        path: '/ai-chat',           gradient: 'bg-gradient-to-br from-violet-500 to-purple-600',  key: '⇧A' },
   { label: 'AI Query',      sub: 'Natural → SQL',   icon: Terminal,   path: '/ai-query',          gradient: 'bg-gradient-to-br from-amber-500 to-orange-600',    key: '⇧Q' },
   { label: 'Observability', sub: 'KQL & logs',      icon: Activity,   path: '/observability',     gradient: 'bg-gradient-to-br from-teal-500 to-cyan-600',        key: '⇧O' },
-  // Release Notes: Hidden from UI, will redirect from calendar in new tab (see getReleaseNotesUrl)
-  // { label: 'Release Notes', sub: 'Auto-generate',   icon: FileText,   path: '/release-notes',     gradient: 'bg-gradient-to-br from-green-500 to-emerald-600',    key: '⇧R' },
+  { label: 'Release Notes', sub: 'Auto-generate',   icon: FileText,   path: 'release-notes-redirect',     gradient: 'bg-gradient-to-br from-green-500 to-emerald-600',    key: '⇧R' },
   { label: 'DevOps',        sub: 'Pipelines & PRs', icon: GitMerge,   path: '/devops',            gradient: 'bg-gradient-to-br from-blue-500 to-indigo-600',      key: '⇧G' },
   { label: 'Dev Toolkit',   sub: 'Advanced tools',  icon: Cpu,        path: '/developer-toolkit', gradient: 'bg-gradient-to-br from-pink-500 to-rose-600',        key: '⇧D' },
 ]
@@ -1059,7 +1058,13 @@ export default function DeveloperDashboardPage() {
             </div>
             <div className="grid grid-cols-2 gap-2">
               {AI_TOOLS.map(({ label, sub, icon: Icon, path, gradient, key }) => (
-                <button key={path} onClick={() => navigate(path)}
+                <button key={path} onClick={() => {
+                  if (path === 'release-notes-redirect') {
+                    window.open(getReleaseNotesUrl(tenantCode), '_blank')
+                  } else {
+                    navigate(path)
+                  }
+                }}
                   className="group flex flex-col gap-1.5 p-3 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur transition-all text-left hover:scale-105"
                 >
                   <div className="flex items-center justify-between">
