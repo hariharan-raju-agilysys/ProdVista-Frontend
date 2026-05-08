@@ -16,7 +16,7 @@ import {
   Flame, RotateCcw, Target, Award,
   Rss, Star, Crown, Timer, GitMerge,
   Cpu, Radio, Upload, Link2, Image, FileType,
-  ChevronLeft, Video, Cake,
+  ChevronLeft, Video, Cake, Calendar,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../context/AuthContext'
@@ -104,10 +104,12 @@ const PRIORITY_CFG = [
 ]
 
 // ── sub-components ────────────────────────────────────────────────────────────
-function MiniCalendar({ events, selectedDate, onSelectDate }: {
+function MiniCalendar({ events, selectedDate, onSelectDate, userBirthdayMonth, userBirthdayDay }: {
   events: CalendarEvent[]
   selectedDate: Date
   onSelectDate: (date: Date) => void
+  userBirthdayMonth?: number
+  userBirthdayDay?: number
 }) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
@@ -115,9 +117,14 @@ function MiniCalendar({ events, selectedDate, onSelectDate }: {
   const daysInMonth = lastDay.getDate()
   const startingDayOfWeek = firstDay.getDay()
   
+  const isBirthdayToday = (day: number) => {
+    if (!userBirthdayMonth || !userBirthdayDay) return false
+    return currentMonth.getMonth() === userBirthdayMonth - 1 && day === userBirthdayDay
+  }
+
   const hasEvent = (day: number) => {
     const dateStr = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day).toDateString()
-    return events.some(e => new Date(e.date).toDateString() === dateStr)
+    return events.some(e => new Date(e.date).toDateString() === dateStr) || isBirthdayToday(day)
   }
 
   const isSelected = (day: number) => {
@@ -164,17 +171,20 @@ function MiniCalendar({ events, selectedDate, onSelectDate }: {
           const selected = isSelected(day)
           const today = isToday(day)
           const hasevt = hasEvent(day)
+          const isBirthday = isBirthdayToday(day)
           return (
             <button
               key={day}
               onClick={() => onSelectDate(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day))}
               className={clsx(
                 'relative aspect-square text-xs font-semibold rounded-lg transition-all',
-                selected ? 'bg-indigo-600 text-white' : today ? 'bg-indigo-100 text-indigo-700' : 'text-gray-700 hover:bg-gray-100'
+                selected ? 'bg-indigo-600 text-white' : isBirthday ? 'bg-pink-100 text-pink-700 ring-2 ring-pink-300' : today ? 'bg-indigo-100 text-indigo-700' : 'text-gray-700 hover:bg-gray-100'
               )}
+              title={isBirthday ? 'Your Birthday! 🎂' : ''}
             >
               {day}
-              {hasevt && (
+              {isBirthday && <div className="absolute top-0.5 right-0.5 text-xs">🎂</div>}
+              {hasevt && !isBirthday && (
                 <div className="absolute bottom-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-blue-500" />
               )}
             </button>
@@ -185,7 +195,21 @@ function MiniCalendar({ events, selectedDate, onSelectDate }: {
   )
 }
 
-function CalendarEventDetail({ event }: { event: CalendarEvent }) {
+function CalendarEventDetail({ event, isBirthday }: { event: CalendarEvent; isBirthday?: boolean }) {
+  if (isBirthday) {
+    return (
+      <div className="bg-gradient-to-br from-pink-50 to-rose-50 text-pink-700 border border-pink-200 rounded-lg p-3">
+        <div className="flex items-start gap-2 mb-2">
+          <div className="text-lg mt-0.5">🎂</div>
+          <div className="flex-1">
+            <p className="font-semibold text-sm">Your Birthday!</p>
+            <p className="text-xs opacity-80">Time to celebrate 🎉</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const iconByType = {
     'meeting': <Users className="w-4 h-4" />,
     'call': <Video className="w-4 h-4" />,
@@ -211,9 +235,16 @@ function CalendarEventDetail({ event }: { event: CalendarEvent }) {
       </div>
       {event.details && <p className="text-xs opacity-90">{event.details}</p>}
       {event.releaseNotesSchedule && (
-        <div className="mt-2 pt-2 border-t border-current opacity-75 text-xs">
-          <p><strong>Release Owner:</strong> {event.releaseNotesSchedule.ownerName}</p>
-          <p className="mt-0.5">{event.releaseNotesSchedule.notes}</p>
+        <div className="mt-3 pt-3 border-t border-current space-y-2 text-xs">
+          <div>
+            <p className="font-semibold text-xs uppercase tracking-wide mb-1">Release Owner</p>
+            <p className="opacity-90">{event.releaseNotesSchedule.ownerName}</p>
+            <p className="opacity-75 text-[9px]">{event.releaseNotesSchedule.ownerEmail}</p>
+          </div>
+          <div>
+            <p className="font-semibold text-xs uppercase tracking-wide mb-1">Release Notes</p>
+            <p className="opacity-90">{event.releaseNotesSchedule.notes}</p>
+          </div>
         </div>
       )}
       {event.attendees && event.attendees.length > 0 && (
@@ -1147,16 +1178,19 @@ export default function DeveloperDashboardPage() {
           </SectionCard>
 
           {/* ── Calendar & Events ──────────────────────────────────────── */}
-          <MiniCalendar events={calendarEvents} selectedDate={selectedCalendarDate} onSelectDate={setSelectedCalendarDate} />
+          <MiniCalendar events={calendarEvents} selectedDate={selectedCalendarDate} onSelectDate={setSelectedCalendarDate} userBirthdayMonth={user?.birthMonth} userBirthdayDay={user?.birthDay} />
           
           {/* ── Selected Date Events ────────────────────────────────────────*/}
-          {calendarEvents.filter(e => new Date(e.date).toDateString() === selectedCalendarDate.toDateString()).length > 0 && (
+          {(calendarEvents.filter(e => new Date(e.date).toDateString() === selectedCalendarDate.toDateString()).length > 0 || (user?.birthMonth && user?.birthDay && new Date(new Date().getFullYear(), user.birthMonth - 1, user.birthDay).toDateString() === selectedCalendarDate.toDateString())) && (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
               <h3 className="text-sm font-bold text-gray-700 uppercase tracking-widest mb-3 flex items-center gap-2">
-                <Video className="w-4 h-4 text-blue-500" />
+                <Calendar className="w-4 h-4 text-indigo-500" />
                 {formatCalendarDate(selectedCalendarDate)}
               </h3>
               <div className="space-y-2">
+                {user?.birthMonth && user?.birthDay && new Date(new Date().getFullYear(), user.birthMonth - 1, user.birthDay).toDateString() === selectedCalendarDate.toDateString() && (
+                  <CalendarEventDetail key="birthday" event={{} as CalendarEvent} isBirthday={true} />
+                )}
                 {calendarEvents
                   .filter(e => new Date(e.date).toDateString() === selectedCalendarDate.toDateString())
                   .map(e => (
