@@ -31,6 +31,7 @@ import {
 // TODO: Uncomment after Azure DevOps approval for Calendar API
 // import { CalendarService, type CalendarEvent } from '../services/calendarService'
 import { type CalendarEvent } from '../services/calendarService'
+import { birthdaysService, type Birthday } from '../services/birthdaysService'
 
 // ── types ────────────────────────────────────────────────────────────────────
 interface HnItem {
@@ -104,12 +105,11 @@ const PRIORITY_CFG = [
 ]
 
 // ── sub-components ────────────────────────────────────────────────────────────
-function MiniCalendar({ events, selectedDate, onSelectDate, userBirthdayMonth, userBirthdayDay }: {
+function MiniCalendar({ events, selectedDate, onSelectDate, teamBirthdays }: {
   events: CalendarEvent[]
   selectedDate: Date
   onSelectDate: (date: Date) => void
-  userBirthdayMonth?: number | null
-  userBirthdayDay?: number | null
+  teamBirthdays: Birthday[]
 }) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
@@ -118,8 +118,9 @@ function MiniCalendar({ events, selectedDate, onSelectDate, userBirthdayMonth, u
   const startingDayOfWeek = firstDay.getDay()
   
   const isBirthdayToday = (day: number) => {
-    if (!userBirthdayMonth || !userBirthdayDay) return false
-    return currentMonth.getMonth() === userBirthdayMonth - 1 && day === userBirthdayDay
+    return teamBirthdays.some(b => 
+      currentMonth.getMonth() === b.month - 1 && day === b.day
+    )
   }
 
   const hasEvent = (day: number) => {
@@ -408,6 +409,10 @@ export default function DeveloperDashboardPage() {
   const [calendarEvents] = useState<CalendarEvent[]>([])
   // TODO: Uncomment after Azure DevOps approval for Calendar API
   // const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([])
+  
+  // Team birthdays (current month only)
+  const [teamBirthdays, setTeamBirthdays] = useState<Birthday[]>([])
+  const [teamBirthdaysLoading, setTeamBirthdaysLoading] = useState(false)
 
   const displayName = user?.displayName || user?.email?.split('@')[0] || (isManager ? 'Manager' : 'Developer')
   const userBirthday = user?.birthMonth && user?.birthDay ? daysUntilBirthday(user.birthMonth, user.birthDay) : null
@@ -504,6 +509,26 @@ export default function DeveloperDashboardPage() {
     }
 
     fetchTechBytes()
+  }, [isDevView])
+
+  // Team Birthdays — fetch current month birthdays for all team members
+  useEffect(() => {
+    if (!isDevView) return
+
+    const fetchTeamBirthdays = async () => {
+      setTeamBirthdaysLoading(true)
+      try {
+        const birthdays = await birthdaysService.getCurrentMonthBirthdays()
+        setTeamBirthdays(birthdays)
+      } catch (error) {
+        console.error('Failed to fetch team birthdays:', error)
+        setTeamBirthdays([])
+      } finally {
+        setTeamBirthdaysLoading(false)
+      }
+    }
+
+    fetchTeamBirthdays()
   }, [isDevView])
 
   // ── Role-view shortcut: Ctrl+Shift+V (Admin/Manager only) ──────────────────
@@ -1198,19 +1223,31 @@ export default function DeveloperDashboardPage() {
           </SectionCard>
 
           {/* ── Calendar & Events ──────────────────────────────────────── */}
-          <MiniCalendar events={calendarEvents} selectedDate={selectedCalendarDate} onSelectDate={setSelectedCalendarDate} userBirthdayMonth={user?.birthMonth} userBirthdayDay={user?.birthDay} />
+          <MiniCalendar events={calendarEvents} selectedDate={selectedCalendarDate} onSelectDate={setSelectedCalendarDate} teamBirthdays={teamBirthdays} />
           
           {/* ── Selected Date Events ────────────────────────────────────────*/}
-          {(calendarEvents.filter(e => new Date(e.date).toDateString() === selectedCalendarDate.toDateString()).length > 0 || (user?.birthMonth && user?.birthDay && new Date(new Date().getFullYear(), user.birthMonth - 1, user.birthDay).toDateString() === selectedCalendarDate.toDateString())) && (
+          {(calendarEvents.filter(e => new Date(e.date).toDateString() === selectedCalendarDate.toDateString()).length > 0 || teamBirthdays.some(b => selectedCalendarDate.getMonth() === b.month - 1 && selectedCalendarDate.getDate() === b.day)) && (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
               <h3 className="text-sm font-bold text-gray-700 uppercase tracking-widest mb-3 flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-indigo-500" />
                 {formatCalendarDate(selectedCalendarDate)}
               </h3>
               <div className="space-y-2">
-                {user?.birthMonth && user?.birthDay && new Date(new Date().getFullYear(), user.birthMonth - 1, user.birthDay).toDateString() === selectedCalendarDate.toDateString() && (
-                  <CalendarEventDetail key="birthday" event={{} as CalendarEvent} isBirthday={true} tenantCode={tenantCode} />
-                )}
+                {teamBirthdays
+                  .filter(b => selectedCalendarDate.getMonth() === b.month - 1 && selectedCalendarDate.getDate() === b.day)
+                  .map(birthday => (
+                    <div key={birthday.userId} className="bg-gradient-to-br from-pink-50 to-rose-50 text-pink-700 border border-pink-200 rounded-lg p-3">
+                      <div className="flex items-start gap-2">
+                        <div className="text-lg mt-0.5">🎂</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm">{birthday.userName}</p>
+                          <p className="text-xs opacity-80">{birthday.email}</p>
+                          <p className="text-xs opacity-60 mt-1">Happy Birthday! 🎉</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                }
                 {calendarEvents
                   .filter(e => new Date(e.date).toDateString() === selectedCalendarDate.toDateString())
                   .map(e => (
@@ -1219,6 +1256,42 @@ export default function DeveloperDashboardPage() {
                 }
               </div>
             </div>
+          )}
+
+          {/* ── Team Birthdays (Current Month) ────────────────────────────── */}
+          {isDevView && (
+            <SectionCard title="Team Birthdays" icon={Cake} iconColor="text-pink-500">
+              <div className="px-5 py-3 divide-y divide-gray-50">
+                {teamBirthdaysLoading ? (
+                  <div className="px-5 py-6 text-center text-gray-400 text-sm">
+                    <div className="w-6 h-6 rounded-full border-2 border-gray-200 border-t-gray-400 animate-spin mx-auto mb-2" />
+                    Loading team birthdays...
+                  </div>
+                ) : teamBirthdays.length === 0 ? (
+                  <div className="px-5 py-6 text-center text-gray-400 text-sm">
+                    <Cake className="w-6 h-6 text-gray-300 mx-auto mb-2" />
+                    <p>No birthdays this month</p>
+                  </div>
+                ) : (
+                  teamBirthdays
+                    .sort((a, b) => a.day - b.day)
+                    .map(birthday => (
+                      <div key={birthday.userId} className="px-5 py-3 flex items-center justify-between hover:bg-gray-50">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-800">{birthday.userName}</p>
+                          <p className="text-xs text-gray-500">{birthday.email}</p>
+                        </div>
+                        <div className="flex items-center gap-2 ml-3 flex-shrink-0">
+                          <span className="text-xs font-semibold text-pink-600 bg-pink-50 px-2 py-1 rounded">
+                            {new Date(new Date().getFullYear(), birthday.month - 1, birthday.day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </span>
+                          <span className="text-lg">🎂</span>
+                        </div>
+                      </div>
+                    ))
+                )}
+              </div>
+            </SectionCard>
           )}
 
           {/* ── Quick Snapshot ────────────────────────────────────────────── */}
