@@ -16,7 +16,7 @@ import {
   Flame, RotateCcw, Target, Award,
   Rss, Star, Crown, Timer, GitMerge,
   Cpu, Radio, Upload, Link2, Image, FileType,
-  ChevronLeft, Video, Cake, Calendar,
+  ChevronLeft, Video, Cake,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../context/AuthContext'
@@ -105,11 +105,12 @@ const PRIORITY_CFG = [
 ]
 
 // ── sub-components ────────────────────────────────────────────────────────────
-function MiniCalendar({ events, selectedDate, onSelectDate, teamBirthdays }: {
+function MiniCalendar({ events, selectedDate, onSelectDate, teamBirthdays, onEventClick }: {
   events: CalendarEvent[]
   selectedDate: Date
   onSelectDate: (date: Date) => void
   teamBirthdays: Birthday[]
+  onEventClick?: (event: CalendarEvent | null, birthday?: Birthday) => void
 }) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
@@ -198,31 +199,53 @@ function MiniCalendar({ events, selectedDate, onSelectDate, teamBirthdays }: {
           const isBirthday = isBirthdayToday(day)
           const indicators = getEventIndicators(day)
           return (
-            <button
+            <div
               key={day}
-              onClick={() => onSelectDate(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day))}
               className={clsx(
-                'relative aspect-square text-xs font-semibold rounded-lg transition-all group',
-                selected ? 'bg-indigo-600 text-white' : isBirthday ? 'bg-pink-100 text-pink-700 ring-2 ring-pink-300' : today ? 'bg-indigo-100 text-indigo-700' : 'text-gray-700 hover:bg-gray-100'
+                'relative aspect-square rounded-lg transition-all group',
+                selected ? 'ring-2 ring-indigo-500' : ''
               )}
-              title={hasevt ? `${indicators.length} event${indicators.length > 1 ? 's' : ''}` : ''}
             >
-              <div>{day}</div>
-              {/* Event indicators */}
+              <button
+                onClick={() => onSelectDate(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day))}
+                className={clsx(
+                  'relative w-full h-full text-xs font-semibold rounded-lg transition-all',
+                  selected ? 'bg-indigo-600 text-white' : isBirthday ? 'bg-pink-100 text-pink-700 ring-2 ring-pink-300' : today ? 'bg-indigo-100 text-indigo-700' : 'text-gray-700 hover:bg-gray-100'
+                )}
+                title={hasevt ? `${indicators.length} event${indicators.length > 1 ? 's' : ''}` : ''}
+              >
+                {day}
+              </button>
+              
+              {/* Event indicators - Clickable */}
               {hasevt && (
-                <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 flex gap-0.5">
-                  {indicators.slice(0, 3).map((type, idx) => (
-                    <div
-                      key={idx}
-                      className={clsx('w-1 h-1 rounded-full', indicatorColor(type))}
-                    />
-                  ))}
+                <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 flex gap-0.5 z-10">
+                  {indicators.slice(0, 3).map((type, idx) => {
+                    const dayEvents = getEventsForDay(day)
+                    const event = dayEvents.find(e => e.type === type)
+                    const birthday = isBirthday && type === 'birthday' ? teamBirthdays.find(b => 
+                      currentMonth.getMonth() === b.month - 1 && day === b.day
+                    ) : null
+                    
+                    return (
+                      <button
+                        key={idx}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (event) onEventClick?.(event)
+                          else if (birthday) onEventClick?.(null, birthday)
+                        }}
+                        className={clsx('w-2 h-2 rounded-full hover:scale-150 transition-transform cursor-pointer', indicatorColor(type))}
+                        title={event?.title || birthday?.userName}
+                      />
+                    )
+                  })}
                   {indicators.length > 3 && (
-                    <div className="text-[6px] text-gray-400 ml-0.5">+{indicators.length - 3}</div>
+                    <span className="text-[6px] text-gray-400 ml-0.5">+{indicators.length - 3}</span>
                   )}
                 </div>
               )}
-            </button>
+            </div>
           )
         })}
       </div>
@@ -238,82 +261,177 @@ function MiniCalendar({ events, selectedDate, onSelectDate, teamBirthdays }: {
   )
 }
 
-function CalendarEventDetail({ event, isBirthday, tenantCode }: { event: CalendarEvent; isBirthday?: boolean; tenantCode?: string }) {
-  // Check if this is a birthday event (has birthday in attendees marker)
-  const isBirthdayEvent = event.attendees?.some(a => a.includes('Birthday')) || event.type === 'birthday'
+// ── Event Detail Modal ─────────────────────────────────────────────────────
+function EventDetailModal({ event, birthday, isOpen, onClose, tenantCode }: {
+  event?: CalendarEvent | null
+  birthday?: Birthday | null
+  isOpen: boolean
+  onClose: () => void
+  tenantCode?: string
+}) {
+  if (!isOpen || (!event && !birthday)) return null
 
-  if (isBirthday || isBirthdayEvent) {
-    return (
-      <div className="bg-gradient-to-br from-pink-50 to-rose-50 text-pink-700 border border-pink-200 rounded-lg p-3">
-        <div className="flex items-start gap-2 mb-2">
-          <div className="text-lg mt-0.5">🎂</div>
-          <div className="flex-1">
-            <p className="font-semibold text-sm">{event.title}</p>
-            {event.details && <p className="text-xs opacity-80">{event.details}</p>}
-            <p className="text-xs opacity-60 mt-1">🎉 Happy Birthday!</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  const iconByType = {
-    'birthday': <Cake className="w-4 h-4" />,
-    'meeting': <Users className="w-4 h-4" />,
-    'call': <Video className="w-4 h-4" />,
-    'release-notes': <FileText className="w-4 h-4" />,
-    'todo': <Target className="w-4 h-4" />,
-  }
-
-  const colorByType = {
-    'birthday': 'bg-pink-50 text-pink-700 border-pink-200',
-    'meeting': 'bg-blue-50 text-blue-700 border-blue-200',
-    'call': 'bg-purple-50 text-purple-700 border-purple-200',
-    'release-notes': 'bg-green-50 text-green-700 border-green-200',
-    'todo': 'bg-amber-50 text-amber-700 border-amber-200',
-  }
+  const isBirthdayEvent = !!birthday
 
   return (
-    <div className={clsx('p-3 rounded-lg border', colorByType[event.type])}>
-      <div className="flex items-start gap-2 mb-2">
-        <div className="mt-0.5">{iconByType[event.type]}</div>
-        <div className="flex-1">
-          <p className="font-semibold text-sm">{event.title}</p>
-          {event.time && <p className="text-xs opacity-80">{event.time}</p>}
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto">
+        {/* Header */}
+        <div className={clsx(
+          'p-6 border-b sticky top-0',
+          isBirthdayEvent ? 'bg-gradient-to-r from-pink-50 to-rose-50 border-pink-200' :
+          event?.type === 'release-notes' ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200' :
+          event?.type === 'call' ? 'bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200' :
+          'bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200'
+        )}>
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <div className={clsx('p-2 rounded-lg', 
+                isBirthdayEvent ? 'bg-pink-200' :
+                event?.type === 'release-notes' ? 'bg-green-200' :
+                event?.type === 'call' ? 'bg-purple-200' :
+                'bg-blue-200'
+              )}>
+                {isBirthdayEvent ? <Cake className="w-6 h-6 text-pink-700" /> :
+                 event?.type === 'release-notes' ? <FileText className="w-6 h-6 text-green-700" /> :
+                 event?.type === 'call' ? <Video className="w-6 h-6 text-purple-700" /> :
+                 <Users className="w-6 h-6 text-blue-700" />}
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">
+                  {isBirthdayEvent ? `🎂 ${birthday?.userName}'s Birthday` : event?.title}
+                </h2>
+                <p className="text-sm opacity-75">
+                  {new Date(event?.date || new Date()).toLocaleDateString('en-US', { 
+                    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' 
+                  })}
+                </p>
+              </div>
+            </div>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">
+              ×
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 space-y-6">
+          {/* Birthday Details */}
+          {isBirthdayEvent && birthday && (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Name</p>
+                  <p className="text-lg font-semibold text-gray-800">{birthday.userName}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Email</p>
+                  <p className="text-sm text-blue-600 hover:underline cursor-pointer">{birthday.email}</p>
+                </div>
+              </div>
+              <div className="bg-pink-50 border border-pink-200 rounded-lg p-4">
+                <p className="text-center text-pink-700 font-semibold text-lg">🎉 Happy Birthday! 🎂</p>
+                <p className="text-center text-sm text-pink-600 mt-2">Today is a special day!</p>
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => window.location.href = `mailto:${birthday.email}`}
+                  className="flex-1 bg-pink-500 hover:bg-pink-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                  Send Birthday Wishes
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* Release Notes Details */}
+          {event && event.type === 'release-notes' && (
+            <>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Description</p>
+                  <p className="text-gray-700">{event.details || 'No details provided'}</p>
+                </div>
+              </div>
+              {event.releaseNotesSchedule && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-3">
+                  <div>
+                    <p className="text-xs font-bold text-green-700 uppercase tracking-widest mb-1">Release Owner</p>
+                    <p className="font-semibold text-gray-800">{event.releaseNotesSchedule.ownerName}</p>
+                    <p className="text-sm text-gray-600">{event.releaseNotesSchedule.ownerEmail}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-green-700 uppercase tracking-widest mb-1">Release Notes</p>
+                    <p className="text-gray-700">{event.releaseNotesSchedule.notes}</p>
+                  </div>
+                </div>
+              )}
+              <button onClick={() => window.open(getReleaseNotesUrl(tenantCode), '_blank')}
+                className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
+                <ExternalLink className="w-4 h-4" />
+                View Release Notes
+              </button>
+            </>
+          )}
+
+          {/* Call/Meeting Details */}
+          {event && (event.type === 'call' || event.type === 'meeting') && (
+            <>
+              {event.time && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <p className="text-xs font-bold text-purple-700 uppercase tracking-widest mb-1">Time</p>
+                  <p className="text-lg font-semibold text-gray-800">{event.time}</p>
+                </div>
+              )}
+              {event.details && (
+                <div>
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Description</p>
+                  <p className="text-gray-700">{event.details}</p>
+                </div>
+              )}
+              {event.attendees && event.attendees.length > 0 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-xs font-bold text-blue-700 uppercase tracking-widest mb-3">Attendees ({event.attendees.length})</p>
+                  <div className="space-y-2">
+                    {event.attendees.map((attendee, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-blue-500" />
+                        <span className="text-gray-700">{attendee}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="flex gap-3">
+                <button className="flex-1 bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                  Add to Calendar
+                </button>
+                <button className="flex-1 bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                  Join Meeting
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* Other Events */}
+          {event && !['call', 'meeting', 'release-notes'].includes(event.type) && (
+            <>
+              {event.details && (
+                <div>
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Details</p>
+                  <p className="text-gray-700">{event.details}</p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-6 border-t bg-gray-50 flex gap-3">
+          <button onClick={onClose}
+            className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors">
+            Close
+          </button>
         </div>
       </div>
-      {event.details && <p className="text-xs opacity-90 mb-2">{event.details}</p>}
-      {event.releaseNotesSchedule && (
-        <button
-          onClick={() => window.open(getReleaseNotesUrl(tenantCode), '_blank')}
-          className={clsx('mt-3 pt-3 border-t border-current w-full text-left hover:opacity-100 transition-opacity space-y-2 text-xs group cursor-pointer')}
-        >
-          <div>
-            <p className="font-semibold text-xs uppercase tracking-wide mb-1 group-hover:text-inherit">Release Owner</p>
-            <p className="opacity-90">{event.releaseNotesSchedule.ownerName}</p>
-            <p className="opacity-75 text-[9px]">{event.releaseNotesSchedule.ownerEmail}</p>
-          </div>
-          <div>
-            <p className="font-semibold text-xs uppercase tracking-wide mb-1 group-hover:text-inherit flex items-center gap-1.5">
-              Release Notes
-              <ExternalLink className="w-3 h-3 opacity-50 group-hover:opacity-100" />
-            </p>
-            <p className="opacity-90">{event.releaseNotesSchedule.notes}</p>
-          </div>
-        </button>
-      )}
-      {event.attendees && event.attendees.length > 0 && (
-        <div className="mt-2 text-xs">
-          <p className="font-semibold mb-1">Attendees:</p>
-          <div className="flex flex-wrap gap-1">
-            {event.attendees.map((a, i) => (
-              <span key={i} className="px-1.5 py-0.5 bg-white bg-opacity-50 rounded text-[10px]">
-                {a}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }
@@ -455,6 +573,8 @@ export default function DeveloperDashboardPage() {
   const [techBytesLoading, setTechBytesLoading] = useState(false)
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(new Date())
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([])
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
+  const [selectedBirthday, setSelectedBirthday] = useState<Birthday | null>(null)
   
   // Team birthdays (current month only)
   const [teamBirthdays, setTeamBirthdays] = useState<Birthday[]>([])
@@ -1378,59 +1498,28 @@ export default function DeveloperDashboardPage() {
           </SectionCard>
 
           {/* ── Calendar & Events ──────────────────────────────────────── */}
-          <MiniCalendar events={calendarEvents} selectedDate={selectedCalendarDate} onSelectDate={setSelectedCalendarDate} teamBirthdays={teamBirthdays} />
-          
-          {/* ── Selected Date Events ────────────────────────────────────────*/}
-          {(calendarEvents.filter(e => new Date(e.date).toDateString() === selectedCalendarDate.toDateString()).length > 0 || teamBirthdays.some(b => selectedCalendarDate.getMonth() === b.month - 1 && selectedCalendarDate.getDate() === b.day)) && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-              <h3 className="text-sm font-bold text-gray-700 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-indigo-500" />
-                {formatCalendarDate(selectedCalendarDate)}
-              </h3>
-              <div className="space-y-3">
-                {/* 🎂 Birthdays */}
-                {teamBirthdays
-                  .filter(b => selectedCalendarDate.getMonth() === b.month - 1 && selectedCalendarDate.getDate() === b.day)
-                  .map(birthday => (
-                    <div key={birthday.userId} className="bg-gradient-to-br from-pink-50 to-rose-50 text-pink-700 border border-pink-200 rounded-lg p-3">
-                      <div className="flex items-start gap-2">
-                        <div className="text-lg mt-0.5">🎂</div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm">{birthday.userName}</p>
-                          <p className="text-xs opacity-80">{birthday.email}</p>
-                          <p className="text-xs opacity-60 mt-1">Happy Birthday! 🎉</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                }
-                
-                {/* 📝 Release Notes */}
-                {calendarEvents
-                  .filter(e => new Date(e.date).toDateString() === selectedCalendarDate.toDateString() && e.type === 'release-notes')
-                  .map(e => (
-                    <CalendarEventDetail key={e.id} event={e} tenantCode={tenantCode} />
-                  ))
-                }
-                
-                {/* 📞 Calls */}
-                {calendarEvents
-                  .filter(e => new Date(e.date).toDateString() === selectedCalendarDate.toDateString() && e.type === 'call' && !teamBirthdays.some(b => b.userName === e.title?.split("'")[0]))
-                  .map(e => (
-                    <CalendarEventDetail key={e.id} event={e} tenantCode={tenantCode} />
-                  ))
-                }
-                
-                {/* 👥 Meetings & Other Events */}
-                {calendarEvents
-                  .filter(e => new Date(e.date).toDateString() === selectedCalendarDate.toDateString() && !['release-notes', 'call'].includes(e.type))
-                  .map(e => (
-                    <CalendarEventDetail key={e.id} event={e} tenantCode={tenantCode} />
-                  ))
-                }
-              </div>
-            </div>
-          )}
+          <MiniCalendar 
+            events={calendarEvents} 
+            selectedDate={selectedCalendarDate} 
+            onSelectDate={setSelectedCalendarDate} 
+            teamBirthdays={teamBirthdays}
+            onEventClick={(event, birthday) => {
+              if (birthday) setSelectedBirthday(birthday)
+              if (event) setSelectedEvent(event)
+            }}
+          />
+
+          {/* ── Event Detail Modal ────────────────────────────────────────────*/}
+          <EventDetailModal 
+            event={selectedEvent} 
+            birthday={selectedBirthday}
+            isOpen={!!selectedEvent || !!selectedBirthday}
+            onClose={() => {
+              setSelectedEvent(null)
+              setSelectedBirthday(null)
+            }}
+            tenantCode={tenantCode}
+          />
 
           {/* ── Team Birthdays (Current Month) ────────────────────────────── */}
           {isDevView && (
