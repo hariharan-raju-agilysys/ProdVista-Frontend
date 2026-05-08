@@ -1124,6 +1124,37 @@ export default function DeveloperDashboardPage() {
       </div>
 
       {/* ── Main Grid ───────────────────────────────────────────────────── */}
+      {/* ── AI Productivity Hub (FULL WIDTH TOP) ─────────────────────────── */}
+      <div className="bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-700 rounded-2xl p-6 shadow-lg shadow-indigo-500/20">
+        <div className="flex items-center gap-2 mb-4">
+          <Bot className="w-5 h-5 text-white/80" />
+          <h2 className="text-base font-bold text-white uppercase tracking-widest">AI Productivity Hub</h2>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          {AI_TOOLS.map(({ label, sub, icon: Icon, path, gradient, key }) => (
+            <button key={path} onClick={() => {
+              if (path === 'release-notes-redirect') {
+                window.open(getReleaseNotesUrl(tenantCode), '_blank')
+              } else {
+                navigate(path)
+              }
+            }}
+              className="group flex flex-col gap-1.5 p-3 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur transition-all text-left hover:scale-105"
+            >
+              <div className="flex items-center justify-between">
+                <div className={clsx('w-8 h-8 rounded-lg flex items-center justify-center', gradient)}>
+                  <Icon className="w-4 h-4 text-white" />
+                </div>
+                <span className="text-[9px] text-white/40 font-mono">^{key}</span>
+              </div>
+              <span className="text-xs font-bold text-white leading-tight">{label}</span>
+              <span className="text-[10px] text-white/60 leading-tight">{sub}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Main Content Grid ───────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* ── Left 2/3 ─────────────────────────────────────────────────── */}
@@ -1349,36 +1380,6 @@ export default function DeveloperDashboardPage() {
 
         {/* ── Right 1/3 ──────────────────────────────────────────────────── */}
         <div className="space-y-5">
-
-          {/* ── AI Productivity Hub ───────────────────────────────────────── */}
-          <div className="bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-700 rounded-2xl p-4 shadow-lg shadow-indigo-500/20">
-            <div className="flex items-center gap-2 mb-3">
-              <Bot className="w-4 h-4 text-white/80" />
-              <h2 className="text-sm font-bold text-white uppercase tracking-widest">AI Productivity Hub</h2>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {AI_TOOLS.map(({ label, sub, icon: Icon, path, gradient, key }) => (
-                <button key={path} onClick={() => {
-                  if (path === 'release-notes-redirect') {
-                    window.open(getReleaseNotesUrl(tenantCode), '_blank')
-                  } else {
-                    navigate(path)
-                  }
-                }}
-                  className="group flex flex-col gap-1.5 p-3 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur transition-all text-left hover:scale-105"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className={clsx('w-7 h-7 rounded-lg flex items-center justify-center', gradient)}>
-                      <Icon className="w-3.5 h-3.5 text-white" />
-                    </div>
-                    <span className="text-[9px] text-white/40 font-mono">^{key}</span>
-                  </div>
-                  <span className="text-xs font-bold text-white leading-tight">{label}</span>
-                  <span className="text-[10px] text-white/60 leading-tight">{sub}</span>
-                </button>
-              ))}
-            </div>
-          </div>
 
           {/* ── Tech Pulse (live HN feed) ─────────────────────────────────── */}
           <SectionCard title="Tech Pulse & Learning" icon={Radio} iconColor="text-blue-500">
