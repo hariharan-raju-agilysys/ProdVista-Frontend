@@ -123,6 +123,11 @@ function MiniCalendar({ events, selectedDate, onSelectDate, teamBirthdays }: {
     )
   }
 
+  const getEventsForDay = (day: number) => {
+    const dateStr = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day).toDateString()
+    return events.filter(e => new Date(e.date).toDateString() === dateStr)
+  }
+
   const hasEvent = (day: number) => {
     const dateStr = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day).toDateString()
     return events.some(e => new Date(e.date).toDateString() === dateStr) || isBirthdayToday(day)
@@ -137,6 +142,24 @@ function MiniCalendar({ events, selectedDate, onSelectDate, teamBirthdays }: {
     const today = new Date().toDateString()
     const dateStr = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day).toDateString()
     return today === dateStr
+  }
+
+  const getEventIndicators = (day: number) => {
+    const dayEvents = getEventsForDay(day)
+    const types = new Set(dayEvents.map(e => e.type))
+    if (isBirthdayToday(day)) types.add('birthday')
+    return Array.from(types)
+  }
+
+  const indicatorColor = (type: string) => {
+    switch (type) {
+      case 'birthday': return 'bg-pink-500'
+      case 'release-notes': return 'bg-green-500'
+      case 'call': return 'bg-purple-500'
+      case 'meeting': return 'bg-blue-500'
+      case 'todo': return 'bg-amber-500'
+      default: return 'bg-gray-500'
+    }
   }
 
   return (
@@ -173,38 +196,61 @@ function MiniCalendar({ events, selectedDate, onSelectDate, teamBirthdays }: {
           const today = isToday(day)
           const hasevt = hasEvent(day)
           const isBirthday = isBirthdayToday(day)
+          const indicators = getEventIndicators(day)
           return (
             <button
               key={day}
               onClick={() => onSelectDate(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day))}
               className={clsx(
-                'relative aspect-square text-xs font-semibold rounded-lg transition-all',
+                'relative aspect-square text-xs font-semibold rounded-lg transition-all group',
                 selected ? 'bg-indigo-600 text-white' : isBirthday ? 'bg-pink-100 text-pink-700 ring-2 ring-pink-300' : today ? 'bg-indigo-100 text-indigo-700' : 'text-gray-700 hover:bg-gray-100'
               )}
-              title={isBirthday ? 'Your Birthday! 🎂' : ''}
+              title={hasevt ? `${indicators.length} event${indicators.length > 1 ? 's' : ''}` : ''}
             >
-              {day}
-              {isBirthday && <div className="absolute top-0.5 right-0.5 text-xs">🎂</div>}
-              {hasevt && !isBirthday && (
-                <div className="absolute bottom-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-blue-500" />
+              <div>{day}</div>
+              {/* Event indicators */}
+              {hasevt && (
+                <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 flex gap-0.5">
+                  {indicators.slice(0, 3).map((type, idx) => (
+                    <div
+                      key={idx}
+                      className={clsx('w-1 h-1 rounded-full', indicatorColor(type))}
+                    />
+                  ))}
+                  {indicators.length > 3 && (
+                    <div className="text-[6px] text-gray-400 ml-0.5">+{indicators.length - 3}</div>
+                  )}
+                </div>
               )}
             </button>
           )
         })}
+      </div>
+
+      {/* Legend */}
+      <div className="mt-4 pt-3 border-t border-gray-100 grid grid-cols-2 gap-2 text-[9px]">
+        <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-pink-500" /><span>Birthday</span></div>
+        <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-green-500" /><span>Release</span></div>
+        <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-purple-500" /><span>Call</span></div>
+        <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-blue-500" /><span>Meeting</span></div>
       </div>
     </div>
   )
 }
 
 function CalendarEventDetail({ event, isBirthday, tenantCode }: { event: CalendarEvent; isBirthday?: boolean; tenantCode?: string }) {
-  if (isBirthday) {
+  // Check if this is a birthday event (has birthday in attendees marker)
+  const isBirthdayEvent = event.attendees?.some(a => a.includes('Birthday')) || event.type === 'birthday'
+
+  if (isBirthday || isBirthdayEvent) {
     return (
       <div className="bg-gradient-to-br from-pink-50 to-rose-50 text-pink-700 border border-pink-200 rounded-lg p-3">
         <div className="flex items-start gap-2 mb-2">
           <div className="text-lg mt-0.5">🎂</div>
           <div className="flex-1">
-            <p className="font-semibold text-sm">Your Birthday!</p>
-            <p className="text-xs opacity-80">Time to celebrate 🎉</p>
+            <p className="font-semibold text-sm">{event.title}</p>
+            {event.details && <p className="text-xs opacity-80">{event.details}</p>}
+            <p className="text-xs opacity-60 mt-1">🎉 Happy Birthday!</p>
           </div>
         </div>
       </div>
@@ -212,6 +258,7 @@ function CalendarEventDetail({ event, isBirthday, tenantCode }: { event: Calenda
   }
 
   const iconByType = {
+    'birthday': <Cake className="w-4 h-4" />,
     'meeting': <Users className="w-4 h-4" />,
     'call': <Video className="w-4 h-4" />,
     'release-notes': <FileText className="w-4 h-4" />,
@@ -219,6 +266,7 @@ function CalendarEventDetail({ event, isBirthday, tenantCode }: { event: Calenda
   }
 
   const colorByType = {
+    'birthday': 'bg-pink-50 text-pink-700 border-pink-200',
     'meeting': 'bg-blue-50 text-blue-700 border-blue-200',
     'call': 'bg-purple-50 text-purple-700 border-purple-200',
     'release-notes': 'bg-green-50 text-green-700 border-green-200',
@@ -234,7 +282,7 @@ function CalendarEventDetail({ event, isBirthday, tenantCode }: { event: Calenda
           {event.time && <p className="text-xs opacity-80">{event.time}</p>}
         </div>
       </div>
-      {event.details && <p className="text-xs opacity-90">{event.details}</p>}
+      {event.details && <p className="text-xs opacity-90 mb-2">{event.details}</p>}
       {event.releaseNotesSchedule && (
         <button
           onClick={() => window.open(getReleaseNotesUrl(tenantCode), '_blank')}
@@ -406,13 +454,12 @@ export default function DeveloperDashboardPage() {
   const [techBytes, setTechBytes] = useState<TechByte[]>([])
   const [techBytesLoading, setTechBytesLoading] = useState(false)
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(new Date())
-  const [calendarEvents] = useState<CalendarEvent[]>([])
-  // TODO: Uncomment after Azure DevOps approval for Calendar API
-  // const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([])
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([])
   
   // Team birthdays (current month only)
   const [teamBirthdays, setTeamBirthdays] = useState<Birthday[]>([])
   const [teamBirthdaysLoading, setTeamBirthdaysLoading] = useState(false)
+  const [_releaseNotesLoading, _setReleaseNotesLoading] = useState(false)
 
   const displayName = user?.displayName || user?.email?.split('@')[0] || (isManager ? 'Manager' : 'Developer')
   const userBirthday = user?.birthMonth && user?.birthDay ? daysUntilBirthday(user.birthMonth, user.birthDay) : null
@@ -530,6 +577,114 @@ export default function DeveloperDashboardPage() {
 
     fetchTeamBirthdays()
   }, [isDevView])
+
+  // Release Notes & Team Calls — combine into unified calendar events
+  useEffect(() => {
+    if (!isDevView) return
+
+    const buildCalendarEvents = async () => {
+      _setReleaseNotesLoading(true)
+      try {
+        const allEvents: CalendarEvent[] = []
+
+        // 🎂 Add team birthdays as calendar events
+        teamBirthdays.forEach(birthday => {
+          const bdayDate = new Date(new Date().getFullYear(), birthday.month - 1, birthday.day)
+          allEvents.push({
+            id: `birthday-${birthday.userId}`,
+            date: bdayDate,
+            title: `${birthday.userName}'s Birthday`,
+            type: 'call',
+            time: 'All Day',
+            details: `${birthday.email}`,
+            attendees: [birthday.userName],
+          })
+        })
+
+        // 📝 Mock release notes with schedule dates (replace with API call)
+        const now = new Date()
+        const releaseSchedules = [
+          {
+            id: 'release-1',
+            date: new Date(now.getFullYear(), now.getMonth(), 15),
+            title: 'Version 2.1 Release',
+            ownerName: 'DevOps Team',
+            ownerEmail: 'devops@company.com',
+            notes: 'Major feature release with performance improvements',
+          },
+          {
+            id: 'release-2',
+            date: new Date(now.getFullYear(), now.getMonth(), 22),
+            title: 'Patch Release 2.0.5',
+            ownerName: 'Backend Team',
+            ownerEmail: 'backend@company.com',
+            notes: 'Critical security fixes and bug patches',
+          },
+        ]
+
+        releaseSchedules.forEach(release => {
+          allEvents.push({
+            id: release.id,
+            date: release.date,
+            title: release.title,
+            type: 'release-notes',
+            isAllDay: true,
+            details: release.notes,
+            releaseNotesSchedule: {
+              ownerName: release.ownerName,
+              ownerEmail: release.ownerEmail,
+              notes: release.notes,
+            },
+          })
+        })
+
+        // 📞 Mock team calls (replace with actual API)
+        const teamCalls = [
+          {
+            id: 'call-1',
+            date: new Date(now.getFullYear(), now.getMonth(), 10),
+            title: 'Team Standup',
+            time: '9:00 AM - 9:30 AM',
+            attendees: ['Dev Team', 'QA Team'],
+          },
+          {
+            id: 'call-2',
+            date: new Date(now.getFullYear(), now.getMonth(), 17),
+            title: 'Sprint Planning',
+            time: '2:00 PM - 3:30 PM',
+            attendees: ['Product Owner', 'Scrum Master', 'Development Team'],
+          },
+          {
+            id: 'call-3',
+            date: new Date(now.getFullYear(), now.getMonth(), 25),
+            title: 'Architecture Review',
+            time: '10:00 AM - 11:00 AM',
+            attendees: ['Tech Lead', 'Architects', 'Senior Devs'],
+          },
+        ]
+
+        teamCalls.forEach(call => {
+          allEvents.push({
+            id: call.id,
+            date: call.date,
+            title: call.title,
+            type: 'call',
+            time: call.time,
+            attendees: call.attendees,
+          })
+        })
+
+        setCalendarEvents(allEvents)
+      } catch (error) {
+        console.error('Failed to build calendar events:', error)
+        setCalendarEvents([])
+      } finally {
+        _setReleaseNotesLoading(false)
+      }
+    }
+
+    buildCalendarEvents()
+  }, [isDevView, teamBirthdays])
 
   // ── Role-view shortcut: Ctrl+Shift+V (Admin/Manager only) ──────────────────
   useEffect(() => {
@@ -1228,11 +1383,12 @@ export default function DeveloperDashboardPage() {
           {/* ── Selected Date Events ────────────────────────────────────────*/}
           {(calendarEvents.filter(e => new Date(e.date).toDateString() === selectedCalendarDate.toDateString()).length > 0 || teamBirthdays.some(b => selectedCalendarDate.getMonth() === b.month - 1 && selectedCalendarDate.getDate() === b.day)) && (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-              <h3 className="text-sm font-bold text-gray-700 uppercase tracking-widest mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-bold text-gray-700 uppercase tracking-widest mb-4 flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-indigo-500" />
                 {formatCalendarDate(selectedCalendarDate)}
               </h3>
-              <div className="space-y-2">
+              <div className="space-y-3">
+                {/* 🎂 Birthdays */}
                 {teamBirthdays
                   .filter(b => selectedCalendarDate.getMonth() === b.month - 1 && selectedCalendarDate.getDate() === b.day)
                   .map(birthday => (
@@ -1248,8 +1404,26 @@ export default function DeveloperDashboardPage() {
                     </div>
                   ))
                 }
+                
+                {/* 📝 Release Notes */}
                 {calendarEvents
-                  .filter(e => new Date(e.date).toDateString() === selectedCalendarDate.toDateString())
+                  .filter(e => new Date(e.date).toDateString() === selectedCalendarDate.toDateString() && e.type === 'release-notes')
+                  .map(e => (
+                    <CalendarEventDetail key={e.id} event={e} tenantCode={tenantCode} />
+                  ))
+                }
+                
+                {/* 📞 Calls */}
+                {calendarEvents
+                  .filter(e => new Date(e.date).toDateString() === selectedCalendarDate.toDateString() && e.type === 'call' && !teamBirthdays.some(b => b.userName === e.title?.split("'")[0]))
+                  .map(e => (
+                    <CalendarEventDetail key={e.id} event={e} tenantCode={tenantCode} />
+                  ))
+                }
+                
+                {/* 👥 Meetings & Other Events */}
+                {calendarEvents
+                  .filter(e => new Date(e.date).toDateString() === selectedCalendarDate.toDateString() && !['release-notes', 'call'].includes(e.type))
                   .map(e => (
                     <CalendarEventDetail key={e.id} event={e} tenantCode={tenantCode} />
                   ))

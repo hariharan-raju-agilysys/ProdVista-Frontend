@@ -4,7 +4,7 @@ export interface CalendarEvent {
   id: string
   date: Date
   title: string
-  type: 'meeting' | 'call' | 'release-notes' | 'todo'
+  type: 'meeting' | 'call' | 'release-notes' | 'todo' | 'birthday'
   time?: string
   attendees?: string[]
   isAllDay?: boolean
