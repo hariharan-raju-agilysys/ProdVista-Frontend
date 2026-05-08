@@ -261,8 +261,14 @@ export const getCustomerIssues = async (groupBy?: string): Promise<CustomerIssue
   const url = groupBy
     ? `/quality/customer-issues?groupBy=${groupBy}`
     : '/quality/customer-issues';
-  const response = await api.get<CustomerIssueGroupDto[]>(url);
-  return response.data;
+  try {
+    const response = await api.get<CustomerIssueGroupDto[]>(url);
+    // Ensure response data is an array
+    return Array.isArray(response.data) ? response.data : [];
+  } catch {
+    // Return empty array on error instead of throwing
+    return [];
+  }
 };
 
 export const getOwnerEfficiency = async (connectionId?: string, iterationPath?: string): Promise<OwnerEfficiencyDto[]> => {

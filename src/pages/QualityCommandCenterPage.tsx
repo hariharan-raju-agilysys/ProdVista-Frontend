@@ -311,7 +311,14 @@ export default function QualityCommandCenterPage() {
 
   const loadCustomerIssues = async () => {
     setCustomerLoading(true);
-    try { setCustomerIssues(await getCustomerIssues()); } catch { /* skip */ }
+    try {
+      const data = await getCustomerIssues();
+      // Ensure data is always an array
+      setCustomerIssues(Array.isArray(data) ? data : []);
+    } catch {
+      // On error, set to empty array
+      setCustomerIssues([]);
+    }
     setCustomerLoading(false);
   };
 
@@ -671,7 +678,7 @@ function OverviewTab({ kpi, kpiLoading, criticalBugs, staleCount, trend, trendLo
           {/* Customer Issues */}
           {isLeadership && (
             <Card title="Customer Issues" icon={Users} iconColor="text-blue-500" loading={customerLoading}>
-              {customerIssues.length > 0 ? (
+              {Array.isArray(customerIssues) && customerIssues.length > 0 ? (
                 <div className="max-h-[360px] overflow-y-auto space-y-1.5">
                   {customerIssues.slice(0, 8).map(ci => (
                     <div key={ci.customerName} className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
