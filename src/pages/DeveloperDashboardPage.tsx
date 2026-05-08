@@ -195,7 +195,7 @@ function MiniCalendar({ events, selectedDate, onSelectDate, userBirthdayMonth, u
   )
 }
 
-function CalendarEventDetail({ event, isBirthday }: { event: CalendarEvent; isBirthday?: boolean }) {
+function CalendarEventDetail({ event, isBirthday, tenantCode }: { event: CalendarEvent; isBirthday?: boolean; tenantCode?: string }) {
   if (isBirthday) {
     return (
       <div className="bg-gradient-to-br from-pink-50 to-rose-50 text-pink-700 border border-pink-200 rounded-lg p-3">
@@ -235,17 +235,23 @@ function CalendarEventDetail({ event, isBirthday }: { event: CalendarEvent; isBi
       </div>
       {event.details && <p className="text-xs opacity-90">{event.details}</p>}
       {event.releaseNotesSchedule && (
-        <div className="mt-3 pt-3 border-t border-current space-y-2 text-xs">
+        <button
+          onClick={() => window.open(getReleaseNotesUrl(tenantCode), '_blank')}
+          className={clsx('mt-3 pt-3 border-t border-current w-full text-left hover:opacity-100 transition-opacity space-y-2 text-xs group cursor-pointer')}
+        >
           <div>
-            <p className="font-semibold text-xs uppercase tracking-wide mb-1">Release Owner</p>
+            <p className="font-semibold text-xs uppercase tracking-wide mb-1 group-hover:text-inherit">Release Owner</p>
             <p className="opacity-90">{event.releaseNotesSchedule.ownerName}</p>
             <p className="opacity-75 text-[9px]">{event.releaseNotesSchedule.ownerEmail}</p>
           </div>
           <div>
-            <p className="font-semibold text-xs uppercase tracking-wide mb-1">Release Notes</p>
+            <p className="font-semibold text-xs uppercase tracking-wide mb-1 group-hover:text-inherit flex items-center gap-1.5">
+              Release Notes
+              <ExternalLink className="w-3 h-3 opacity-50 group-hover:opacity-100" />
+            </p>
             <p className="opacity-90">{event.releaseNotesSchedule.notes}</p>
           </div>
-        </div>
+        </button>
       )}
       {event.attendees && event.attendees.length > 0 && (
         <div className="mt-2 text-xs">
@@ -352,10 +358,18 @@ const AI_TOOLS = [
   { label: 'AI Chat',       sub: 'Ask anything',    icon: Bot,        path: '/ai-chat',           gradient: 'bg-gradient-to-br from-violet-500 to-purple-600',  key: '⇧A' },
   { label: 'AI Query',      sub: 'Natural → SQL',   icon: Terminal,   path: '/ai-query',          gradient: 'bg-gradient-to-br from-amber-500 to-orange-600',    key: '⇧Q' },
   { label: 'Observability', sub: 'KQL & logs',      icon: Activity,   path: '/observability',     gradient: 'bg-gradient-to-br from-teal-500 to-cyan-600',        key: '⇧O' },
-  { label: 'Release Notes', sub: 'Auto-generate',   icon: FileText,   path: '/release-notes',     gradient: 'bg-gradient-to-br from-green-500 to-emerald-600',    key: '⇧R' },
+  // Release Notes: Hidden from UI, will redirect from calendar in new tab (see getReleaseNotesUrl)
+  // { label: 'Release Notes', sub: 'Auto-generate',   icon: FileText,   path: '/release-notes',     gradient: 'bg-gradient-to-br from-green-500 to-emerald-600',    key: '⇧R' },
   { label: 'DevOps',        sub: 'Pipelines & PRs', icon: GitMerge,   path: '/devops',            gradient: 'bg-gradient-to-br from-blue-500 to-indigo-600',      key: '⇧G' },
   { label: 'Dev Toolkit',   sub: 'Advanced tools',  icon: Cpu,        path: '/developer-toolkit', gradient: 'bg-gradient-to-br from-pink-500 to-rose-600',        key: '⇧D' },
 ]
+
+// ── Release Notes URL builder ──────────────────────────────────────────────────
+function getReleaseNotesUrl(tenantCode?: string): string {
+  const code = tenantCode || 'versa'
+  const domain = 'https://aks-v1-dev.hospitalityrevolution.com'
+  return `${domain}/${code}releasenote`
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Main Page
@@ -368,6 +382,7 @@ export default function DeveloperDashboardPage() {
   const [view, setView] = useState<'mine' | 'team'>('mine')
   const [prView, setPrView] = useState<'pending' | 'all'>('pending')
   const [viewOverride, setViewOverride] = useState<'auto' | 'dev'>('auto')
+  const tenantCode = localStorage.getItem('prodvista_org_code') || 'versa'
   const canOverrideView = isManager || isAdmin
   const isDevView = viewOverride === 'dev' ? true : (!isManager && !isAdmin)
 
@@ -1189,12 +1204,12 @@ export default function DeveloperDashboardPage() {
               </h3>
               <div className="space-y-2">
                 {user?.birthMonth && user?.birthDay && new Date(new Date().getFullYear(), user.birthMonth - 1, user.birthDay).toDateString() === selectedCalendarDate.toDateString() && (
-                  <CalendarEventDetail key="birthday" event={{} as CalendarEvent} isBirthday={true} />
+                  <CalendarEventDetail key="birthday" event={{} as CalendarEvent} isBirthday={true} tenantCode={tenantCode} />
                 )}
                 {calendarEvents
                   .filter(e => new Date(e.date).toDateString() === selectedCalendarDate.toDateString())
                   .map(e => (
-                    <CalendarEventDetail key={e.id} event={e} />
+                    <CalendarEventDetail key={e.id} event={e} tenantCode={tenantCode} />
                   ))
                 }
               </div>
