@@ -64,6 +64,8 @@ export const msalConfig: Configuration = {
  */
 export const loginRequest: PopupRequest = {
   scopes: ['User.Read', 'openid', 'profile', 'email'],
+  // TODO: Uncomment after Azure DevOps approval for Calendar & OnlineMeetings access
+  // scopes: ['User.Read', 'Calendars.Read', 'OnlineMeetings.Read', 'openid', 'profile', 'email'],
 }
 
 /**
@@ -71,6 +73,8 @@ export const loginRequest: PopupRequest = {
  */
 export const graphScopes = {
   scopes: ['User.Read'],
+  // TODO: Uncomment after Azure DevOps approval for Calendar & OnlineMeetings access
+  // scopes: ['User.Read', 'Calendars.Read', 'OnlineMeetings.Read'],
 }
 
 export const graphConfig = {

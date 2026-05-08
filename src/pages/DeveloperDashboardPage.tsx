@@ -5,6 +5,8 @@
 // ============================================================================
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+// TODO: Uncomment after Azure DevOps approval for Calendar API
+// import { useMsal } from '@azure/msal-react'
 import {
   Bug, GitPullRequest, Rocket, AlertTriangle, Activity, Users,
   Clock, ExternalLink, RefreshCw, ChevronRight, Code2,
@@ -13,7 +15,8 @@ import {
   Zap, Bot, FileText, Terminal,
   Flame, RotateCcw, Target, Award,
   Rss, Star, Crown, Timer, GitMerge,
-  Cpu, Radio,
+  Cpu, Radio, Upload, Link2, Image, FileType,
+  ChevronLeft, Video, Cake,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../context/AuthContext'
@@ -25,6 +28,9 @@ import {
   getQualitySummary, getBugs, getMyBugs, getOwnerEfficiency,
   type QualitySummaryDto, type QualityWorkItemDto, type OwnerEfficiencyDto,
 } from '../services/qualityService'
+// TODO: Uncomment after Azure DevOps approval for Calendar API
+// import { CalendarService, type CalendarEvent } from '../services/calendarService'
+import { type CalendarEvent } from '../services/calendarService'
 
 // ── types ────────────────────────────────────────────────────────────────────
 interface HnItem {
@@ -35,6 +41,17 @@ interface HnItem {
   points: number
   num_comments: number
   created_at_i: number
+}
+
+interface TechByte {
+  id: string
+  title: string
+  description: string
+  type: 'image' | 'document' | 'text' | 'url'
+  content: string // URL or text
+  uploadedBy: string
+  uploadedAt: Date
+  tags: string[]
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -65,6 +82,20 @@ function timeAgo(ts: number): string {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
+function daysUntilBirthday(birthMonth?: number, birthDay?: number): { days: number; isToday: boolean } {
+  if (!birthMonth || !birthDay) return { days: -1, isToday: false }
+  const today = new Date()
+  const thisYear = today.getFullYear()
+  const nextBirthday = new Date(thisYear, birthMonth - 1, birthDay)
+  if (nextBirthday < today) nextBirthday.setFullYear(thisYear + 1)
+  const diff = Math.floor((nextBirthday.getTime() - today.getTime()) / 86_400_000)
+  return { days: diff, isToday: diff === 0 }
+}
+
+function formatCalendarDate(date: Date): string {
+  return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
 const PRIORITY_CFG = [
   { p: 1, label: 'P1 · Critical', short: 'P1', bar: 'bg-red-500',    badge: 'bg-red-100 text-red-700',      dot: 'bg-red-500',    flame: true  },
   { p: 2, label: 'P2 · High',     short: 'P2', bar: 'bg-orange-400', badge: 'bg-orange-100 text-orange-700', dot: 'bg-orange-400', flame: false },
@@ -73,6 +104,134 @@ const PRIORITY_CFG = [
 ]
 
 // ── sub-components ────────────────────────────────────────────────────────────
+function MiniCalendar({ events, selectedDate, onSelectDate }: {
+  events: CalendarEvent[]
+  selectedDate: Date
+  onSelectDate: (date: Date) => void
+}) {
+  const [currentMonth, setCurrentMonth] = useState(new Date())
+  const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
+  const lastDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0)
+  const daysInMonth = lastDay.getDate()
+  const startingDayOfWeek = firstDay.getDay()
+  
+  const hasEvent = (day: number) => {
+    const dateStr = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day).toDateString()
+    return events.some(e => new Date(e.date).toDateString() === dateStr)
+  }
+
+  const isSelected = (day: number) => {
+    const dateStr = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day).toDateString()
+    return selectedDate.toDateString() === dateStr
+  }
+
+  const isToday = (day: number) => {
+    const today = new Date().toDateString()
+    const dateStr = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day).toDateString()
+    return today === dateStr
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+      <div className="flex items-center justify-between mb-4">
+        <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
+          className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4 text-gray-600" />
+        </button>
+        <h3 className="text-sm font-bold text-gray-700">
+          {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+        </h3>
+        <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
+          className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <ChevronRight className="w-4 h-4 text-gray-600" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-7 gap-1 mb-3 text-center">
+        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+          <div key={d} className="text-[10px] font-bold text-gray-400 uppercase py-1">{d}</div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-7 gap-1">
+        {Array.from({ length: startingDayOfWeek }).map((_, i) => (
+          <div key={`empty-${i}`} />
+        ))}
+        {Array.from({ length: daysInMonth }).map((_, i) => {
+          const day = i + 1
+          const selected = isSelected(day)
+          const today = isToday(day)
+          const hasevt = hasEvent(day)
+          return (
+            <button
+              key={day}
+              onClick={() => onSelectDate(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day))}
+              className={clsx(
+                'relative aspect-square text-xs font-semibold rounded-lg transition-all',
+                selected ? 'bg-indigo-600 text-white' : today ? 'bg-indigo-100 text-indigo-700' : 'text-gray-700 hover:bg-gray-100'
+              )}
+            >
+              {day}
+              {hasevt && (
+                <div className="absolute bottom-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-blue-500" />
+              )}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function CalendarEventDetail({ event }: { event: CalendarEvent }) {
+  const iconByType = {
+    'meeting': <Users className="w-4 h-4" />,
+    'call': <Video className="w-4 h-4" />,
+    'release-notes': <FileText className="w-4 h-4" />,
+    'todo': <Target className="w-4 h-4" />,
+  }
+
+  const colorByType = {
+    'meeting': 'bg-blue-50 text-blue-700 border-blue-200',
+    'call': 'bg-purple-50 text-purple-700 border-purple-200',
+    'release-notes': 'bg-green-50 text-green-700 border-green-200',
+    'todo': 'bg-amber-50 text-amber-700 border-amber-200',
+  }
+
+  return (
+    <div className={clsx('p-3 rounded-lg border', colorByType[event.type])}>
+      <div className="flex items-start gap-2 mb-2">
+        <div className="mt-0.5">{iconByType[event.type]}</div>
+        <div className="flex-1">
+          <p className="font-semibold text-sm">{event.title}</p>
+          {event.time && <p className="text-xs opacity-80">{event.time}</p>}
+        </div>
+      </div>
+      {event.details && <p className="text-xs opacity-90">{event.details}</p>}
+      {event.releaseNotesSchedule && (
+        <div className="mt-2 pt-2 border-t border-current opacity-75 text-xs">
+          <p><strong>Release Owner:</strong> {event.releaseNotesSchedule.ownerName}</p>
+          <p className="mt-0.5">{event.releaseNotesSchedule.notes}</p>
+        </div>
+      )}
+      {event.attendees && event.attendees.length > 0 && (
+        <div className="mt-2 text-xs">
+          <p className="font-semibold mb-1">Attendees:</p>
+          <div className="flex flex-wrap gap-1">
+            {event.attendees.map((a, i) => (
+              <span key={i} className="px-1.5 py-0.5 bg-white bg-opacity-50 rounded text-[10px]">
+                {a}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function KpiCard({
   label, value, icon: Icon, gradient, sub, loading, onClick,
 }: {
@@ -172,8 +331,11 @@ const AI_TOOLS = [
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function DeveloperDashboardPage() {
   const { user, isManager, isAdmin } = useAuth()
+  // TODO: Uncomment after Azure DevOps approval (Build 436, 437) for Calendar & OnlineMeetings scopes
+  // const { instance: msalInstance } = useMsal()
   const navigate = useNavigate()
   const [view, setView] = useState<'mine' | 'team'>('mine')
+  const [prView, setPrView] = useState<'pending' | 'all'>('pending')
   const [viewOverride, setViewOverride] = useState<'auto' | 'dev'>('auto')
   const canOverrideView = isManager || isAdmin
   const isDevView = viewOverride === 'dev' ? true : (!isManager && !isAdmin)
@@ -193,8 +355,17 @@ export default function DeveloperDashboardPage() {
   const [techPulse, setTechPulse] = useState<HnItem[]>([])
   const [techLoading, setTechLoading] = useState(false)
   const [reopenedBugs, setReopenedBugs] = useState<QualityWorkItemDto[]>([])
+  
+  // New: Tech bytes & Calendar
+  const [techBytes, setTechBytes] = useState<TechByte[]>([])
+  const [techBytesLoading, setTechBytesLoading] = useState(false)
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(new Date())
+  const [calendarEvents] = useState<CalendarEvent[]>([])
+  // TODO: Uncomment after Azure DevOps approval for Calendar API
+  // const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([])
 
   const displayName = user?.displayName || user?.email?.split('@')[0] || (isManager ? 'Manager' : 'Developer')
+  const userBirthday = user?.birthMonth && user?.birthDay ? daysUntilBirthday(user.birthMonth, user.birthDay) : null
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -244,6 +415,50 @@ export default function DeveloperDashboardPage() {
     if (!isDevView) return
     setTechLoading(true)
     fetchTechPulse().then(setTechPulse).finally(() => setTechLoading(false))
+  }, [isDevView])
+
+  // Calendar Events — fetch from Microsoft Graph
+  // TODO: Uncomment after Azure DevOps approval (Build 436, 437) for Calendar & OnlineMeetings scopes
+  // useEffect(() => {
+  //   if (!isAuthenticated || !isDevView) return
+
+  //   const fetchCalendarEvents = async () => {
+  //     try {
+  //       const calendarService = new CalendarService(msalInstance as any)
+  //       const events = await calendarService.getCalendarEvents()
+  //       setCalendarEvents(events)
+  //     } catch (error) {
+  //       console.error('Failed to fetch calendar events:', error)
+  //       // Fallback to empty array so component still renders
+  //     }
+  //   }
+
+  //   fetchCalendarEvents()
+  // }, [isAuthenticated, isDevView, msalInstance])
+
+  // Tech Bytes — fetch from backend API
+  useEffect(() => {
+    if (!isDevView) return
+
+    const fetchTechBytes = async () => {
+      setTechBytesLoading(true)
+      try {
+        // TODO: Replace with actual API endpoint
+        // const response = await fetch('/api/tech-bytes?limit=10')
+        // const bytes = await response.json()
+        // setTechBytes(bytes)
+        
+        // For now, start with empty array until backend is ready
+        setTechBytes([])
+      } catch (error) {
+        console.error('Failed to fetch tech bytes:', error)
+        setTechBytes([])
+      } finally {
+        setTechBytesLoading(false)
+      }
+    }
+
+    fetchTechBytes()
   }, [isDevView])
 
   // ── Role-view shortcut: Ctrl+Shift+V (Admin/Manager only) ──────────────────
@@ -689,6 +904,17 @@ export default function DeveloperDashboardPage() {
           <SectionCard title="PR Review Queue" icon={GitPullRequest} iconColor="text-purple-500"
             action="All PRs" onAction={() => navigate('/pull-requests')}
           >
+            <div className="border-b border-gray-50 px-5 py-2 flex items-center gap-2">
+              <div className="flex items-center bg-gray-100 rounded-lg p-1 text-xs">
+                {(['pending', 'all'] as const).map(v => (
+                  <button key={v} onClick={() => setPrView(v)}
+                    className={clsx('px-2.5 py-1 rounded font-medium transition-all capitalize',
+                      prView === v ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                    )}
+                  >{v === 'pending' ? 'My Pending' : 'All PRs'}</button>
+                ))}
+              </div>
+            </div>
             <div className="divide-y divide-gray-50">
               {loading ? (
                 Array.from({ length: 3 }).map((_, i) => (
@@ -804,8 +1030,70 @@ export default function DeveloperDashboardPage() {
           </div>
 
           {/* ── Tech Pulse (live HN feed) ─────────────────────────────────── */}
-          <SectionCard title="Tech Pulse" icon={Radio} iconColor="text-blue-500">
-            <div className="px-1 py-1">
+          <SectionCard title="Tech Pulse & Learning" icon={Radio} iconColor="text-blue-500">
+            <div className="border-b border-gray-50 px-5 py-3 flex items-center gap-2">
+              <div className="flex-1 flex items-center gap-2 text-xs text-gray-500">
+                <Rss className="w-3 h-3" />
+                <span className="font-semibold">Community Feed + Team Bytes</span>
+              </div>
+              <button
+                title="Upload tech resource"
+                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-blue-600"
+              >
+                <Upload className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-1 py-1 max-h-[600px] overflow-y-auto">
+              {/* Team Tech Bytes Loading */}
+              {techBytesLoading && (
+                <div className="px-4 py-3 border-b border-gray-100">
+                  <p className="text-xs font-bold text-gray-500 uppercase mb-2">Team Bytes</p>
+                  <div className="space-y-2">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <div key={i} className="h-12 bg-gray-50 animate-pulse rounded-lg" />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Team Tech Bytes */}
+              {!techBytesLoading && techBytes.length > 0 && (
+                <div className="px-4 py-3 border-b border-gray-100">
+                  <p className="text-xs font-bold text-gray-500 uppercase mb-2">Team Bytes</p>
+                  <div className="space-y-2">
+                    {techBytes.map(byte => (
+                      <a
+                        key={byte.id}
+                        href={byte.type === 'url' ? byte.content : '#'}
+                        target={byte.type === 'url' ? '_blank' : undefined}
+                        rel={byte.type === 'url' ? 'noreferrer' : undefined}
+                        className="block p-2.5 rounded-lg hover:bg-indigo-50 transition-colors group border border-indigo-100"
+                      >
+                        <div className="flex items-start gap-2">
+                          <div className="p-1.5 rounded-md flex-shrink-0 bg-indigo-100 text-indigo-600">
+                            {byte.type === 'image' && <Image className="w-3.5 h-3.5" />}
+                            {byte.type === 'document' && <FileType className="w-3.5 h-3.5" />}
+                            {byte.type === 'text' && <FileText className="w-3.5 h-3.5" />}
+                            {byte.type === 'url' && <Link2 className="w-3.5 h-3.5" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-gray-800 truncate group-hover:text-indigo-700">{byte.title}</p>
+                            <p className="text-[10px] text-gray-500 truncate mt-0.5">{byte.description}</p>
+                            <div className="flex items-center gap-1 mt-1.5 text-[9px] text-gray-400">
+                              <span>{byte.uploadedBy}</span>
+                              <span>·</span>
+                              <span>{formatCalendarDate(byte.uploadedAt)}</span>
+                            </div>
+                          </div>
+                          <ExternalLink className="w-3 h-3 text-gray-300 group-hover:text-indigo-500 flex-shrink-0 mt-0.5" />
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* HN Feed */}
               {techLoading ? (
                 <div className="space-y-1 px-3 py-2">
                   {Array.from({ length: 5 }).map((_, i) => (
@@ -820,13 +1108,14 @@ export default function DeveloperDashboardPage() {
                 </div>
               ) : (
                 <div className="divide-y divide-gray-50">
+                  <p className="px-4 py-2 text-xs font-bold text-gray-500 uppercase bg-gray-50">Trending</p>
                   {techPulse.map(item => (
                     <a
                       key={item.objectID}
                       href={item.url ?? `https://news.ycombinator.com/item?id=${item.objectID}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex items-start gap-2.5 px-4 py-3 hover:bg-gray-50 transition-colors group"
+                      className="flex items-start gap-2.5 px-4 py-3 hover:bg-blue-50 transition-colors group"
                     >
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold text-gray-800 line-clamp-2 group-hover:text-blue-600 transition-colors leading-snug">
@@ -844,7 +1133,7 @@ export default function DeveloperDashboardPage() {
                 </div>
               )}
             </div>
-            <div className="px-4 py-2 border-t border-gray-50 flex items-center justify-between">
+            <div className="px-4 py-2 border-t border-gray-50 flex items-center justify-between bg-gray-50">
               <span className="text-[10px] text-gray-400 flex items-center gap-1">
                 <Rss className="w-2.5 h-2.5" /> Hacker News · live
               </span>
@@ -856,6 +1145,27 @@ export default function DeveloperDashboardPage() {
               </button>
             </div>
           </SectionCard>
+
+          {/* ── Calendar & Events ──────────────────────────────────────── */}
+          <MiniCalendar events={calendarEvents} selectedDate={selectedCalendarDate} onSelectDate={setSelectedCalendarDate} />
+          
+          {/* ── Selected Date Events ────────────────────────────────────────*/}
+          {calendarEvents.filter(e => new Date(e.date).toDateString() === selectedCalendarDate.toDateString()).length > 0 && (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+              <h3 className="text-sm font-bold text-gray-700 uppercase tracking-widest mb-3 flex items-center gap-2">
+                <Video className="w-4 h-4 text-blue-500" />
+                {formatCalendarDate(selectedCalendarDate)}
+              </h3>
+              <div className="space-y-2">
+                {calendarEvents
+                  .filter(e => new Date(e.date).toDateString() === selectedCalendarDate.toDateString())
+                  .map(e => (
+                    <CalendarEventDetail key={e.id} event={e} />
+                  ))
+                }
+              </div>
+            </div>
+          )}
 
           {/* ── Quick Snapshot ────────────────────────────────────────────── */}
           <SectionCard title="Snapshot" icon={BarChart3} iconColor="text-gray-400">
@@ -872,6 +1182,12 @@ export default function DeveloperDashboardPage() {
                   icon: <Layers className="w-3.5 h-3.5 text-purple-400" />, color: 'text-purple-600' },
                 { label: 'Open incidents', value: (summary?.support as any)?.openIncidents ?? 0,
                   icon: <AlertTriangle className="w-3.5 h-3.5 text-red-400" />, color: 'text-red-600' },
+                ...(userBirthday && userBirthday.days >= 0 ? [{
+                  label: userBirthday.isToday ? '🎂 Birthday today!' : 'Days to birthday',
+                  value: userBirthday.isToday ? '🎉' : `${userBirthday.days}d`,
+                  icon: <Cake className="w-3.5 h-3.5 text-pink-400" />,
+                  color: userBirthday.isToday ? 'text-pink-700 font-bold' : 'text-pink-600'
+                }] : []),
               ].map(({ label, value, icon, color }) => (
                 <div key={label} className="flex items-center justify-between py-1 border-b border-gray-50 last:border-0">
                   <div className="flex items-center gap-2 text-xs text-gray-500">{icon}{label}</div>
