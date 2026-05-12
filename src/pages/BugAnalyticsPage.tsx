@@ -605,12 +605,18 @@ function UserAnalysisView({ filter }: { filter: BugAnalyticsFilter }) {
   if (loading) return <LoadingSpinner text="Loading user analysis..." />
   if (!data) return <EmptyState text="No data" />
 
+  // Calculate average resolution quality
+  const avgResolutionQuality = data.users.length > 0
+    ? Math.round(data.users.reduce((sum, u) => sum + u.resolutionQuality, 0) / data.users.length)
+    : 0;
+
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="Team Members" value={data.totalUsers} icon={Users} color="from-blue-50 to-indigo-50 border-blue-200/60 text-blue-800" />
         <StatCard label="Total Bugs" value={data.totalBugs} icon={Bug} color="from-red-50 to-rose-50 border-red-200/60 text-red-800" />
         <StatCard label="Total Work Items" value={data.totalWorkItems} icon={Layers} color="from-purple-50 to-violet-50 border-purple-200/60 text-purple-800" />
+        <StatCard label="Avg Resolution Quality" value={`${avgResolutionQuality}%`} icon={Shield} color="from-green-50 to-emerald-50 border-green-200/60 text-green-800" />
       </div>
 
       <div className="space-y-2">
@@ -638,12 +644,24 @@ function UserAnalysisView({ filter }: { filter: BugAnalyticsFilter }) {
               {/* Metrics */}
               <div className="flex items-center gap-4 flex-shrink-0">
                 <div className="text-center">
+                  <div className="text-xs font-bold text-blue-600">{user.totalResolvedByUser}</div>
+                  <div className="text-[9px] text-gray-400">Resolved By</div>
+                </div>
+                <div className="text-center">
                   <div className="text-xs font-bold text-green-600">{user.resolvedBugs}</div>
-                  <div className="text-[9px] text-gray-400">Resolved</div>
+                  <div className="text-[9px] text-gray-400">Assigned</div>
                 </div>
                 <div className="text-center">
                   <div className="text-xs font-bold text-orange-500">{user.activeBugs}</div>
                   <div className="text-[9px] text-gray-400">Active</div>
+                </div>
+                <div className="text-center">
+                  <div className={clsx('text-xs font-bold', 
+                    user.reopenRate === 0 ? 'text-green-600' : 
+                    user.reopenRate <= 10 ? 'text-yellow-600' : 'text-red-600')}>
+                    {user.reopenedCount}
+                  </div>
+                  <div className="text-[9px] text-gray-400">Reopened</div>
                 </div>
                 <div className="text-center">
                   <div className={clsx('text-xs font-bold', user.avgResolutionDays <= 3 ? 'text-green-600' : user.avgResolutionDays <= 7 ? 'text-yellow-600' : 'text-red-600')}>
@@ -652,17 +670,17 @@ function UserAnalysisView({ filter }: { filter: BugAnalyticsFilter }) {
                   <div className="text-[9px] text-gray-400">Avg Res</div>
                 </div>
 
-                {/* Efficiency gauge */}
+                {/* Quality gauge */}
                 <div className="relative w-11 h-11">
                   <svg viewBox="0 0 44 44" className="w-full h-full -rotate-90">
                     <circle cx="22" cy="22" r="18" fill="none" stroke="#e5e7eb" strokeWidth="3" />
                     <circle cx="22" cy="22" r="18" fill="none"
-                      stroke={user.efficiencyScore >= 80 ? '#22c55e' : user.efficiencyScore >= 50 ? '#f59e0b' : '#ef4444'}
+                      stroke={user.resolutionQuality >= 95 ? '#22c55e' : user.resolutionQuality >= 85 ? '#f59e0b' : '#ef4444'}
                       strokeWidth="3" strokeLinecap="round"
-                      strokeDasharray={`${(user.efficiencyScore / 100) * 113} 113`} />
+                      strokeDasharray={`${(user.resolutionQuality / 100) * 113} 113`} />
                   </svg>
                   <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-gray-700">
-                    {Math.round(user.efficiencyScore)}%
+                    {Math.round(user.resolutionQuality)}%
                   </span>
                 </div>
 
@@ -692,11 +710,30 @@ function UserAnalysisView({ filter }: { filter: BugAnalyticsFilter }) {
                 {/* Recent bugs */}
                 {user.recentBugs.length > 0 && (
                   <div>
-                    <div className="text-[10px] font-bold text-gray-400 uppercase mb-1.5">Recent Bugs</div>
+                    <div className="text-[10px] font-bold text-gray-400 uppercase mb-1.5">Recent Bugs (Assigned)</div>
                     <div className="overflow-x-auto">
                       <table className="w-full">
                         <tbody>
                           {user.recentBugs.map(bug => (
+                            <BugRow key={bug.id} bug={bug} onSelect={setSelectedBug} />
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Reopened bugs */}
+                {user.reopenedBugs && user.reopenedBugs.length > 0 && (
+                  <div>
+                    <div className="text-[10px] font-bold text-red-500 uppercase mb-1.5 flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3" />
+                      Reopened Bugs (Resolved By User, Then Reopened)
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <tbody>
+                          {user.reopenedBugs.map(bug => (
                             <BugRow key={bug.id} bug={bug} onSelect={setSelectedBug} />
                           ))}
                         </tbody>

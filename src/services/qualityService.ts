@@ -109,7 +109,13 @@ export interface OwnerEfficiencyDto {
   active: number;
   avgResolutionDays: number;
   efficiencyScore: number;
+  
+  // Resolver-based metrics (NEW)
+  totalResolvedByUser: number;
+  reopenedCount: number;
   reopenRate: number;
+  resolutionQuality: number;
+  
   workItems?: QualityWorkItemDto[];
 }
 
@@ -271,8 +277,12 @@ export const getCustomerIssues = async (groupBy?: string): Promise<CustomerIssue
   }
 };
 
-export const getOwnerEfficiency = async (connectionId?: string, iterationPath?: string): Promise<OwnerEfficiencyDto[]> => {
-  const response = await api.get<OwnerEfficiencyDto[]>(`/quality/owner-efficiency${buildParams(connectionId, { iterationPath })}`);
+export const getOwnerEfficiency = async (connectionId?: string, iterationPath?: string, emails?: string[]): Promise<OwnerEfficiencyDto[]> => {
+  const params: any = { iterationPath };
+  if (emails && emails.length > 0) {
+    params.emails = emails.join(',');
+  }
+  const response = await api.get<OwnerEfficiencyDto[]>(`/quality/owner-efficiency${buildParams(connectionId, params)}`);
   return response.data;
 };
 
@@ -365,8 +375,16 @@ export interface UserBugAnalysis {
   avgResolutionDays: number;
   resolutionRate: number;
   efficiencyScore: number;
+  
+  // Resolver-based metrics (NEW)
+  totalResolvedByUser: number;
+  reopenedCount: number;
+  reopenRate: number;
+  resolutionQuality: number;
+  
   topAreas: UserAreaActivity[];
   recentBugs: QualityWorkItemDto[];
+  reopenedBugs: QualityWorkItemDto[]; // NEW
 }
 
 export interface UserAnalysisResponse {

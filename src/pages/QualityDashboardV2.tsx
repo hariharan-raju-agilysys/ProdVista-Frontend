@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, memo } from 'react';
+import clsx from 'clsx';
 import { DataFreshnessBadge } from '../components/DataFreshnessBadge';
 import {
   getConnections, getBugs, getMyBugs,
@@ -12,7 +13,7 @@ import {
   KpiSummary, BugDetailContext, TodayActivity,
   WorkItemRelations, TeamWorkloadResponse, TeamWorkloadPersonDto,
   getSeverityColor, getStateColor, getReleaseStateColor,
-  formatDate, formatRelativeTime, getEfficiencyColor, getCompletionColor
+  formatDate, formatRelativeTime, getCompletionColor
 } from '../services/qualityService';
 import {
   getDepartments as getHrDepartments,
@@ -204,8 +205,14 @@ const QualityDashboardV2: React.FC = () => {
   useEffect(() => {
     if (selectedConnectionId) {
       loadTeamWorkload();
+      // Also reload team efficiency if team tab is active
+      if (activeTab === 'team') {
+        getOwnerEfficiency(selectedConnectionId, undefined, hierarchyEmails)
+          .then(setOwnerEfficiency)
+          .catch(err => console.error('Failed to reload team efficiency:', err));
+      }
     }
-  }, [hierarchyEmails, loadTeamWorkload]);
+  }, [hierarchyEmails, loadTeamWorkload, activeTab, selectedConnectionId]);
 
   // Reload repos when connection changes
   useEffect(() => {
@@ -284,7 +291,7 @@ const QualityDashboardV2: React.FC = () => {
         setMyBugs(data);
       }
       if (tab === 'team') {
-        const data = await getOwnerEfficiency(selectedConnectionId);
+        const data = await getOwnerEfficiency(selectedConnectionId, undefined, hierarchyEmails);
         setOwnerEfficiency(data);
       }
       if (tab === 'sprints' && releases.length === 0) {
@@ -298,7 +305,7 @@ const QualityDashboardV2: React.FC = () => {
     } catch (err) {
       console.error('Failed to load tab data:', err);
     }
-  }, [selectedConnectionId, releases, filterOptions, selectedUser]);
+  }, [selectedConnectionId, releases, filterOptions, selectedUser, hierarchyEmails]);
 
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
@@ -2319,6 +2326,7 @@ const TeamTab: React.FC<{ owners: OwnerEfficiencyDto[]; onBugClick: (id: number)
   const totalActive = owners.reduce((s, o) => s + o.active, 0);
   const totalResolved = owners.reduce((s, o) => s + o.resolved, 0);
   const avgEfficiency = owners.length > 0 ? Math.round(owners.reduce((s, o) => s + o.efficiencyScore, 0) / owners.length) : 0;
+  const avgResolutionQuality = owners.length > 0 ? Math.round(owners.reduce((s, o) => s + o.resolutionQuality, 0) / owners.length) : 0;
 
   return (
     <div className="space-y-4">
@@ -2335,12 +2343,13 @@ const TeamTab: React.FC<{ owners: OwnerEfficiencyDto[]; onBugClick: (id: number)
       ) : (
         <>
           {/* Team Summary Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
             <MiniStat label="Team Members" value={owners.length} icon={<Users className="w-3 h-3" />} />
             <MiniStat label="Total Assigned" value={totalAssigned} icon={<BarChart3 className="w-3 h-3" />} />
             <MiniStat label="Active" value={totalActive} color="text-amber-600 dark:text-amber-400" />
             <MiniStat label="Resolved" value={totalResolved} color="text-emerald-600 dark:text-emerald-400" />
             <MiniStat label="Avg Efficiency" value={`${avgEfficiency}%`} color={avgEfficiency >= 70 ? 'text-emerald-600 dark:text-emerald-400' : avgEfficiency >= 40 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'} />
+            <MiniStat label="Avg Quality" value={`${avgResolutionQuality}%`} color={avgResolutionQuality >= 95 ? 'text-emerald-600 dark:text-emerald-400' : avgResolutionQuality >= 85 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'} />
           </div>
 
           {/* Developer Cards with Expandable Work Items */}
@@ -2358,12 +2367,23 @@ const TeamTab: React.FC<{ owners: OwnerEfficiencyDto[]; onBugClick: (id: number)
                       </div>
                       <div className="flex-1 min-w-0">
                         <span className="text-sm font-semibold text-slate-900 dark:text-white">{o.ownerName}</span>
-                        {o.reopenRate > 0 && <span className="ml-2 text-[10px] text-amber-600 dark:text-amber-400 font-medium">{o.reopenRate}% reopen</span>}
+                        {o.reopenedCount > 0 && (
+                          <span className={clsx("ml-2 text-[10px] font-medium",
+                            o.reopenRate > 15 ? "text-red-600 dark:text-red-400" :
+                            o.reopenRate > 5 ? "text-amber-600 dark:text-amber-400" :
+                            "text-green-600 dark:text-green-400")}>
+                            {o.reopenedCount} reopened ({o.reopenRate}%)
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-4 text-xs shrink-0">
                         <div className="text-center">
                           <p className="text-slate-900 dark:text-white font-bold">{o.totalAssigned}</p>
-                          <p className="text-[10px] text-slate-400">Total</p>
+                          <p className="text-[10px] text-slate-400">Assigned</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-blue-600 dark:text-blue-400 font-bold">{o.totalResolvedByUser}</p>
+                          <p className="text-[10px] text-slate-400">Resolved By</p>
                         </div>
                         <div className="text-center">
                           <p className="text-amber-600 dark:text-amber-400 font-bold">{o.active}</p>
@@ -2371,17 +2391,25 @@ const TeamTab: React.FC<{ owners: OwnerEfficiencyDto[]; onBugClick: (id: number)
                         </div>
                         <div className="text-center">
                           <p className="text-emerald-600 dark:text-emerald-400 font-bold">{o.resolved}</p>
-                          <p className="text-[10px] text-slate-400">Resolved</p>
+                          <p className="text-[10px] text-slate-400">Closed</p>
                         </div>
                         <div className="text-center">
                           <p className="text-blue-600 dark:text-blue-400 font-medium">{o.avgResolutionDays}d</p>
                           <p className="text-[10px] text-slate-400">Avg</p>
                         </div>
-                        <div className="flex items-center gap-2 w-24">
-                          <div className="w-14 bg-slate-200 dark:bg-slate-700 rounded-full h-1.5">
-                            <div className={`h-1.5 rounded-full ${getEfficiencyColor(o.efficiencyScore)}`} style={{ width: `${Math.min(o.efficiencyScore, 100)}%` }} />
+                        <div className="flex items-center gap-2 w-28">
+                          <div className="w-16 bg-slate-200 dark:bg-slate-700 rounded-full h-1.5">
+                            <div className={clsx("h-1.5 rounded-full",
+                              o.resolutionQuality >= 95 ? "bg-green-500" :
+                              o.resolutionQuality >= 85 ? "bg-yellow-500" : "bg-red-500")}
+                              style={{ width: `${Math.min(o.resolutionQuality, 100)}%` }} />
                           </div>
-                          <span className={`font-bold text-xs ${getEfficiencyColor(o.efficiencyScore)}`}>{o.efficiencyScore}%</span>
+                          <span className={clsx("font-bold text-xs",
+                            o.resolutionQuality >= 95 ? "text-green-600 dark:text-green-400" :
+                            o.resolutionQuality >= 85 ? "text-yellow-600 dark:text-yellow-400" :
+                            "text-red-600 dark:text-red-400")}>
+                            {Math.round(o.resolutionQuality)}%
+                          </span>
                         </div>
                       </div>
                     </button>
