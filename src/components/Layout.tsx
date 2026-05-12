@@ -460,6 +460,7 @@ export default function Layout() {
               {navItem('/devops-overview', <Workflow className="w-4 h-4" />, 'DevOps Overview')}
               {navItem('/observability', <Activity className="w-4 h-4" />, 'Observability')}
               {features.enableJenkins && navItem('/jenkins', <Zap className="w-4 h-4" />, 'Jenkins')}
+              {isManager && navItem('/dev-efficiency', <TrendingUp className="w-4 h-4" />, 'Dev Efficiency', 'New')}
             </div>
           )}
 

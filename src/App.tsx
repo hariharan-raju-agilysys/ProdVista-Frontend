@@ -72,6 +72,7 @@ const ReleaseStatusPage = lazyWithRetry(() => import('./pages/ReleaseStatusPage'
 const KnowledgeCenterPage = lazyWithRetry(() => import('./pages/KnowledgeCenterPage'))
 const CareerMilestonesPage = lazyWithRetry(() => import('./pages/CareerMilestonesPage'))
 const AccessControlHubPage = lazyWithRetry(() => import('./pages/AccessControlHubPage'))
+const DevEfficiencyPage = lazyWithRetry(() => import('./pages/DevEfficiencyPage'))
 
 // ---------------------------------------------------------------------------
 // Routes
@@ -148,6 +149,7 @@ function AppRoutes() {
         <Route path="knowledge-center" element={<KnowledgeCenterPage />} />
         <Route path="career-milestones" element={<CareerMilestonesPage />} />
         <Route path="access-hub" element={<ManagerRoute><AccessControlHubPage /></ManagerRoute>} />
+        <Route path="dev-efficiency" element={<ManagerRoute><DevEfficiencyPage /></ManagerRoute>} />
       </Route>
       
       {/* Access Denied page */}
