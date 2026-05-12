@@ -2,13 +2,15 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   Users, GitPullRequest, GitCommit, Star, AlertTriangle,
   Trophy, BarChart3, X, ChevronUp, ChevronDown,
-  RefreshCw, TrendingUp, Eye, Filter
+  RefreshCw, TrendingUp, Eye, Filter, ShieldCheck, ChevronRight
 } from 'lucide-react'
 import devEfficiencyService, {
   DeveloperEfficiencyDto,
   DevEfficiencyTeamResponse,
-  DevOpsConnectionSummary
+  DevOpsConnectionSummary,
+  DirectorSummary
 } from '../services/devEfficiencyService'
+import { useAuth } from '../context/AuthContext'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -226,28 +228,49 @@ function AllDevelopersModal({
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function DevEfficiencyPage() {
+  const { isAdmin } = useAuth()
+
+  // Filters
   const [days, setDays] = useState(30)
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | undefined>(undefined)
+  const [selectedDirectorId, setSelectedDirectorId] = useState<number | undefined>(undefined)
+
+  // Data
   const [connections, setConnections] = useState<DevOpsConnectionSummary[]>([])
+  const [directors, setDirectors] = useState<DirectorSummary[]>([])
   const [data, setData] = useState<DevEfficiencyTeamResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
 
+  // Load connections (all roles)
   const loadConnections = useCallback(async () => {
     try {
       const res = await devEfficiencyService.getConnections()
       setConnections(res.data)
-    } catch {
-      // Non-critical — user can still load without connection filter
-    }
+    } catch { /* Non-critical */ }
   }, [])
 
+  // Load directors list (admin only)
+  const loadDirectors = useCallback(async () => {
+    if (!isAdmin) return
+    try {
+      const res = await devEfficiencyService.getDirectors()
+      setDirectors(res.data)
+    } catch { /* Non-critical */ }
+  }, [isAdmin])
+
+  // Fetch efficiency data
   const loadData = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const res = await devEfficiencyService.getTeamEfficiency(days, selectedConnectionId)
+      const res = await devEfficiencyService.getTeamEfficiency(
+        days,
+        selectedConnectionId,
+        // Admin: pass selected director's employeeId; if none selected yet, don't send (returns own team)
+        isAdmin ? selectedDirectorId : undefined
+      )
       setData(res.data)
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string; title?: string } } })
@@ -258,14 +281,17 @@ export default function DevEfficiencyPage() {
     } finally {
       setLoading(false)
     }
-  }, [days, selectedConnectionId])
+  }, [days, selectedConnectionId, selectedDirectorId, isAdmin])
 
-  useEffect(() => { loadConnections() }, [loadConnections])
+  useEffect(() => { loadConnections(); loadDirectors() }, [loadConnections, loadDirectors])
   useEffect(() => { loadData() }, [loadData])
 
   const developers = data?.developers ?? []
   const topDevelopers = data?.topDevelopers ?? []
   const maxScore = developers.length > 0 ? Math.max(...developers.map(d => d.efficiencyScore), 1) : 1
+  const rootEmployee = data?.rootEmployee
+
+  const selectedDirector = directors.find(d => d.employeeId === selectedDirectorId)
 
   const DAY_OPTIONS = [
     { label: '7 days', value: 7 },
@@ -286,7 +312,9 @@ export default function DevEfficiencyPage() {
             Developer Efficiency
           </h1>
           <p className="text-gray-400 text-sm mt-1">
-            Efficiency metrics for your direct and indirect reports
+            {isAdmin
+              ? 'Admin view — select a Director to see their full reporting hierarchy'
+              : 'Efficiency metrics for your direct and indirect reports'}
             {data?.projectName && <span className="text-blue-400 ml-1">— {data.projectName}</span>}
           </p>
         </div>
@@ -335,8 +363,85 @@ export default function DevEfficiencyPage() {
         </div>
       </div>
 
+      {/* ── Admin: Director picker ─────────────────────────────────────────── */}
+      {isAdmin && (
+        <div className="bg-gray-800/60 border border-indigo-500/30 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <ShieldCheck className="w-4 h-4 text-indigo-400" />
+            <span className="text-indigo-300 text-sm font-medium">Admin — View hierarchy by Director</span>
+          </div>
+
+          {directors.length === 0 ? (
+            <p className="text-gray-500 text-xs">
+              No employees with "Director" designation found in HR data. Ensure HR sync is configured and designations are set.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {/* "My Team" chip — clears director selection */}
+              <button
+                onClick={() => setSelectedDirectorId(undefined)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                  selectedDirectorId == null
+                    ? 'bg-indigo-600 border-indigo-500 text-white'
+                    : 'bg-gray-700 border-gray-600 text-gray-300 hover:border-indigo-400 hover:text-white'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5" />
+                My Team
+              </button>
+
+              {directors.map(dir => (
+                <button
+                  key={dir.employeeId}
+                  onClick={() => setSelectedDirectorId(dir.employeeId)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                    selectedDirectorId === dir.employeeId
+                      ? 'bg-indigo-600 border-indigo-500 text-white'
+                      : 'bg-gray-700 border-gray-600 text-gray-300 hover:border-indigo-400 hover:text-white'
+                  }`}
+                >
+                  <div className={`w-5 h-5 rounded-full ${avatarColor(dir.name)} flex items-center justify-center text-[9px] font-bold text-white`}>
+                    {avatarLetters(dir.name)}
+                  </div>
+                  {dir.name}
+                  {dir.department && <span className="text-gray-400 font-normal">· {dir.department}</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Root employee breadcrumb banner ───────────────────────────────── */}
+      {rootEmployee && (
+        <div className="flex items-center gap-3 bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3">
+          <div className={`w-10 h-10 rounded-full ${avatarColor(rootEmployee.name)} flex items-center justify-center text-white font-bold text-sm shrink-0`}>
+            {avatarLetters(rootEmployee.name)}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-white font-semibold text-sm">{rootEmployee.name}</p>
+              {rootEmployee.designation && (
+                <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 text-[10px] rounded-full border border-indigo-500/30">
+                  {rootEmployee.designation}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1 text-gray-500 text-xs mt-0.5 flex-wrap">
+              {rootEmployee.department && <span>{rootEmployee.department}</span>}
+              {rootEmployee.department && rootEmployee.reportingTo && <ChevronRight className="w-3 h-3" />}
+              {rootEmployee.reportingTo && <span>Reports to: {rootEmployee.reportingTo}</span>}
+            </div>
+          </div>
+          <div className="text-right shrink-0">
+            <p className="text-gray-400 text-xs">Hierarchy depth</p>
+            <p className="text-white font-bold text-sm">{developers.length} developers</p>
+          </div>
+        </div>
+      )}
+
       {/* Warning banner */}
-      {(data?.warning) && (
+      {data?.warning && (
         <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-amber-300 text-sm">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>{data.warning}</span>
@@ -393,14 +498,19 @@ export default function DevEfficiencyPage() {
             />
           </div>
 
-          {/* Top 8 section */}
+          {/* Top performers */}
           {topDevelopers.length > 0 ? (
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-white font-semibold flex items-center gap-2">
                   <Trophy className="w-5 h-5 text-yellow-400" />
                   Top Performers
-                  <span className="text-gray-500 text-sm font-normal">— scored: PRs×3 + Commits×1 + Reviews×2</span>
+                  {selectedDirector && (
+                    <span className="text-gray-400 text-sm font-normal">
+                      under <span className="text-indigo-300">{selectedDirector.name}</span>
+                    </span>
+                  )}
+                  <span className="text-gray-500 text-sm font-normal hidden md:inline">— score: PRs×3 + Commits×1 + Reviews×2</span>
                 </h2>
                 {developers.length > 8 && (
                   <button
@@ -436,7 +546,11 @@ export default function DevEfficiencyPage() {
               <div className="flex flex-col items-center justify-center py-20 gap-4 text-gray-500">
                 <Filter className="w-12 h-12 opacity-30" />
                 <p className="text-lg">No developer data available</p>
-                <p className="text-sm text-gray-600">Try increasing the date range or check your HR sync configuration</p>
+                <p className="text-sm text-gray-600">
+                  {isAdmin
+                    ? 'Select a Director above to view their team hierarchy'
+                    : 'Try increasing the date range or check your HR sync configuration'}
+                </p>
               </div>
             )
           )}

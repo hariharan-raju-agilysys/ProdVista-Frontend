@@ -14,6 +14,15 @@ export interface DeveloperEfficiencyDto {
   efficiencyScore: number;
 }
 
+export interface DirectorSummary {
+  employeeId: number;
+  name: string;
+  email: string;
+  department?: string;
+  designation?: string;
+  reportingTo?: string;
+}
+
 export interface DevEfficiencyTeamResponse {
   developers: DeveloperEfficiencyDto[];
   topDevelopers: DeveloperEfficiencyDto[];
@@ -26,6 +35,7 @@ export interface DevEfficiencyTeamResponse {
   connectionName?: string;
   projectName?: string;
   warning?: string;
+  rootEmployee?: DirectorSummary;
 }
 
 export interface DevOpsConnectionSummary {
@@ -45,9 +55,10 @@ export interface ReleaseSummary {
 }
 
 const devEfficiencyService = {
-  getTeamEfficiency: (days = 30, connectionId?: string) => {
+  getTeamEfficiency: (days = 30, connectionId?: string, employeeId?: number) => {
     const params = new URLSearchParams({ days: String(days) });
     if (connectionId) params.append('connectionId', connectionId);
+    if (employeeId != null) params.append('employeeId', String(employeeId));
     return api.get<DevEfficiencyTeamResponse>(`/dev-efficiency/team?${params}`);
   },
 
@@ -56,6 +67,9 @@ const devEfficiencyService = {
 
   getReleases: () =>
     api.get<ReleaseSummary[]>('/dev-efficiency/releases'),
+
+  getDirectors: () =>
+    api.get<DirectorSummary[]>('/dev-efficiency/directors'),
 };
 
 export default devEfficiencyService;
