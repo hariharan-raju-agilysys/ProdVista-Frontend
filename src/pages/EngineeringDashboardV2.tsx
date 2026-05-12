@@ -6,7 +6,8 @@ import { ChartCard } from '../components/Charts';
 import { 
   GitPullRequest, GitCommit, Code2, Clock, Settings, RefreshCw, 
   X, Filter, ChevronDown, CheckCircle, XCircle, AlertCircle,
-  GitBranch, Users, Building2, Loader2, ExternalLink, Maximize2
+  GitBranch, Users, Building2, Loader2, ExternalLink, Maximize2,
+  Zap
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import engineeringService, { 
@@ -14,6 +15,7 @@ import engineeringService, {
   AzureDevOpsPullRequest, AzureDevOpsBuild 
 } from '../services/engineeringService';
 import { CommitsDetailModal, CommitDetail } from '../components/CommitsDetailModal';
+import { useDashboardHub } from '../hooks/useDashboardHub';
 
 export default function EngineeringDashboardV2() {
   const { isManager } = useAuth();
@@ -24,9 +26,17 @@ export default function EngineeringDashboardV2() {
 
   // Dashboard state
   const [dashboardData, setDashboardData] = useState<EngineeringDashboardData | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  
+  // SignalR streaming hook
+  const { 
+    streamEngineeringDashboard, 
+    progress, 
+    data: streamData, 
+    isLoading, 
+    error, 
+    isConnected 
+  } = useDashboardHub();
 
   // Filters
   const [prStatusFilter, setPrStatusFilter] = useState<string>('all');
@@ -49,28 +59,52 @@ export default function EngineeringDashboardV2() {
     }
   }, []);
 
-  // Load dashboard data
+  // Update dashboard data as stream chunks arrive
+  useEffect(() => {
+    if (streamData.repositories || streamData.openPullRequests || streamData.builds) {
+      setDashboardData(prev => ({
+        repositories: streamData.repositories || prev?.repositories || [],
+        openPullRequests: streamData.openPullRequests || prev?.openPullRequests || [],
+        completedPullRequests: streamData.completedPullRequests || prev?.completedPullRequests || [],
+        builds: streamData.builds || prev?.builds || [],
+        pipelines: streamData.pipelines || prev?.pipelines || [],
+        commits: streamData.commits || prev?.commits || [],
+        stats: streamData.stats || prev?.stats || {
+          openPRs: 0,
+          mergedPRsLast7Days: 0,
+          commitsToday: 0,
+          commitsLast7Days: 0,
+          successfulBuildsLast7Days: 0,
+          failedBuildsLast7Days: 0,
+          averageBuildTimeMinutes: 0,
+          buildSuccessRate: 0,
+          activePipelines: 0,
+          totalRepositories: 0,
+        },
+        generatedAt: prev?.generatedAt || new Date().toISOString(),
+      }));
+      
+      // Update last refresh when complete
+      if (progress.progress === 100) {
+        setLastRefresh(new Date());
+      }
+    }
+  }, [streamData, progress]);
+
+  // Load dashboard data using SignalR streaming
   const loadDashboardData = useCallback(async () => {
     if (!config) return;
     
-    setIsLoading(true);
-    setError(null);
-    
     try {
-      const data = await engineeringService.getDashboardData(
+      await streamEngineeringDashboard(
         config.organizationUrl, 
         config.projectName, 
         7
       );
-      setDashboardData(data);
-      setLastRefresh(new Date());
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load dashboard data';
-      setError(errorMessage);
-    } finally {
-      setIsLoading(false);
+      console.error('Failed to start dashboard stream:', err);
     }
-  }, [config]);
+  }, [config, streamEngineeringDashboard]);
 
   // Auto-refresh every 5 minutes
   useEffect(() => {
@@ -294,6 +328,20 @@ export default function EngineeringDashboardV2() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* SignalR Connection Status */}
+          {!isConnected && !isLoading && (
+            <div className="px-3 py-2 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-800 rounded-lg flex items-center gap-2 text-sm text-yellow-800 dark:text-yellow-300">
+              <AlertCircle size={16} />
+              <span>Real-time connection unavailable</span>
+            </div>
+          )}
+          {isConnected && (
+            <div className="px-3 py-2 bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-800 rounded-lg flex items-center gap-2 text-sm text-green-800 dark:text-green-300">
+              <Zap size={16} className="animate-pulse" />
+              <span>Live streaming enabled</span>
+            </div>
+          )}
+          
           <DataFreshnessBadge
             lastRefreshed={lastRefresh}
             onRefresh={loadDashboardData}
@@ -318,11 +366,71 @@ export default function EngineeringDashboardV2() {
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 flex items-center justify-between">
-          <span>{error}</span>
-          <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700">
-            <X size={16} />
-          </button>
+        <div className="p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 flex items-center gap-3">
+          <AlertCircle size={20} className="flex-shrink-0" />
+          <span className="flex-1">{error}</span>
+        </div>
+      )}
+
+      {/* Real-time Streaming Progress Indicator */}
+      {isLoading && (
+        <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Zap className="text-blue-600 animate-pulse" size={24} />
+              <div>
+                <h3 className="font-semibold text-gray-900 dark:text-white">
+                  {progress.step || 'Initializing...'}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {progress.progress === 100 ? 'Dashboard ready!' : 'Streaming dashboard data in real-time'}
+                </p>
+              </div>
+            </div>
+            <span className="text-2xl font-bold text-blue-600">{progress.progress}%</span>
+          </div>
+          
+          {/* Progress Bar */}
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-blue-500 to-purple-600 transition-all duration-500 ease-out"
+              style={{ width: `${progress.progress}%` }}
+            />
+          </div>
+          
+          {/* Data Chunk Indicators */}
+          <div className="flex items-center gap-2 mt-4 flex-wrap">
+            {streamData.repositories && (
+              <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-xs font-medium flex items-center gap-1">
+                <CheckCircle size={14} /> Repositories
+              </span>
+            )}
+            {streamData.openPullRequests && (
+              <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-xs font-medium flex items-center gap-1">
+                <CheckCircle size={14} /> Pull Requests
+              </span>
+            )}
+            {streamData.builds && (
+              <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-xs font-medium flex items-center gap-1">
+                <CheckCircle size={14} /> Builds
+              </span>
+            )}
+            {streamData.pipelines && (
+              <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-xs font-medium flex items-center gap-1">
+                <CheckCircle size={14} /> Pipelines
+              </span>
+            )}
+            {streamData.commits && (
+              <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-xs font-medium flex items-center gap-1">
+                <CheckCircle size={14} /> Commits
+              </span>
+            )}
+            {streamData.stats && (
+              <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-xs font-medium flex items-center gap-1">
+                <CheckCircle size={14} /> Statistics
+              </span>
+            )}
+          </div>
         </div>
       )}
 
