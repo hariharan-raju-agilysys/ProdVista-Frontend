@@ -2,15 +2,15 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   Users, GitPullRequest, GitCommit, Star, AlertTriangle,
   Trophy, BarChart3, X, ChevronUp, ChevronDown,
-  RefreshCw, TrendingUp, Eye, Filter, ShieldCheck, ChevronRight
+  RefreshCw, TrendingUp, Eye, Filter, ShieldCheck, ChevronRight,
+  UsersRound,
 } from 'lucide-react'
 import devEfficiencyService, {
   DeveloperEfficiencyDto,
   DevEfficiencyTeamResponse,
   DevOpsConnectionSummary,
-  DirectorSummary
 } from '../services/devEfficiencyService'
-import { useAuth } from '../context/AuthContext'
+import { useDevHierarchy } from '../hooks/useDevHierarchy'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -228,70 +228,81 @@ function AllDevelopersModal({
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function DevEfficiencyPage() {
-  const { isAdmin } = useAuth()
+  const {
+    hierarchyEmails,
+    selectedDirector,
+    directors,
+    isLoading: hierarchyLoading,
+    error: hierarchyError,
+    isAdmin,
+    selectDirector,
+    clearSelection,
+  } = useDevHierarchy()
 
   // Filters
   const [days, setDays] = useState(30)
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | undefined>(undefined)
-  const [selectedDirectorId, setSelectedDirectorId] = useState<number | undefined>(undefined)
 
   // Data
   const [connections, setConnections] = useState<DevOpsConnectionSummary[]>([])
-  const [directors, setDirectors] = useState<DirectorSummary[]>([])
   const [data, setData] = useState<DevEfficiencyTeamResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
 
   // Load connections (all roles)
-  const loadConnections = useCallback(async () => {
-    try {
-      const res = await devEfficiencyService.getConnections()
-      setConnections(res.data)
-    } catch { /* Non-critical */ }
+  useEffect(() => {
+    devEfficiencyService.getConnections()
+      .then(res => setConnections(res.data))
+      .catch(() => {/* Non-critical */})
   }, [])
 
-  // Load directors list (admin only)
-  const loadDirectors = useCallback(async () => {
-    if (!isAdmin) return
-    try {
-      const res = await devEfficiencyService.getDirectors()
-      setDirectors(res.data)
-    } catch { /* Non-critical */ }
-  }, [isAdmin])
-
-  // Fetch efficiency data
+  /**
+   * Fetch efficiency data.
+   * For admin: only fire when a director has been selected (to avoid a heavy
+   * unscoped call that would return no meaningful data anyway).
+   * For managers: always fire (their hierarchy is auto-resolved on the backend).
+   */
   const loadData = useCallback(async () => {
+    // Admin must pick a director first
+    if (isAdmin && !selectedDirector) return
+
     setLoading(true)
     setError(null)
     try {
       const res = await devEfficiencyService.getTeamEfficiency(
         days,
         selectedConnectionId,
-        // Admin: pass selected director's employeeId; if none selected yet, don't send (returns own team)
-        isAdmin ? selectedDirectorId : undefined
+        isAdmin ? selectedDirector?.employeeId : undefined
       )
       setData(res.data)
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string; title?: string } } })
-        ?.response?.data?.message
-        ?? (err as { response?: { data?: { title?: string } } })?.response?.data?.title
-        ?? 'Failed to load team efficiency data.'
+      const msg =
+        (err as { response?: { data?: { message?: string; title?: string } } })
+          ?.response?.data?.message ??
+        (err as { response?: { data?: { title?: string } } })?.response?.data?.title ??
+        'Failed to load team efficiency data.'
       setError(msg)
     } finally {
       setLoading(false)
     }
-  }, [days, selectedConnectionId, selectedDirectorId, isAdmin])
+  }, [days, selectedConnectionId, selectedDirector, isAdmin])
 
-  useEffect(() => { loadConnections(); loadDirectors() }, [loadConnections, loadDirectors])
+  // Reload when filters change
   useEffect(() => { loadData() }, [loadData])
+
+  // Also reload when the hierarchy switches (director changed or manager first load)
+  useEffect(() => {
+    if (!hierarchyLoading) loadData()
+  }, [hierarchyEmails]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const developers = data?.developers ?? []
   const topDevelopers = data?.topDevelopers ?? []
   const maxScore = developers.length > 0 ? Math.max(...developers.map(d => d.efficiencyScore), 1) : 1
   const rootEmployee = data?.rootEmployee
 
-  const selectedDirector = directors.find(d => d.employeeId === selectedDirectorId)
+  const combinedError = error ?? hierarchyError
+  const combinedLoading = loading || hierarchyLoading
 
   const DAY_OPTIONS = [
     { label: '7 days', value: 7 },
@@ -313,7 +324,9 @@ export default function DevEfficiencyPage() {
           </h1>
           <p className="text-gray-400 text-sm mt-1">
             {isAdmin
-              ? 'Admin view — select a Director to see their full reporting hierarchy'
+              ? selectedDirector
+                ? <>Viewing hierarchy under <span className="text-indigo-300 font-medium">{selectedDirector.name}</span></>
+                : 'Admin view — select a Director to scope the metrics'
               : 'Efficiency metrics for your direct and indirect reports'}
             {data?.projectName && <span className="text-blue-400 ml-1">— {data.projectName}</span>}
           </p>
@@ -354,10 +367,10 @@ export default function DevEfficiencyPage() {
 
           <button
             onClick={loadData}
-            disabled={loading}
+            disabled={combinedLoading || (isAdmin && !selectedDirector)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 border border-gray-700 hover:border-blue-500 rounded-lg text-gray-300 text-xs transition-colors disabled:opacity-50"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${combinedLoading ? 'animate-spin' : ''}`} />
             Refresh
           </button>
         </div>
@@ -369,46 +382,64 @@ export default function DevEfficiencyPage() {
           <div className="flex items-center gap-2 mb-3">
             <ShieldCheck className="w-4 h-4 text-indigo-400" />
             <span className="text-indigo-300 text-sm font-medium">Admin — View hierarchy by Director</span>
+            {selectedDirector && (
+              <button
+                onClick={clearSelection}
+                className="ml-auto flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="w-3 h-3" /> Clear
+              </button>
+            )}
           </div>
 
           {directors.length === 0 ? (
-            <p className="text-gray-500 text-xs">
-              No employees with "Director" designation found in HR data. Ensure HR sync is configured and designations are set.
-            </p>
+            hierarchyLoading ? (
+              <div className="flex gap-2">
+                {[...Array(4)].map((_, i) => <div key={i} className="h-7 w-28 bg-gray-700 rounded-lg animate-pulse" />)}
+              </div>
+            ) : (
+              <p className="text-gray-500 text-xs">
+                No employees with "Director" designation found in HR data. Ensure HR sync is configured.
+              </p>
+            )
           ) : (
             <div className="flex flex-wrap gap-2">
-              {/* "My Team" chip — clears director selection */}
-              <button
-                onClick={() => setSelectedDirectorId(undefined)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                  selectedDirectorId == null
-                    ? 'bg-indigo-600 border-indigo-500 text-white'
-                    : 'bg-gray-700 border-gray-600 text-gray-300 hover:border-indigo-400 hover:text-white'
-                }`}
-              >
-                <Users className="w-3.5 h-3.5" />
-                My Team
-              </button>
-
               {directors.map(dir => (
                 <button
                   key={dir.employeeId}
-                  onClick={() => setSelectedDirectorId(dir.employeeId)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                    selectedDirectorId === dir.employeeId
+                  onClick={() => selectDirector(dir)}
+                  disabled={hierarchyLoading}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors disabled:opacity-60 ${
+                    selectedDirector?.employeeId === dir.employeeId
                       ? 'bg-indigo-600 border-indigo-500 text-white'
                       : 'bg-gray-700 border-gray-600 text-gray-300 hover:border-indigo-400 hover:text-white'
                   }`}
                 >
-                  <div className={`w-5 h-5 rounded-full ${avatarColor(dir.name)} flex items-center justify-center text-[9px] font-bold text-white`}>
-                    {avatarLetters(dir.name)}
-                  </div>
+                  {hierarchyLoading && selectedDirector?.employeeId === dir.employeeId ? (
+                    <RefreshCw className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <div className={`w-5 h-5 rounded-full ${avatarColor(dir.name)} flex items-center justify-center text-[9px] font-bold text-white`}>
+                      {avatarLetters(dir.name)}
+                    </div>
+                  )}
                   {dir.name}
                   {dir.department && <span className="text-gray-400 font-normal">· {dir.department}</span>}
                 </button>
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Admin: no director selected yet → prompt ─────────────────────── */}
+      {isAdmin && !selectedDirector && !hierarchyLoading && (
+        <div className="flex flex-col items-center justify-center py-24 gap-4 text-gray-500">
+          <UsersRound className="w-16 h-16 opacity-20" />
+          <p className="text-xl text-gray-400 font-medium">Select a Director to get started</p>
+          <p className="text-sm text-gray-600 max-w-sm text-center">
+            Pick a Director above to load their full reporting hierarchy and developer efficiency metrics.
+            Your selection is remembered across page navigations.
+          </p>
         </div>
       )}
 
@@ -434,8 +465,8 @@ export default function DevEfficiencyPage() {
             </div>
           </div>
           <div className="text-right shrink-0">
-            <p className="text-gray-400 text-xs">Hierarchy depth</p>
-            <p className="text-white font-bold text-sm">{developers.length} developers</p>
+            <p className="text-gray-400 text-xs">Developers in hierarchy</p>
+            <p className="text-white font-bold text-sm">{developers.length}</p>
           </div>
         </div>
       )}
@@ -449,15 +480,15 @@ export default function DevEfficiencyPage() {
       )}
 
       {/* Error */}
-      {error && (
+      {combinedError && (
         <div className="flex items-start gap-3 bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-300 text-sm">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-          <span>{error}</span>
+          <span>{combinedError}</span>
         </div>
       )}
 
-      {/* Loading skeleton */}
-      {loading && !data && (
+      {/* Loading skeleton — only when data is being fetched for first time */}
+      {combinedLoading && !data && (isAdmin ? !!selectedDirector : true) && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="bg-gray-800 rounded-xl h-24 animate-pulse" />
@@ -465,7 +496,7 @@ export default function DevEfficiencyPage() {
         </div>
       )}
 
-      {data && (
+      {data && (!isAdmin || selectedDirector) && (
         <>
           {/* Summary stat cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -547,9 +578,7 @@ export default function DevEfficiencyPage() {
                 <Filter className="w-12 h-12 opacity-30" />
                 <p className="text-lg">No developer data available</p>
                 <p className="text-sm text-gray-600">
-                  {isAdmin
-                    ? 'Select a Director above to view their team hierarchy'
-                    : 'Try increasing the date range or check your HR sync configuration'}
+                  Try increasing the date range or check your HR sync and Azure DevOps configuration.
                 </p>
               </div>
             )
