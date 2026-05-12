@@ -1875,28 +1875,28 @@ export default function DeveloperDashboardPage() {
       {/* ── KPI row ─────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard label="Active Bugs"    value={openBugs}
-          icon={Bug}           gradient="bg-red-500"
+          icon={Bug}           gradient="bg-gradient-to-br from-red-500 to-red-600"
           sub={criticalBugs > 0 ? `${criticalBugs} critical 🔥` : '0 critical ✓'}
           loading={loading}    onClick={() => navigate('/quality')} />
         <KpiCard label="PRs to Review" value={prsAwaitingReview}
-          icon={GitPullRequest} gradient="bg-purple-500"
+          icon={GitPullRequest} gradient="bg-gradient-to-br from-purple-500 to-purple-600"
           sub={openPRs > 0 ? `${openPRs} open total` : 'all clear'}
           loading={loading}    onClick={() => navigate('/pull-requests')} />
         <KpiCard label="Critical Bugs" value={criticalBugs}
-          icon={Flame}         gradient="bg-orange-500"
+          icon={Flame}         gradient="bg-gradient-to-br from-orange-500 to-orange-600"
           sub={criticalBugs > 0 ? 'needs immediate fix' : 'clean slate ✓'}
           loading={loading}    onClick={() => navigate('/quality')} />
         <KpiCard label="Build Rate"    value={buildSuccessRate != null ? `${Math.round(buildSuccessRate)}%` : '—'}
-          icon={TrendingUp}    gradient="bg-green-500"
+          icon={TrendingUp}    gradient="bg-gradient-to-br from-green-500 to-green-600"
           sub={`${activePipelines} pipeline${activePipelines !== 1 ? 's' : ''} active`}
           loading={loading}    onClick={() => navigate('/devops')} />
       </div>
 
       {/* ── Main Grid ───────────────────────────────────────────────────── */}
       {/* ── AI Productivity Hub (FULL WIDTH TOP) ─────────────────────────── */}
-      <div className="bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-700 rounded-2xl p-6 shadow-lg shadow-indigo-500/20">
+      <div className="bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-700 rounded-2xl p-6 shadow-xl shadow-indigo-500/30 border border-indigo-400/20">
         <div className="flex items-center gap-2 mb-4">
-          <Bot className="w-5 h-5 text-white/80" />
+          <Bot className="w-5 h-5 text-white/90 animate-pulse" />
           <h2 className="text-base font-bold text-white uppercase tracking-widest">AI Productivity Hub</h2>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -1962,7 +1962,7 @@ export default function DeveloperDashboardPage() {
                       <button
                         key={p}
                         onClick={() => navigate('/quality')}
-                        className="w-full group rounded-xl border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all p-3.5 text-left bg-white hover:bg-gray-50"
+                        className="w-full group rounded-xl border border-gray-100 hover:border-indigo-200 hover:shadow-md transition-all duration-300 p-3.5 text-left bg-white hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50"
                       >
                         <div className="flex items-center gap-3 mb-2">
                           <div className="flex items-center gap-2 flex-shrink-0">
@@ -2018,7 +2018,7 @@ export default function DeveloperDashboardPage() {
                   reopenedBugs.map(bug => {
                     const pCfg = PRIORITY_CFG.find(c => c.p === (bug.priority ?? 4)) ?? PRIORITY_CFG[3]
                     return (
-                      <div key={bug.id} className="px-5 py-3 flex items-center gap-3 hover:bg-gray-50 group">
+                      <div key={bug.id} className="px-5 py-3 flex items-center gap-3 hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 group transition-all duration-200 rounded-lg">
                         <span className={clsx('flex items-center gap-1 px-2 py-0.5 text-[10px] font-black rounded flex-shrink-0', pCfg.badge)}>
                           <RotateCcw className="w-2.5 h-2.5" />
                           {bug.reopenCount}×
@@ -2076,7 +2076,7 @@ export default function DeveloperDashboardPage() {
                 </div>
               ) : (
                 prsToReview.slice(0, 6).map((pr: PRInfo) => (
-                  <div key={pr.pullRequestId} className="px-5 py-3 flex items-start gap-3 hover:bg-gray-50 group">
+                  <div key={pr.pullRequestId} className="px-5 py-3 flex items-start gap-3 hover:bg-gradient-to-r hover:from-purple-50 hover:to-blue-50 group transition-all duration-200 rounded-lg">
                     <div className={clsx(
                       'mt-0.5 flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center',
                       pr.needsMyReview ? 'bg-purple-100' : 'bg-gray-100'
@@ -2117,7 +2117,7 @@ export default function DeveloperDashboardPage() {
                   const ok   = b.result === 'succeeded'
                   const fail = b.result === 'failed'
                   return (
-                    <div key={b.id} className="px-5 py-3 flex items-center gap-3 hover:bg-gray-50">
+                    <div key={b.id} className="px-5 py-3 flex items-center gap-3 hover:bg-gradient-to-r hover:from-green-50 hover:to-blue-50 transition-all duration-200 rounded-lg">
                       {ok   ? <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
                         : fail ? <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
                         : <Circle className="w-4 h-4 text-blue-400 flex-shrink-0" />
@@ -2188,10 +2188,10 @@ export default function DeveloperDashboardPage() {
                         href={byte.type === 'url' ? byte.content : '#'}
                         target={byte.type === 'url' ? '_blank' : undefined}
                         rel={byte.type === 'url' ? 'noreferrer' : undefined}
-                        className="block p-2.5 rounded-lg hover:bg-indigo-50 transition-colors group border border-indigo-100"
+                        className="block p-2.5 rounded-lg hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 transition-all duration-200 group border border-indigo-100 hover:border-indigo-200 hover:shadow-sm"
                       >
                         <div className="flex items-start gap-2">
-                          <div className="p-1.5 rounded-md flex-shrink-0 bg-indigo-100 text-indigo-600">
+                          <div className="p-1.5 rounded-md flex-shrink-0 bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-600">
                             {byte.type === 'image' && <Image className="w-3.5 h-3.5" />}
                             {byte.type === 'document' && <FileType className="w-3.5 h-3.5" />}
                             {byte.type === 'text' && <FileText className="w-3.5 h-3.5" />}
@@ -2236,10 +2236,10 @@ export default function DeveloperDashboardPage() {
                       href={item.url ?? `https://news.ycombinator.com/item?id=${item.objectID}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex items-start gap-2.5 px-4 py-3 hover:bg-blue-50 transition-colors group"
+                      className="flex items-start gap-2.5 px-4 py-3 hover:bg-gradient-to-r hover:from-blue-50 hover:to-cyan-50 transition-all duration-200 group rounded-lg"
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-gray-800 line-clamp-2 group-hover:text-blue-600 transition-colors leading-snug">
+                        <p className="text-xs font-semibold text-gray-800 line-clamp-2 group-hover:text-blue-600 transition-all duration-200 leading-snug">
                           {item.title}
                         </p>
                         <div className="flex items-center gap-2 mt-1 text-[10px] text-gray-400">
