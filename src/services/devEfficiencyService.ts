@@ -26,6 +26,8 @@ export interface DirectorSummary {
 export interface DevEfficiencyTeamResponse {
   developers: DeveloperEfficiencyDto[];
   topDevelopers: DeveloperEfficiencyDto[];
+  /** Bottom 5 performers by efficiency score (worst-first). Empty when team <= 10. */
+  bottomDevelopers: DeveloperEfficiencyDto[];
   totalDevelopers: number;
   totalPrsMerged: number;
   totalCommits: number;
@@ -77,10 +79,11 @@ export interface HierarchyResponse {
 }
 
 const devEfficiencyService = {
-  getTeamEfficiency: (days = 30, connectionId?: string, employeeId?: number) => {
+  getTeamEfficiency: (days = 30, connectionId?: string, employeeId?: number, emails?: string[]) => {
     const params = new URLSearchParams({ days: String(days) });
     if (connectionId) params.append('connectionId', connectionId);
     if (employeeId != null) params.append('employeeId', String(employeeId));
+    if (emails && emails.length > 0) params.append('emails', emails.join(','));
     return api.get<DevEfficiencyTeamResponse>(`/dev-efficiency/team?${params}`);
   },
 

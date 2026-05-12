@@ -97,6 +97,63 @@ function DeveloperCard({ dev, maxScore }: { dev: DeveloperEfficiencyDto; maxScor
   )
 }
 
+// ── Worst Developer Card (Needs Attention) ────────────────────────────────────────────────
+
+function WorstDeveloperCard({ dev, maxScore }: { dev: DeveloperEfficiencyDto; maxScore: number }) {
+  const pct = maxScore > 0 ? Math.min((dev.efficiencyScore / maxScore) * 100, 100) : 0
+
+  return (
+    <div className="bg-gray-800 border border-amber-500/30 rounded-xl p-4 flex flex-col gap-3 hover:border-amber-500/60 transition-colors">
+      {/* Header */}
+      <div className="flex items-start gap-3">
+        <div className="relative shrink-0">
+          <div className={`w-11 h-11 rounded-full ${avatarColor(dev.name)} flex items-center justify-center text-white font-bold text-sm`}>
+            {avatarLetters(dev.name)}
+          </div>
+          <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-amber-500/20 border border-amber-500/50 text-[10px] font-bold flex items-center justify-center text-amber-400">
+            {dev.rank}
+          </span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-white font-semibold text-sm truncate">{dev.name}</p>
+          <p className="text-gray-400 text-xs truncate">{dev.designation || dev.department || 'Developer'}</p>
+          {dev.department && dev.designation && (
+            <p className="text-gray-500 text-xs truncate">{dev.department}</p>
+          )}
+        </div>
+        <div className="text-right shrink-0">
+          <p className="text-amber-400 font-bold text-lg leading-none">{dev.efficiencyScore}</p>
+          <p className="text-gray-500 text-[10px]">score</p>
+        </div>
+      </div>
+
+      {/* Score bar */}
+      <div className="w-full bg-gray-700 rounded-full h-1.5">
+        <div
+          className="bg-gradient-to-r from-amber-500 to-red-500 h-1.5 rounded-full transition-all duration-500"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+
+      {/* Metrics */}
+      <div className="grid grid-cols-3 gap-1 text-center">
+        <div className="bg-gray-750 rounded-lg p-1.5">
+          <p className="text-emerald-400 font-bold text-base leading-none">{dev.prsMerged}</p>
+          <p className="text-gray-500 text-[10px] mt-0.5">PRs</p>
+        </div>
+        <div className="bg-gray-750 rounded-lg p-1.5">
+          <p className="text-violet-400 font-bold text-base leading-none">{dev.commitsCount}</p>
+          <p className="text-gray-500 text-[10px] mt-0.5">Commits</p>
+        </div>
+        <div className="bg-gray-750 rounded-lg p-1.5">
+          <p className="text-amber-400 font-bold text-base leading-none">{dev.reviewsDone}</p>
+          <p className="text-gray-500 text-[10px] mt-0.5">Reviews</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── All Developers Modal ──────────────────────────────────────────────────────
 
 function AllDevelopersModal({
@@ -273,7 +330,8 @@ export default function DevEfficiencyPage() {
       const res = await devEfficiencyService.getTeamEfficiency(
         days,
         selectedConnectionId,
-        isAdmin ? selectedDirector?.employeeId : undefined
+        isAdmin ? selectedDirector?.employeeId : undefined,
+        hierarchyEmails.length > 0 ? hierarchyEmails : undefined
       )
       setData(res.data)
     } catch (err: unknown) {
@@ -298,6 +356,7 @@ export default function DevEfficiencyPage() {
 
   const developers = data?.developers ?? []
   const topDevelopers = data?.topDevelopers ?? []
+  const bottomDevelopers = data?.bottomDevelopers ?? []
   const maxScore = developers.length > 0 ? Math.max(...developers.map(d => d.efficiencyScore), 1) : 1
   const rootEmployee = data?.rootEmployee
 
@@ -582,6 +641,31 @@ export default function DevEfficiencyPage() {
                 </p>
               </div>
             )
+          )}
+
+          {/* Needs Attention — bottom performers */}
+          {bottomDevelopers.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-white font-semibold flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-amber-400" />
+                  Needs Attention
+                  {selectedDirector && (
+                    <span className="text-gray-400 text-sm font-normal">
+                      under <span className="text-indigo-300">{selectedDirector.name}</span>
+                    </span>
+                  )}
+                  <span className="text-gray-500 text-sm font-normal hidden md:inline">
+                    — lowest efficiency in period (rank {bottomDevelopers[bottomDevelopers.length - 1]?.rank}–{bottomDevelopers[0]?.rank} of {developers.length})
+                  </span>
+                </h2>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                {bottomDevelopers.map(dev => (
+                  <WorstDeveloperCard key={dev.email} dev={dev} maxScore={maxScore} />
+                ))}
+              </div>
+            </div>
           )}
         </>
       )}
