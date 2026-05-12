@@ -578,6 +578,11 @@ export default function DeveloperDashboardPage() {
   const [modalWorkItems, setModalWorkItems] = useState<QualityWorkItemDto[]>([])
   const [modalTitle, setModalTitle] = useState('')
   const [modalSubtitle, setModalSubtitle] = useState('')
+  const [showAIInsightModal, setShowAIInsightModal] = useState(false)
+  const [aiInsightWorkItems, setAIInsightWorkItems] = useState<QualityWorkItemDto[]>([])
+  const [aiInsightTitle, setAIInsightTitle] = useState('')
+  const [aiInsightDescription, setAIInsightDescription] = useState('')
+  const [searchAssignee, setSearchAssignee] = useState('')
 
   // dev-only
   const [techPulse, setTechPulse] = useState<HnItem[]>([])
@@ -640,6 +645,14 @@ export default function DeveloperDashboardPage() {
     setModalSubtitle(subtitle)
     setModalWorkItems(items)
     setShowWorkItemModal(true)
+  }
+
+  const openAIInsightModal = (title: string, description: string, items: QualityWorkItemDto[]) => {
+    setAIInsightTitle(title)
+    setAIInsightDescription(description)
+    setAIInsightWorkItems(items)
+    setSearchAssignee('')
+    setShowAIInsightModal(true)
   }
 
   const load = useCallback(async () => {
@@ -1008,24 +1021,50 @@ export default function DeveloperDashboardPage() {
     const currentIterationInfo = iterations.find(it => it.path === selectedIteration)
 
     // AI-driven insights based on data patterns
-    const aiInsights: { type: 'success' | 'warning' | 'info'; message: string }[] = []
+    const aiInsights: { type: 'success' | 'warning' | 'info'; message: string; onClick?: () => void }[] = []
     if (completionRate < 50 && totalWorkItems > 0) {
       aiInsights.push({ type: 'warning', message: `Team velocity at ${completionRate}% - Consider reducing WIP or adding resources` })
     } else if (completionRate >= 80) {
       aiInsights.push({ type: 'success', message: `Excellent velocity! ${completionRate}% completion rate` })
     }
     if (workItemStats.bugs.critical > 5) {
-      aiInsights.push({ type: 'warning', message: `${workItemStats.bugs.critical} critical bugs require immediate attention` })
+      const criticalBugs = myBugs.filter(b => b.priority === 1 || b.severity === 'Critical')
+      aiInsights.push({ 
+        type: 'warning', 
+        message: `${workItemStats.bugs.critical} critical bugs require immediate attention`,
+        onClick: () => openAIInsightModal(
+          'Critical Bugs',
+          `${criticalBugs.length} critical priority bugs need immediate action. Assign resources to resolve these issues quickly.`,
+          criticalBugs
+        )
+      })
     }
     if (qualitySummary?.reopenedBugs && qualitySummary.reopenedBugs > 10) {
       const reopenRate = (qualitySummary.reopenedBugs / Math.max(qualitySummary.resolvedBugs, 1)) * 100
-      aiInsights.push({ type: 'warning', message: `High reopen rate (${reopenRate.toFixed(0)}%) - Review testing processes` })
+      aiInsights.push({ 
+        type: 'warning', 
+        message: `High reopen rate (${reopenRate.toFixed(0)}%) - Review testing processes`,
+        onClick: () => openAIInsightModal(
+          'Reopened Bugs',
+          `${reopenedBugs.length} bugs have been reopened after resolution. Review testing quality and root cause analysis.`,
+          reopenedBugs
+        )
+      })
     }
     if (workItemStats.bugs.active > workItemStats.bugs.resolved) {
       aiInsights.push({ type: 'info', message: `Active bugs (${workItemStats.bugs.active}) exceed resolved (${workItemStats.bugs.resolved}) - Prioritize bug fixes` })
     }
     if (qualitySummary?.avgResolutionDays && qualitySummary.avgResolutionDays > 7) {
-      aiInsights.push({ type: 'info', message: `Avg resolution time is ${qualitySummary.avgResolutionDays}d - Consider breaking down complex issues` })
+      const longRunningBugs = myBugs.filter(b => b.ageDays > 30 && (b.state === 'Active' || b.state === 'New'))
+      aiInsights.push({ 
+        type: 'info', 
+        message: `Avg resolution time is ${qualitySummary.avgResolutionDays}d - Consider breaking down complex issues`,
+        onClick: () => openAIInsightModal(
+          'Long-Running Bugs',
+          `${longRunningBugs.length} bugs have been active for over 30 days. Consider breaking them down into smaller tasks or reassigning.`,
+          longRunningBugs
+        )
+      })
     }
 
     return (
@@ -1154,18 +1193,31 @@ export default function DeveloperDashboardPage() {
             </div>
             <div className="space-y-2">
               {aiInsights.map((insight, idx) => (
-                <div key={idx} className={clsx(
-                  'flex items-start gap-3 p-3 rounded-lg border',
-                  insight.type === 'success' ? 'bg-green-50 border-green-200' :
-                  insight.type === 'warning' ? 'bg-orange-50 border-orange-200' :
-                  'bg-blue-50 border-blue-200'
-                )}>
+                <div 
+                  key={idx} 
+                  onClick={insight.onClick}
+                  className={clsx(
+                    'flex items-start gap-3 p-3 rounded-lg border transition-all',
+                    insight.type === 'success' ? 'bg-green-50 border-green-200' :
+                    insight.type === 'warning' ? 'bg-orange-50 border-orange-200' :
+                    'bg-blue-50 border-blue-200',
+                    insight.onClick && 'cursor-pointer hover:shadow-md hover:scale-[1.01]'
+                  )}
+                >
                   <Zap className={clsx('w-4 h-4 mt-0.5 flex-shrink-0',
                     insight.type === 'success' ? 'text-green-600' :
                     insight.type === 'warning' ? 'text-orange-600' :
                     'text-blue-600'
                   )} />
-                  <p className="text-xs font-medium text-gray-700">{insight.message}</p>
+                  <div className="flex-1">
+                    <p className="text-xs font-medium text-gray-700">{insight.message}</p>
+                    {insight.onClick && (
+                      <p className="text-[10px] text-gray-500 mt-1 flex items-center gap-1">
+                        <ExternalLink className="w-3 h-3" />
+                        Click to view details and assign resources
+                      </p>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -1529,6 +1581,179 @@ export default function DeveloperDashboardPage() {
             </SectionCard>
           </div>
         </div>
+        
+        {/* AI Insight Modal with Assignee Selection */}
+        {showAIInsightModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowAIInsightModal(false)}>
+            <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+              {/* Gradient header */}
+              <div className="bg-gradient-to-r from-orange-500 via-red-500 to-pink-600 p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                    <Bot className="w-7 h-7" />
+                    {aiInsightTitle}
+                  </h2>
+                  <button onClick={() => setShowAIInsightModal(false)} className="p-2 hover:bg-white/20 rounded-lg transition-colors">
+                    <AlertCircle className="w-5 h-5 text-white" />
+                  </button>
+                </div>
+                <p className="text-sm text-orange-100">{aiInsightDescription}</p>
+              </div>
+              
+              {/* Available Team Members - Searchable */}
+              <div className="px-6 pt-4 pb-2 bg-gradient-to-b from-gray-50 to-white border-b border-gray-200">
+                <div className="flex items-center gap-3 mb-3">
+                  <Users className="w-5 h-5 text-indigo-600" />
+                  <h3 className="text-sm font-bold text-gray-900">Available Team Members</h3>
+                  <span className="text-xs text-gray-500">({ownerEfficiency.length} members)</span>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search by name..."
+                  value={searchAssignee}
+                  onChange={(e) => setSearchAssignee(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                />
+                <div className="mt-3 max-h-24 overflow-y-auto flex flex-wrap gap-2">
+                  {ownerEfficiency
+                    .filter(owner => owner.ownerName.toLowerCase().includes(searchAssignee.toLowerCase()))
+                    .slice(0, 20)
+                    .map(owner => (
+                      <div 
+                        key={owner.ownerName}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-50 border border-indigo-200 rounded-lg text-xs font-medium text-indigo-700 hover:bg-indigo-100 transition-colors cursor-default"
+                        title={`Active: ${owner.active} | Resolved: ${owner.resolved} | Efficiency: ${owner.efficiencyScore.toFixed(0)}%`}
+                      >
+                        <div className="w-2 h-2 rounded-full bg-green-500" />
+                        {owner.ownerName}
+                        <span className="text-[10px] text-indigo-500">({owner.active} active)</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              {/* Scrollable content */}
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-360px)]">
+                {aiInsightWorkItems.length === 0 ? (
+                  <div className="text-center py-12">
+                    <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                    <p className="text-lg font-semibold text-gray-700">No items found</p>
+                    <p className="text-sm text-gray-500 mt-1">All work items have been addressed</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {aiInsightWorkItems.map(item => (
+                      <div 
+                        key={item.id} 
+                        className="border border-gray-200 rounded-xl p-4 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer group"
+                        onClick={() => window.open(item.devOpsUrl, '_blank')}
+                      >
+                        {/* Type, Priority, State, Reopen badges */}
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                          <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-bold rounded">{item.workItemType}</span>
+                          {item.priority && (
+                            <span className={clsx('px-2 py-1 text-xs font-bold rounded',
+                              item.priority === 1 ? 'bg-red-100 text-red-700' :
+                              item.priority === 2 ? 'bg-orange-100 text-orange-700' :
+                              item.priority === 3 ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-gray-100 text-gray-700'
+                            )}>P{item.priority}</span>
+                          )}
+                          <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded">{item.state}</span>
+                          {item.reopenCount > 0 && (
+                            <span className="px-2 py-1 bg-orange-100 text-orange-700 text-xs font-bold rounded flex items-center gap-1">
+                              <RotateCcw className="w-3 h-3" />
+                              {item.reopenCount}x
+                            </span>
+                          )}
+                          {item.ageDays > 30 && (
+                            <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-bold rounded">
+                              {item.ageDays} days old
+                            </span>
+                          )}
+                        </div>
+                        
+                        {/* Title */}
+                        <h3 className="font-semibold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors">{item.title}</h3>
+                        
+                        {/* Assignee and metadata */}
+                        <div className="flex items-center gap-3 text-xs text-gray-500">
+                          <span className={clsx(
+                            'font-medium',
+                            item.assignedTo ? 'text-gray-700' : 'text-red-600'
+                          )}>
+                            {item.assignedTo ? (
+                              <span className="flex items-center gap-1">
+                                <Users className="w-3 h-3" />
+                                {item.assignedTo}
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" />
+                                Unassigned
+                              </span>
+                            )}
+                          </span>
+                          <span>•</span>
+                          <span>{ageLabel(item.createdDate)}</span>
+                          {item.ageDays > 0 && (
+                            <>
+                              <span>•</span>
+                              <span className={clsx(
+                                item.ageDays > 60 ? 'text-red-600 font-semibold' :
+                                item.ageDays > 30 ? 'text-orange-600 font-semibold' :
+                                'text-gray-500'
+                              )}>{item.ageDays} days</span>
+                            </>
+                          )}
+                        </div>
+                        
+                        {/* Tags */}
+                        {item.tags && item.tags.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {item.tags.slice(0, 5).map(tag => (
+                              <span key={tag} className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-medium rounded">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* Click hint */}
+                        <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
+                          <span className="text-xs text-gray-500 flex items-center gap-1">
+                            <ExternalLink className="w-3 h-3" />
+                            Click to open in Azure DevOps and assign
+                          </span>
+                          {!item.assignedTo && (
+                            <span className="text-xs text-orange-600 font-semibold flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3" />
+                              Needs assignment
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              {/* Footer */}
+              <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  Showing <strong className="text-gray-900">{aiInsightWorkItems.length}</strong> work items • 
+                  <strong className="text-orange-600">{aiInsightWorkItems.filter(i => !i.assignedTo).length}</strong> unassigned
+                </div>
+                <button 
+                  onClick={() => setShowAIInsightModal(false)}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         
         {/* Work Item Details Modal */}
         {showWorkItemModal && (
