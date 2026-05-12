@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { getDecryptedDevOpsToken } from '../utils/tokenEncryption'
 
 // In dev: '/api' (proxied by Vite to localhost:5555)
 // In prod: '/prodvista/api' (routed by Istio VirtualService with rewrite)
@@ -23,8 +24,22 @@ export function registerTokenRefresh(fn: (() => Promise<boolean>) | null) {
   _tokenRefreshFn = fn;
 }
 
-// Add auth token interceptor
-api.interceptors.request.use((config) => {
+/**
+ * Gets current user session for token decryption
+ */
+function getUserSession(): { userId: string; tenantId: string } | null {
+  try {
+    const userStr = sessionStorage.getItem('prodvista_auth_user');
+    if (!userStr) return null;
+    const user = JSON.parse(userStr);
+    return { userId: user.id, tenantId: user.tenantId };
+  } catch {
+    return null;
+  }
+}
+
+// Add auth token interceptor with ENCRYPTED DevOps token support
+api.interceptors.request.use(async (config) => {
   const token = sessionStorage.getItem('prodvista_auth_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -34,11 +49,30 @@ api.interceptors.request.use((config) => {
   if (azureToken) {
     config.headers['X-Azure-Token'] = azureToken;
   }
-  // Include Azure DevOps token for DevOps org/project discovery
-  const devopsToken = sessionStorage.getItem('prodvista_devops_token');
-  if (devopsToken) {
-    config.headers['X-DevOps-Token'] = devopsToken;
+  
+  // ✅ BROWSER-CACHED ENCRYPTED DEVOPS TOKEN FLOW
+  // Try encrypted token first (new secure flow)
+  const session = getUserSession();
+  if (session) {
+    try {
+      const decryptedToken = await getDecryptedDevOpsToken(session.userId, session.tenantId);
+      if (decryptedToken) {
+        config.headers['X-DevOps-Token'] = decryptedToken;
+        // console.debug('✅ Using browser-cached encrypted DevOps PAT token');
+      }
+    } catch (error) {
+      console.error('Failed to decrypt DevOps token:', error);
+    }
   }
+  
+  // Fallback to plain token if encrypted not available (legacy)
+  if (!config.headers['X-DevOps-Token']) {
+    const devopsToken = sessionStorage.getItem('prodvista_devops_token');
+    if (devopsToken) {
+      config.headers['X-DevOps-Token'] = devopsToken;
+    }
+  }
+  
   // Include session ID for server-side token caching
   const sessionId = sessionStorage.getItem('pv_session_id');
   if (sessionId) {

@@ -12,8 +12,10 @@ import BrandedSplash from './components/BrandedSplash'
 import Layout from './components/Layout'
 import SessionExpiredModal from './components/SessionExpiredModal'
 import ProfileSetupModal from './components/ProfileSetupModal'
+import TokenExpirationWarning from './components/TokenExpirationWarning'
 import { AdminConsentModal } from './components/AdminConsentModal'
 import { registerTokenRefresh } from './services/api'
+import { tokenSyncService } from './services/tokenSyncService'
 import { graphScopes, armScopes, devopsScopes } from './config/msalConfig'
 import { lazyWithRetry, lazyNamedWithRetry } from './utils/lazyWithRetry'
 
@@ -296,11 +298,25 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Wrapper that shows session expired modal
+ * Wrapper that shows session expired modal and initializes token sync
  */
 function AuthModals({ children }: { children: React.ReactNode }) {
   const { isSessionExpired, clearSessionExpired, user, justLoggedIn, clearJustLoggedIn } = useAuth()
   const [profileComplete, setProfileComplete] = useState(false)
+
+  // Initialize token sync when user logs in
+  useEffect(() => {
+    if (user && sessionStorage.getItem('prodvista_auth_token')) {
+      tokenSyncService.connect().catch(err => {
+        console.warn('Failed to connect to token sync:', err);
+      });
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      tokenSyncService.disconnect();
+    };
+  }, [user]);
 
   // Show profile setup modal ONLY after a fresh login when DOB is missing
   const needsProfile = !!user && justLoggedIn && !user.birthMonth && !profileComplete
@@ -321,6 +337,7 @@ function AuthModals({ children }: { children: React.ReactNode }) {
   return (
     <>
       {children}
+      <TokenExpirationWarning />
       <SessionExpiredModal 
         isOpen={isSessionExpired} 
         onClose={clearSessionExpired}

@@ -14,6 +14,7 @@ import engineeringService, { EngineeringConfig } from '../services/engineeringSe
 import { useMsal } from '@azure/msal-react'
 import { InteractionRequiredAuthError } from '@azure/msal-browser'
 import { devopsScopes, isMsalConfigured } from '../config/msalConfig'
+import { storeEncryptedDevOpsToken } from '../utils/tokenEncryption'
 
 type TabId = 'general' | 'llm' | 'azure-setup' | 'azure' | 'devops' | 'regions' | 'users'
 
@@ -40,6 +41,28 @@ export function ManagerSettingsPage() {
   const [isSaving, setIsSaving] = useState(false)
   const { instance, accounts } = useMsal()
 
+  /**
+   * ✅ NEW: Stores DevOps PAT token with encryption
+   * Uses user session (userId + tenantId) as encryption salt
+   */
+  const storeDevOpsToken = async (token: string): Promise<void> => {
+    try {
+      const userStr = sessionStorage.getItem('prodvista_auth_user');
+      if (!userStr) {
+        console.warn('No user session found - storing token unencrypted (fallback)');
+        sessionStorage.setItem('prodvista_devops_token', token);
+        return;
+      }
+      const user = JSON.parse(userStr);
+      await storeEncryptedDevOpsToken(token, user.id, user.tenantId);
+      console.log('✅ DevOps PAT token stored with encryption');
+    } catch (error) {
+      console.error('Failed to encrypt DevOps token:', error);
+      // Fallback to unencrypted storage if encryption fails
+      sessionStorage.setItem('prodvista_devops_token', token);
+    }
+  };
+
   /** Ensure a DevOps SSO token is in sessionStorage, acquiring one if necessary. */
   const ensureDevOpsToken = async (): Promise<boolean> => {
     if (sessionStorage.getItem('prodvista_devops_token')) return true
@@ -49,7 +72,7 @@ export function ManagerSettingsPage() {
     try {
       const response = await instance.acquireTokenSilent({ ...devopsScopes, account })
       if (response?.accessToken) {
-        sessionStorage.setItem('prodvista_devops_token', response.accessToken)
+        await storeDevOpsToken(response.accessToken); // ✅ Use encrypted storage
         return true
       }
     } catch (err) {
@@ -57,7 +80,7 @@ export function ManagerSettingsPage() {
         try {
           const response = await instance.acquireTokenPopup({ ...devopsScopes, account })
           if (response?.accessToken) {
-            sessionStorage.setItem('prodvista_devops_token', response.accessToken)
+            await storeDevOpsToken(response.accessToken); // ✅ Use encrypted storage
             return true
           }
         } catch (popupErr) {
@@ -96,9 +119,9 @@ export function ManagerSettingsPage() {
     setDevopsIsDiscovering(true)
     setDevopsError(null)
     try {
-      // If user pasted a dev token, store it so the axios interceptor sends it
+      // ✅ If user pasted a PAT token, store it with encryption
       if (devDevOpsToken.trim()) {
-        sessionStorage.setItem('prodvista_devops_token', devDevOpsToken.trim())
+        await storeDevOpsToken(devDevOpsToken.trim());
       } else {
         await ensureDevOpsToken()
       }
@@ -119,8 +142,9 @@ export function ManagerSettingsPage() {
     setDevopsIsDiscovering(true)
     setDevopsError(null)
     try {
+      // ✅ If user pasted a PAT token, store it with encryption
       if (devDevOpsToken.trim()) {
-        sessionStorage.setItem('prodvista_devops_token', devDevOpsToken.trim())
+        await storeDevOpsToken(devDevOpsToken.trim());
       } else {
         await ensureDevOpsToken()
       }
@@ -147,8 +171,9 @@ export function ManagerSettingsPage() {
     setDevopsIsDiscovering(true)
     setDevopsTestResult(null)
     try {
+      // ✅ If user pasted a PAT token, store it with encryption
       if (devDevOpsToken.trim()) {
-        sessionStorage.setItem('prodvista_devops_token', devDevOpsToken.trim())
+        await storeDevOpsToken(devDevOpsToken.trim());
       } else {
         await ensureDevOpsToken()
       }
