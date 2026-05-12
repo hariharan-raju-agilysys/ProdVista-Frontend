@@ -25,8 +25,8 @@ import {
   type DashboardSummary, type PRInfo, type PRSummaryResponse,
 } from '../services/overviewService'
 import {
-  getQualitySummary, getBugs, getMyBugs, getOwnerEfficiency,
-  type QualitySummaryDto, type QualityWorkItemDto, type OwnerEfficiencyDto,
+  getQualitySummary, getBugs, getMyBugs, getOwnerEfficiency, getIterations,
+  type QualitySummaryDto, type QualityWorkItemDto, type OwnerEfficiencyDto, type QualityIteration,
 } from '../services/qualityService'
 // TODO: Uncomment after Azure DevOps approval for Calendar API
 // import { CalendarService, type CalendarEvent } from '../services/calendarService'
@@ -562,6 +562,22 @@ export default function DeveloperDashboardPage() {
 
   // manager-only
   const [ownerEfficiency, setOwnerEfficiency] = useState<OwnerEfficiencyDto[]>([])
+  const [iterations, setIterations] = useState<QualityIteration[]>([])
+  const [selectedIteration, setSelectedIteration] = useState<string | undefined>(() => {
+    // Load from localStorage on init
+    return localStorage.getItem('prodvista_manager_iteration') || undefined
+  })
+  
+  // Birthday widget state
+  const [birthdaysMinimized, setBirthdaysMinimized] = useState<boolean>(() => {
+    return localStorage.getItem('prodvista_birthdays_minimized') === 'true'
+  })
+  
+  // Work item modal state
+  const [showWorkItemModal, setShowWorkItemModal] = useState(false)
+  const [modalWorkItems, setModalWorkItems] = useState<QualityWorkItemDto[]>([])
+  const [modalTitle, setModalTitle] = useState('')
+  const [modalSubtitle, setModalSubtitle] = useState('')
 
   // dev-only
   const [techPulse, setTechPulse] = useState<HnItem[]>([])
@@ -584,6 +600,48 @@ export default function DeveloperDashboardPage() {
   const displayName = user?.displayName || user?.email?.split('@')[0] || (isManager ? 'Manager' : 'Developer')
   const userBirthday = user?.birthMonth && user?.birthDay ? daysUntilBirthday(user.birthMonth, user.birthDay) : null
 
+  // Handle iteration selection with localStorage persistence
+  const handleIterationChange = (iterationPath: string) => {
+    setSelectedIteration(iterationPath)
+    localStorage.setItem('prodvista_manager_iteration', iterationPath)
+    // Reload data with new iteration
+    load()
+  }
+  
+  // Handle birthday widget minimize/maximize
+  const toggleBirthdaysMinimized = () => {
+    const newState = !birthdaysMinimized
+    setBirthdaysMinimized(newState)
+    localStorage.setItem('prodvista_birthdays_minimized', String(newState))
+    // Fetch birthdays if expanding
+    if (!newState && teamBirthdays.length === 0) {
+      fetchBirthdays()
+    }
+  }
+  
+  // Fetch team birthdays (current month only)
+  const fetchBirthdays = async () => {
+    if (birthdaysMinimized) return // Don't call endpoint if minimized
+    setTeamBirthdaysLoading(true)
+    try {
+      const birthdays = await birthdaysService.getCurrentMonthBirthdays()
+      setTeamBirthdays(birthdays)
+    } catch (error) {
+      console.error('Failed to fetch birthdays:', error)
+      setTeamBirthdays([])
+    } finally {
+      setTeamBirthdaysLoading(false)
+    }
+  }
+  
+  // Open work item modal with filtered data
+  const openWorkItemModal = (title: string, subtitle: string, items: QualityWorkItemDto[]) => {
+    setModalTitle(title)
+    setModalSubtitle(subtitle)
+    setModalWorkItems(items)
+    setShowWorkItemModal(true)
+  }
+
   const load = useCallback(async () => {
     setLoading(true)
     try {
@@ -594,10 +652,11 @@ export default function DeveloperDashboardPage() {
       if (sumRes.status === 'fulfilled') setSummary(sumRes.value)
       if (prRes.status === 'fulfilled') setPrData(prRes.value)
 
-      // Quality data (shared)
+      // Quality data (shared) - with iteration filter for manager view
       try {
+        const iterationFilter = !isDevView ? selectedIteration : undefined
         const [qsRes, bugsRes, reopenRes] = await Promise.allSettled([
-          getQualitySummary(),
+          getQualitySummary(undefined, iterationFilter),
           view === 'mine'
             ? getMyBugs(undefined, undefined, 'Active')
             : getBugs({ state: 'Active' }),
@@ -615,9 +674,30 @@ export default function DeveloperDashboardPage() {
         }
       } catch { /* quality not configured */ }
 
-      // Manager-only: owner efficiency
+      // Manager-only: owner efficiency with iteration filter + iterations list
       if (isManager || isAdmin) {
-        getOwnerEfficiency().then(setOwnerEfficiency).catch(() => {})
+        const iterationFilter = selectedIteration
+        Promise.allSettled([
+          getOwnerEfficiency(undefined, iterationFilter),
+          getIterations(),
+        ]).then(([effRes, iterRes]) => {
+          if (effRes.status === 'fulfilled') setOwnerEfficiency(effRes.value)
+          if (iterRes.status === 'fulfilled') {
+            const iters = iterRes.value
+            setIterations(iters)
+            // Auto-select "Current" iteration if no selection stored
+            if (!selectedIteration) {
+              const current = iters.find(it => it.state === 'Current')
+              if (current) {
+                setSelectedIteration(current.path)
+                localStorage.setItem('prodvista_manager_iteration', current.path)
+              }
+            }
+          }
+        }).catch(() => {})
+        
+        // Fetch birthdays if not minimized
+        fetchBirthdays()
       }
     } finally {
       setLoading(false)
@@ -893,191 +973,655 @@ export default function DeveloperDashboardPage() {
   )
 
   // ════════════════════════════════════════════════════════════════════════════
-  // ── MANAGER / ADMIN VIEW ──────────────────────────────────────────────────
+  // ── MANAGER / ADMIN VIEW — TEAM COMMAND CENTER ────────────────────────────
   // ════════════════════════════════════════════════════════════════════════════
   if (!isDevView) {
-    const topOwners = ownerEfficiency.slice(0, 8)
+    const topOwners = ownerEfficiency.slice(0, 15) // Show top 15 team members
+
+    // Calculate work item type breakdowns from real Azure DevOps data
+    const workItemStats = {
+      bugs: {
+        active: qualitySummary?.activeBugs ?? 0,
+        resolved: qualitySummary?.resolvedBugs ?? 0,
+        critical: qualitySummary?.criticalBugs ?? 0,
+        reopened: qualitySummary?.reopenedBugs ?? 0,
+      },
+      features: qualitySummary?.totalFeatures ?? 0,
+      userStories: qualitySummary?.totalUserStories ?? 0,
+      tasks: qualitySummary?.totalTasks ?? 0,
+      totalActive: qualitySummary?.activeItems ?? 0,
+      totalCompleted: qualitySummary?.completedItems ?? 0,
+    }
+
+    // Calculate team velocity metrics
+    const totalWorkItems = qualitySummary?.totalWorkItems ?? 0
+    const completionRate = totalWorkItems > 0 
+      ? Math.round((workItemStats.totalCompleted / totalWorkItems) * 100) 
+      : 0
+
+    // Calculate daily progress (approximation based on recent data)
+    const avgDailyResolution = qualitySummary?.avgResolutionDays 
+      ? Math.round(workItemStats.bugs.resolved / Math.max(qualitySummary.avgResolutionDays, 1))
+      : 0
+
+    // Find current iteration details for display
+    const currentIterationInfo = iterations.find(it => it.path === selectedIteration)
+
+    // AI-driven insights based on data patterns
+    const aiInsights: { type: 'success' | 'warning' | 'info'; message: string }[] = []
+    if (completionRate < 50 && totalWorkItems > 0) {
+      aiInsights.push({ type: 'warning', message: `Team velocity at ${completionRate}% - Consider reducing WIP or adding resources` })
+    } else if (completionRate >= 80) {
+      aiInsights.push({ type: 'success', message: `Excellent velocity! ${completionRate}% completion rate` })
+    }
+    if (workItemStats.bugs.critical > 5) {
+      aiInsights.push({ type: 'warning', message: `${workItemStats.bugs.critical} critical bugs require immediate attention` })
+    }
+    if (qualitySummary?.reopenedBugs && qualitySummary.reopenedBugs > 10) {
+      const reopenRate = (qualitySummary.reopenedBugs / Math.max(qualitySummary.resolvedBugs, 1)) * 100
+      aiInsights.push({ type: 'warning', message: `High reopen rate (${reopenRate.toFixed(0)}%) - Review testing processes` })
+    }
+    if (workItemStats.bugs.active > workItemStats.bugs.resolved) {
+      aiInsights.push({ type: 'info', message: `Active bugs (${workItemStats.bugs.active}) exceed resolved (${workItemStats.bugs.resolved}) - Prioritize bug fixes` })
+    }
+    if (qualitySummary?.avgResolutionDays && qualitySummary.avgResolutionDays > 7) {
+      aiInsights.push({ type: 'info', message: `Avg resolution time is ${qualitySummary.avgResolutionDays}d - Consider breaking down complex issues` })
+    }
+
     return (
-      <div className="p-6 max-w-[1400px] mx-auto space-y-6">
+      <div className="p-6 max-w-[1600px] mx-auto space-y-6">
         {header}
 
-        {/* KPI row */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <KpiCard label="Team Members"    value={summary?.team?.totalMembers ?? '—'}
-            icon={Users}         gradient="bg-blue-500"    sub="active members"  loading={loading} onClick={() => navigate('/users')} />
-          <KpiCard label="Build Success"   value={buildSuccessRate != null ? `${Math.round(buildSuccessRate)}%` : '—'}
-            icon={TrendingUp}    gradient="bg-green-500"   sub="last 30 days"    loading={loading} onClick={() => navigate('/devops')} />
-          <KpiCard label="Bug Escape Rate" value={qualitySummary?.bugEscapeRate != null ? `${qualitySummary.bugEscapeRate.toFixed(1)}%` : '—'}
-            icon={AlertTriangle} gradient="bg-orange-500"  sub="escaping to prod" loading={loading} onClick={() => navigate('/quality')} />
-          <KpiCard label="Avg Fix Days"    value={qualitySummary?.avgResolutionDays != null ? `${qualitySummary.avgResolutionDays.toFixed(1)}d` : '—'}
-            icon={Timer}         gradient="bg-purple-500"  sub="bug resolution"  loading={loading} onClick={() => navigate('/quality')} />
+        {/* Top Row: Iteration Filter + Birthday Widget */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Iteration Filter - Stored in localStorage */}
+          {iterations.length > 0 && (
+            <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Target className="w-5 h-5 text-indigo-600" />
+                <div>
+                  <div className="text-sm font-semibold text-gray-900">Iteration / Sprint</div>
+                  <div className="text-xs text-gray-500">Filter team metrics by release cycle</div>
+                </div>
+              </div>
+              <select
+                value={selectedIteration || ''}
+                onChange={(e) => handleIterationChange(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-medium"
+              >
+                <option value="">All Iterations</option>
+                {iterations
+                  .filter(it => it.state === 'Current' || it.state === 'Future' || it.state === 'Past')
+                  .map(it => (
+                    <option key={it.id} value={it.path}>
+                      {it.name} {it.state === 'Current' ? '(Current)' : it.state === 'Future' ? '(Upcoming)' : ''}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
+          
+          {/* Team Birthdays Widget - Minimizable with localStorage */}
+          <div className="bg-gradient-to-br from-pink-50 to-purple-50 rounded-xl shadow-sm border-2 border-pink-200 overflow-hidden">
+            <div className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Cake className="w-5 h-5 text-pink-600" />
+                  <h3 className="text-sm font-bold text-gray-900">Team Birthdays</h3>
+                </div>
+                <button
+                  onClick={toggleBirthdaysMinimized}
+                  className="p-1 hover:bg-pink-100 rounded-lg transition-colors"
+                  title={birthdaysMinimized ? 'Expand' : 'Minimize'}
+                >
+                  {birthdaysMinimized ? (
+                    <ChevronRight className="w-4 h-4 text-pink-600" />
+                  ) : (
+                    <ChevronLeft className="w-4 h-4 text-pink-600" />
+                  )}
+                </button>
+              </div>
+              
+              {!birthdaysMinimized && (
+                <div className="space-y-2">
+                  {teamBirthdaysLoading ? (
+                    <div className="text-xs text-gray-500 italic">Loading...</div>
+                  ) : teamBirthdays.length === 0 ? (
+                    <div className="text-xs text-gray-600 italic bg-white rounded-lg p-3 border border-pink-100">
+                      🎉 No birthdays this month
+                    </div>
+                  ) : (
+                    <div className="max-h-32 overflow-y-auto space-y-1.5">
+                      {teamBirthdays.map(birthday => (
+                        <div key={birthday.userId} className="bg-white rounded-lg p-2 border border-pink-100 hover:border-pink-200 transition-colors">
+                          <div className="text-xs font-semibold text-gray-800">{birthday.userName}</div>
+                          <div className="text-[10px] text-pink-600 font-medium">
+                            {new Date(2024, birthday.month - 1, birthday.day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
+        {/* Enhanced KPI Row - Developer Effectiveness Focus (removed Build Success & Team Count) */}
+        {/* KPI cards are now clickable and show detailed work items in modal */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <KpiCard label="Team Velocity"   value={`${completionRate}%`}
+            icon={TrendingUp}    gradient="bg-blue-500"    sub={`${workItemStats.totalCompleted} completed`}  loading={loading} 
+            onClick={() => {
+              // Show completed work items
+              const completedItems = myBugs.filter(b => b.state === 'Resolved' || b.state === 'Closed')
+              openWorkItemModal('Completed Work Items', `${completedItems.length} items resolved in ${currentIterationInfo?.name || 'current iteration'}`, completedItems)
+            }} />
+          <KpiCard label="Active Work"   value={workItemStats.totalActive}
+            icon={Activity}      gradient="bg-indigo-500"  sub={`${workItemStats.bugs.active} bugs active`}    loading={loading} 
+            onClick={() => {
+              // Show active bugs
+              const activeBugs = myBugs.filter(b => b.state === 'Active' || b.state === 'New')
+              openWorkItemModal('Active Work Items', `${activeBugs.length} active bugs requiring attention`, activeBugs)
+            }} />
+          <KpiCard label="Critical Issues"  value={workItemStats.bugs.critical}
+            icon={AlertTriangle} gradient="bg-red-500"     sub={workItemStats.bugs.critical > 0 ? 'needs attention 🔥' : 'all clear ✓'} loading={loading} 
+            onClick={() => {
+              // Show critical bugs (priority 1)
+              const criticalBugs = myBugs.filter(b => b.priority === 1)
+              openWorkItemModal('Critical Priority Bugs', `${criticalBugs.length} critical issues requiring immediate action`, criticalBugs)
+            }} />
+          <KpiCard label="Resolution Quality" value={qualitySummary?.reopenedBugs ? `${(100 - (qualitySummary.reopenedBugs / Math.max(qualitySummary.resolvedBugs, 1)) * 100).toFixed(0)}%` : '100%'}
+            icon={Award}         gradient="bg-purple-500"  sub={`${qualitySummary?.reopenedBugs ?? 0} reopened`}  loading={loading} 
+            onClick={() => {
+              // Show reopened bugs
+              openWorkItemModal('Reopened Bugs', `${reopenedBugs.length} bugs reopened after resolution`, reopenedBugs)
+            }} />
+        </div>
+
+        {/* AI-Driven Insights - Smart Recommendations */}
+        {aiInsights.length > 0 && (
+          <div className="bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 rounded-xl border-2 border-indigo-200 p-5">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-indigo-100 rounded-lg">
+                <Bot className="w-6 h-6 text-indigo-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-gray-900">AI-Powered Insights</h3>
+                <p className="text-xs text-gray-600">Smart recommendations based on {currentIterationInfo?.name || 'current'} data</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {aiInsights.map((insight, idx) => (
+                <div key={idx} className={clsx(
+                  'flex items-start gap-3 p-3 rounded-lg border',
+                  insight.type === 'success' ? 'bg-green-50 border-green-200' :
+                  insight.type === 'warning' ? 'bg-orange-50 border-orange-200' :
+                  'bg-blue-50 border-blue-200'
+                )}>
+                  <Zap className={clsx('w-4 h-4 mt-0.5 flex-shrink-0',
+                    insight.type === 'success' ? 'text-green-600' :
+                    insight.type === 'warning' ? 'text-orange-600' :
+                    'text-blue-600'
+                  )} />
+                  <p className="text-xs font-medium text-gray-700">{insight.message}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Work Item Type Breakdown - Real Azure DevOps Data */}
+        <SectionCard title="Work Item Distribution" icon={Layers} iconColor="text-indigo-600"
+          action="Quality Center" onAction={() => navigate('/quality')}
+        >
+          <div className="p-5">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[
+                { label: 'Bugs', active: workItemStats.bugs.active, resolved: workItemStats.bugs.resolved, icon: Bug, color: 'bg-red-50 border-red-200', textColor: 'text-red-700', iconColor: 'text-red-500' },
+                { label: 'Features', active: workItemStats.features, resolved: 0, icon: Star, color: 'bg-blue-50 border-blue-200', textColor: 'text-blue-700', iconColor: 'text-blue-500' },
+                { label: 'User Stories', active: workItemStats.userStories, resolved: 0, icon: BookOpen, color: 'bg-purple-50 border-purple-200', textColor: 'text-purple-700', iconColor: 'text-purple-500' },
+                { label: 'Tasks', active: workItemStats.tasks, resolved: 0, icon: CheckCircle2, color: 'bg-green-50 border-green-200', textColor: 'text-green-700', iconColor: 'text-green-500' },
+              ].map(({ label, active, resolved, icon: Icon, color, textColor, iconColor }) => (
+                <div key={label} className={clsx('p-4 rounded-xl border-2', color)}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Icon className={clsx('w-5 h-5', iconColor)} />
+                    <span className={clsx('text-xs font-bold uppercase tracking-wider', textColor)}>{label}</span>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-bold text-gray-800">{active}</span>
+                      <span className="text-xs text-gray-500">active</span>
+                    </div>
+                    {resolved > 0 && (
+                      <div className="text-xs text-gray-500">
+                        <span className="font-semibold text-green-600">{resolved}</span> resolved
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Daily Progress & Quality Metrics */}
+            <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-3 gap-4 text-center">
+              <div>
+                <div className="text-xs font-bold text-gray-400 uppercase mb-1">Avg Resolution</div>
+                <div className="text-lg font-bold text-gray-800">{qualitySummary?.avgResolutionDays?.toFixed(1) ?? '—'}<span className="text-sm text-gray-500">d</span></div>
+              </div>
+              <div>
+                <div className="text-xs font-bold text-gray-400 uppercase mb-1">Bug Escape Rate</div>
+                <div className={clsx('text-lg font-bold', 
+                  (qualitySummary?.bugEscapeRate ?? 0) > 15 ? 'text-red-600' : 
+                  (qualitySummary?.bugEscapeRate ?? 0) > 10 ? 'text-orange-500' : 'text-green-600'
+                )}>
+                  {qualitySummary?.bugEscapeRate?.toFixed(1) ?? '—'}<span className="text-sm">%</span>
+                </div>
+              </div>
+              <div>
+                <div className="text-xs font-bold text-gray-400 uppercase mb-1">Daily Avg</div>
+                <div className="text-lg font-bold text-blue-600">{avgDailyResolution}<span className="text-sm text-gray-500"> resolved/day</span></div>
+              </div>
+            </div>
+          </div>
+        </SectionCard>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left 2/3 */}
+          {/* Left 2/3 - Team Performance Tracking */}
           <div className="lg:col-span-2 space-y-6">
 
-            {/* Developer Efficiency Table */}
-            <SectionCard title="Developer Efficiency" icon={Award} iconColor="text-amber-500"
-              action="Full Report" onAction={() => navigate('/quality')}
+            {/* Enhanced Team Performance Table with Hierarchical View */}
+            <SectionCard title="Team Performance Tracker" icon={Users} iconColor="text-blue-600"
+              action="Detailed View" onAction={() => navigate('/engineering')}
             >
               <div className="overflow-x-auto">
                 {loading || ownerEfficiency.length === 0 ? (
                   <div className="px-5 py-8 text-center text-sm text-gray-400">
                     {loading ? (
                       <div className="space-y-3 px-4">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <div key={i} className="h-10 bg-gray-50 animate-pulse rounded-lg" />
+                        {Array.from({ length: 8 }).map((_, i) => (
+                          <div key={i} className="h-12 bg-gray-50 animate-pulse rounded-lg" />
                         ))}
                       </div>
                     ) : (
                       <>
-                        <Users className="w-8 h-8 text-gray-200 mx-auto mb-2" />
-                        Connect Azure DevOps to see developer efficiency
+                        <Users className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+                        <p className="font-semibold text-gray-500">No team data available</p>
+                        <p className="text-xs mt-1">Connect Azure DevOps to track team performance</p>
                       </>
                     )}
                   </div>
                 ) : (
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        {['Developer', 'Assigned', 'Resolved', 'Active', 'Avg Days', 'Score', 'Reopen %'].map(h => (
-                          <th key={h} className="px-4 py-2.5 text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {topOwners.map((o, i) => (
-                        <tr key={o.ownerName} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <div className={clsx(
-                                'w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0',
-                                i === 0 ? 'bg-amber-400' : i === 1 ? 'bg-gray-400' : i === 2 ? 'bg-orange-700' : 'bg-gray-300'
-                              )}>
-                                {i < 3 ? (i + 1) : o.ownerName.charAt(0).toUpperCase()}
-                              </div>
-                              <span className="font-medium text-gray-800 truncate max-w-[120px]">{o.ownerName}</span>
-                              {i === 0 && <Crown className="w-3 h-3 text-amber-400 flex-shrink-0" />}
+                  <div className="divide-y divide-gray-100">
+                    {/* Table Header */}
+                    <div className="grid grid-cols-12 gap-2 px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                      <div className="col-span-3">Team Member</div>
+                      <div className="col-span-1 text-center">Assigned</div>
+                      <div className="col-span-1 text-center">Resolved</div>
+                      <div className="col-span-1 text-center">Active</div>
+                      <div className="col-span-2 text-center">Quality</div>
+                      <div className="col-span-2 text-center">Avg Days</div>
+                      <div className="col-span-2 text-center">Efficiency</div>
+                    </div>
+                    
+                    {/* Table Body */}
+                    {topOwners.map((o, i) => {
+                      const isTopPerformer = i < 3
+                      const needsAttention = o.reopenRate > 15 || o.avgResolutionDays > 7
+                      
+                      return (
+                        <div key={o.ownerName} className={clsx(
+                          'grid grid-cols-12 gap-2 px-4 py-3 hover:bg-blue-50 transition-colors cursor-pointer',
+                          isTopPerformer && 'bg-gradient-to-r from-amber-50 to-orange-50'
+                        )}
+                        onClick={() => navigate('/engineering')}
+                        >
+                          {/* Name with rank */}
+                          <div className="col-span-3 flex items-center gap-2.5">
+                            <div className={clsx(
+                              'w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0 shadow-sm',
+                              i === 0 ? 'bg-gradient-to-br from-amber-400 to-amber-600' : 
+                              i === 1 ? 'bg-gradient-to-br from-gray-400 to-gray-600' : 
+                              i === 2 ? 'bg-gradient-to-br from-orange-600 to-orange-800' : 
+                              'bg-gradient-to-br from-gray-300 to-gray-500'
+                            )}>
+                              {isTopPerformer ? (i + 1) : o.ownerName.charAt(0).toUpperCase()}
                             </div>
-                          </td>
-                          <td className="px-4 py-3 text-gray-600">{o.totalAssigned}</td>
-                          <td className="px-4 py-3"><span className="font-semibold text-green-600">{o.resolved}</span></td>
-                          <td className="px-4 py-3 text-blue-600 font-semibold">{o.active}</td>
-                          <td className="px-4 py-3 text-gray-500">{o.avgResolutionDays?.toFixed(1) ?? '—'}d</td>
-                          <td className="px-4 py-3">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-semibold text-gray-800 truncate text-sm">{o.ownerName}</span>
+                                {i === 0 && <Crown className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />}
+                                {needsAttention && <AlertCircle className="w-3 h-3 text-orange-500 flex-shrink-0" />}
+                              </div>
+                              <div className="text-[10px] text-gray-400">{o.ownerType}</div>
+                            </div>
+                          </div>
+                          
+                          {/* Assigned */}
+                          <div className="col-span-1 flex items-center justify-center">
+                            <span className="text-sm font-medium text-gray-700">{o.totalAssigned}</span>
+                          </div>
+                          
+                          {/* Resolved */}
+                          <div className="col-span-1 flex items-center justify-center">
+                            <span className="text-sm font-bold text-green-600">{o.resolved}</span>
+                          </div>
+                          
+                          {/* Active */}
+                          <div className="col-span-1 flex items-center justify-center">
+                            <span className={clsx('text-sm font-semibold', 
+                              o.active > 10 ? 'text-orange-600' : 'text-blue-600'
+                            )}>{o.active}</span>
+                          </div>
+                          
+                          {/* Resolution Quality (100 - reopenRate) */}
+                          <div className="col-span-2 flex items-center justify-center">
                             <div className="flex items-center gap-2">
-                              <div className="w-16 bg-gray-100 rounded-full h-1.5">
-                                <div className={clsx('h-1.5 rounded-full',
-                                  o.efficiencyScore >= 80 ? 'bg-green-500' : o.efficiencyScore >= 60 ? 'bg-yellow-400' : 'bg-red-400'
+                              <div className="w-20 bg-gray-100 rounded-full h-2">
+                                <div className={clsx('h-2 rounded-full transition-all',
+                                  o.reopenRate < 5 ? 'bg-green-500' : 
+                                  o.reopenRate < 15 ? 'bg-yellow-400' : 
+                                  'bg-red-500'
+                                )} style={{ width: `${Math.max(0, 100 - o.reopenRate)}%` }} />
+                              </div>
+                              <span className={clsx('text-xs font-bold',
+                                o.reopenRate < 5 ? 'text-green-600' : 
+                                o.reopenRate < 15 ? 'text-yellow-600' : 
+                                'text-red-600'
+                              )}>
+                                {(100 - o.reopenRate).toFixed(0)}%
+                              </span>
+                            </div>
+                          </div>
+                          
+                          {/* Avg Days */}
+                          <div className="col-span-2 flex items-center justify-center">
+                            <span className={clsx('text-sm font-semibold',
+                              (o.avgResolutionDays ?? 0) > 7 ? 'text-red-600' :
+                              (o.avgResolutionDays ?? 0) > 3 ? 'text-orange-500' :
+                              'text-green-600'
+                            )}>
+                              {o.avgResolutionDays?.toFixed(1) ?? '—'}d
+                            </span>
+                          </div>
+                          
+                          {/* Efficiency Score */}
+                          <div className="col-span-2 flex items-center justify-center">
+                            <div className="flex items-center gap-2">
+                              <div className="w-20 bg-gray-100 rounded-full h-2">
+                                <div className={clsx('h-2 rounded-full transition-all',
+                                  o.efficiencyScore >= 80 ? 'bg-gradient-to-r from-green-400 to-green-600' : 
+                                  o.efficiencyScore >= 60 ? 'bg-gradient-to-r from-yellow-400 to-yellow-600' : 
+                                  'bg-gradient-to-r from-red-400 to-red-600'
                                 )} style={{ width: `${Math.min(o.efficiencyScore, 100)}%` }} />
                               </div>
-                              <span className="text-xs font-bold text-gray-700">{Math.round(o.efficiencyScore)}</span>
+                              <span className="text-sm font-bold text-gray-800">{Math.round(o.efficiencyScore)}</span>
                             </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={clsx('text-xs font-semibold',
-                              o.reopenRate > 20 ? 'text-red-600' : o.reopenRate > 10 ? 'text-orange-500' : 'text-green-600'
-                            )}>
-                              {o.reopenRate?.toFixed(1) ?? 0}%
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 )}
               </div>
+              
+              {/* Legend */}
+              {!loading && ownerEfficiency.length > 0 && (
+                <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-1.5">
+                      <Crown className="w-3 h-3 text-amber-500" />
+                      <span className="text-gray-600">Top Performer</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <AlertCircle className="w-3 h-3 text-orange-500" />
+                      <span className="text-gray-600">Needs Attention</span>
+                    </div>
+                  </div>
+                  <div className="text-gray-400">
+                    <strong className="text-gray-700">{ownerEfficiency.length}</strong> team members tracked
+                  </div>
+                </div>
+              )}
             </SectionCard>
 
-            {/* Bug Priority Distribution */}
-            <SectionCard title="Bug Priority Distribution" icon={Bug} iconColor="text-red-500"
-              action="Quality Center" onAction={() => navigate('/quality')}
+            {/* Bug Priority & Severity Distribution */}
+            <SectionCard title="Bug Priority & Severity" icon={Bug} iconColor="text-red-500"
+              action="Full Report" onAction={() => navigate('/quality')}
             >
-              <div className="p-5 space-y-3">
-                {loading ? (
-                  Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-8 bg-gray-50 animate-pulse rounded-lg" />)
-                ) : (
-                  PRIORITY_CFG.map(({ p, label, bar, badge }) => {
-                    const counts = [
-                      qualitySummary?.criticalBugs ?? 0,
-                      qualitySummary?.highBugs ?? 0,
-                      qualitySummary?.mediumBugs ?? 0,
-                      qualitySummary?.lowBugs ?? 0,
-                    ]
-                    const val  = counts[p - 1]
-                    const total = qualitySummary?.activeBugs ?? 1
-                    const pct  = Math.round((val / Math.max(total, 1)) * 100)
-                    return (
-                      <div key={p} className="flex items-center gap-3">
-                        <span className={clsx('px-2 py-0.5 text-[11px] font-bold rounded flex-shrink-0 w-24', badge)}>
-                          {label}
-                        </span>
-                        <div className="flex-1 bg-gray-100 rounded-full h-2.5">
-                          <div className={clsx('h-2.5 rounded-full transition-all duration-700', bar)}
-                            style={{ width: `${pct}%` }} />
+              <div className="p-5 space-y-4">
+                {/* Priority breakdown */}
+                <div className="space-y-2.5">
+                  <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">By Priority</div>
+                  {loading ? (
+                    Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-8 bg-gray-50 animate-pulse rounded-lg" />)
+                  ) : (
+                    PRIORITY_CFG.map(({ p, label, bar, badge }) => {
+                      const counts = [
+                        qualitySummary?.criticalBugs ?? 0,
+                        qualitySummary?.highBugs ?? 0,
+                        qualitySummary?.mediumBugs ?? 0,
+                        qualitySummary?.lowBugs ?? 0,
+                      ]
+                      const val  = counts[p - 1]
+                      const total = qualitySummary?.activeBugs ?? 1
+                      const pct  = Math.round((val / Math.max(total, 1)) * 100)
+                      return (
+                        <div key={p} className="flex items-center gap-3">
+                          <span className={clsx('px-2.5 py-1 text-[10px] font-bold rounded-lg flex-shrink-0 w-20 text-center', badge)}>
+                            {label}
+                          </span>
+                          <div className="flex-1 bg-gray-100 rounded-full h-3">
+                            <div className={clsx('h-3 rounded-full transition-all duration-700', bar)}
+                              style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className="text-sm font-bold text-gray-700 w-8 text-right">{val}</span>
+                          <span className="text-xs text-gray-400 w-12 text-right">{pct}%</span>
                         </div>
-                        <span className="text-sm font-bold text-gray-700 w-6 text-right">{val}</span>
-                        <span className="text-xs text-gray-400 w-10 text-right">{pct}%</span>
-                      </div>
-                    )
-                  })
-                )}
-                <div className="pt-1 border-t border-gray-50 flex items-center justify-between text-xs text-gray-400">
-                  <span>Total active: <strong className="text-gray-700">{qualitySummary?.activeBugs ?? 0}</strong></span>
-                  <span>Reopened: <strong className="text-orange-600">{qualitySummary?.reopenedBugs ?? 0}</strong></span>
-                  <span>Resolved: <strong className="text-green-600">{qualitySummary?.resolvedBugs ?? 0}</strong></span>
+                      )
+                    })
+                  )}
+                </div>
+                
+                {/* Summary footer */}
+                <div className="pt-3 border-t border-gray-100 grid grid-cols-4 gap-2 text-center">
+                  <div>
+                    <div className="text-[10px] text-gray-400 uppercase font-bold mb-0.5">Total</div>
+                    <div className="text-lg font-bold text-gray-800">{qualitySummary?.activeBugs ?? 0}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-gray-400 uppercase font-bold mb-0.5">Resolved</div>
+                    <div className="text-lg font-bold text-green-600">{qualitySummary?.resolvedBugs ?? 0}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-gray-400 uppercase font-bold mb-0.5">Reopened</div>
+                    <div className="text-lg font-bold text-orange-600">{qualitySummary?.reopenedBugs ?? 0}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-gray-400 uppercase font-bold mb-0.5">Closed</div>
+                    <div className="text-lg font-bold text-blue-600">{qualitySummary?.closedBugs ?? 0}</div>
+                  </div>
                 </div>
               </div>
             </SectionCard>
 
           </div>
 
-          {/* Right 1/3 */}
+          {/* Right 1/3 - Operations Dashboard & Quick Actions */}
           <div className="space-y-5">
-            {/* Team Stats */}
-            <SectionCard title="Team Overview" icon={Users} iconColor="text-blue-500">
-              <div className="p-4 space-y-2.5">
+            {/* Operations Dashboard - Developer Focus (removed Pipelines & Team Count) */}
+            <SectionCard title="Operations Dashboard" icon={Activity} iconColor="text-indigo-600">
+              <div className="p-4 space-y-2">
                 {[
-                  { label: 'Active Pipelines', value: activePipelines, icon: <Rocket className="w-4 h-4 text-green-500" />, color: 'text-green-700' },
-                  { label: 'Open PRs',          value: openPRs,         icon: <GitMerge className="w-4 h-4 text-purple-500" />, color: 'text-purple-700' },
-                  { label: 'Active Incidents',  value: (summary?.support as any)?.openIncidents ?? 0, icon: <AlertTriangle className="w-4 h-4 text-orange-500" />, color: 'text-orange-700' },
-                  { label: 'Repositories',      value: summary?.devops?.totalRepositories ?? '—', icon: <Layers className="w-4 h-4 text-indigo-500" />, color: 'text-indigo-700' },
-                  { label: 'Customers',         value: (summary?.customers as any)?.total ?? '—', icon: <BarChart3 className="w-4 h-4 text-cyan-500" />, color: 'text-cyan-700' },
-                  { label: 'Reopened Bugs',     value: qualitySummary?.reopenedBugs ?? 0, icon: <RotateCcw className="w-4 h-4 text-red-400" />, color: 'text-red-600' },
-                ].map(({ label, value, icon, color }) => (
-                  <div key={label} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+                  { label: 'Open PRs',          value: summary?.devops?.openPRs ?? 0, icon: <GitMerge className="w-4 h-4 text-purple-500" />, color: 'text-purple-700', action: () => navigate('/pull-requests') },
+                  { label: 'Active Incidents',  value: (summary?.support as any)?.openIncidents ?? 0, icon: <AlertTriangle className="w-4 h-4 text-orange-500" />, color: 'text-orange-700', action: () => navigate('/production') },
+                  { label: 'Repositories',      value: summary?.devops?.totalRepositories ?? '—', icon: <Layers className="w-4 h-4 text-indigo-500" />, color: 'text-indigo-700', action: () => navigate('/engineering') },
+                  { label: 'Customers',         value: (summary?.customers as any)?.total ?? '—', icon: <BarChart3 className="w-4 h-4 text-cyan-500" />, color: 'text-cyan-700', action: () => navigate('/customers') },
+                ].map(({ label, value, icon, color, action }) => (
+                  <button key={label} onClick={action}
+                    className="w-full flex items-center justify-between py-2 px-1 border-b border-gray-50 last:border-0 hover:bg-gray-50 rounded transition-colors"
+                  >
                     <div className="flex items-center gap-2 text-sm text-gray-600">{icon}{label}</div>
-                    <span className={clsx('text-sm font-bold', color)}>{loading ? '…' : value}</span>
-                  </div>
+                    <div className="flex items-center gap-1">
+                      <span className={clsx('text-sm font-bold', color)}>{loading ? '…' : value}</span>
+                      <ChevronRight className="w-3 h-3 text-gray-400" />
+                    </div>
+                  </button>
                 ))}
               </div>
             </SectionCard>
 
-            {/* Quick navigation */}
-            <SectionCard title="Quick Navigate" icon={Zap} iconColor="text-amber-500">
-              <div className="p-3 grid grid-cols-2 gap-1.5">
+            {/* Top Reopened Bugs Alert */}
+            {reopenedBugs.length > 0 && (
+              <div className="bg-gradient-to-br from-orange-50 to-red-50 border-2 border-orange-200 rounded-2xl p-5 shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <RotateCcw className="w-5 h-5 text-orange-600" />
+                  <h3 className="text-sm font-bold text-orange-900 uppercase tracking-wider">Needs Review</h3>
+                </div>
+                <div className="space-y-2.5">
+                  {reopenedBugs.slice(0, 4).map(bug => (
+                    <div key={bug.id} className="bg-white rounded-lg p-3 border border-orange-100 hover:border-orange-200 transition-colors cursor-pointer"
+                      onClick={() => window.open(bug.devOpsUrl, '_blank')}
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <span className="text-xs font-semibold text-gray-800 line-clamp-2 flex-1">{bug.title}</span>
+                        <span className="flex-shrink-0 px-1.5 py-0.5 bg-orange-100 text-orange-700 text-[10px] font-bold rounded">
+                          {bug.reopenCount}x
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px] text-gray-500">
+                        <span className="font-medium text-gray-600">{bug.assignedTo || 'Unassigned'}</span>
+                        <span>•</span>
+                        <span>{ageLabel(bug.createdDate)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={() => navigate('/quality')}
+                  className="w-full mt-3 py-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                >
+                  View All Reopened Bugs
+                  <ExternalLink className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+
+            {/* Quick Actions */}
+            <SectionCard title="Quick Actions" icon={Zap} iconColor="text-amber-500">
+              <div className="p-3 space-y-2">
                 {[
-                  { label: 'Quality',       path: '/quality',       icon: Bug,            color: 'bg-red-50 text-red-600' },
-                  { label: 'Engineering',   path: '/engineering',   icon: Code2,          color: 'bg-blue-50 text-blue-600' },
-                  { label: 'Releases',      path: '/releases',      icon: Rocket,         color: 'bg-green-50 text-green-600' },
-                  { label: 'Pull Requests', path: '/pull-requests', icon: GitPullRequest, color: 'bg-purple-50 text-purple-600' },
-                  { label: 'Jenkins',       path: '/jenkins',       icon: Terminal,       color: 'bg-gray-50 text-gray-700' },
-                  { label: 'Customers',     path: '/customers',     icon: Users,          color: 'bg-pink-50 text-pink-600' },
+                  { label: 'Quality Dashboard',   path: '/quality',       icon: Bug,            color: 'bg-red-50 text-red-600 border-red-100' },
+                  { label: 'Engineering Metrics', path: '/engineering',   icon: Code2,          color: 'bg-blue-50 text-blue-600 border-blue-100' },
+                  { label: 'Release Management',  path: '/releases',      icon: Rocket,         color: 'bg-green-50 text-green-600 border-green-100' },
+                  { label: 'Team Management',     path: '/users',         icon: Users,          color: 'bg-purple-50 text-purple-600 border-purple-100' },
+                  { label: 'Bug Analytics',       path: '/bug-analytics', icon: BarChart3,      color: 'bg-indigo-50 text-indigo-600 border-indigo-100' },
                 ].map(({ label, path, icon: Icon, color }) => (
                   <button key={path} onClick={() => navigate(path)}
-                    className="flex items-center gap-2 p-2.5 rounded-xl hover:bg-gray-50 transition-all text-sm font-medium text-gray-700 hover:text-gray-900"
+                    className={clsx('w-full flex items-center gap-2.5 p-3 rounded-xl border hover:shadow-sm transition-all text-sm font-semibold', color)}
                   >
-                    <div className={clsx('w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0', color)}>
-                      <Icon className="w-3.5 h-3.5" />
-                    </div>
-                    {label}
+                    <Icon className="w-4 h-4 flex-shrink-0" />
+                    <span className="flex-1 text-left">{label}</span>
+                    <ArrowUpRight className="w-3.5 h-3.5 opacity-50" />
                   </button>
                 ))}
               </div>
             </SectionCard>
           </div>
         </div>
+        
+        {/* Work Item Details Modal */}
+        {showWorkItemModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowWorkItemModal(false)}>
+            <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+              {/* Modal Header */}
+              <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-2xl font-bold text-white">{modalTitle}</h2>
+                  <button onClick={() => setShowWorkItemModal(false)} className="p-2 hover:bg-white/20 rounded-lg transition-colors">
+                    <AlertCircle className="w-5 h-5 text-white" />
+                  </button>
+                </div>
+                <p className="text-sm text-indigo-100">{modalSubtitle}</p>
+              </div>
+              
+              {/* Modal Content */}
+              <div className="p-6 overflow-y-auto max-h-[calc(80vh-120px)]">
+                {modalWorkItems.length === 0 ? (
+                  <div className="text-center py-12">
+                    <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                    <p className="text-lg font-semibold text-gray-700">No items found</p>
+                    <p className="text-sm text-gray-500 mt-2">All work items in this category have been resolved</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {modalWorkItems.map(item => (
+                      <div key={item.id} className="border border-gray-200 rounded-xl p-4 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer"
+                        onClick={() => window.open(item.devOpsUrl, '_blank')}
+                      >
+                        <div className="flex items-start justify-between gap-4 mb-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-bold rounded">{item.workItemType}</span>
+                              {item.priority && (
+                                <span className={clsx('px-2 py-1 text-xs font-bold rounded',
+                                  item.priority === 1 ? 'bg-red-100 text-red-700' :
+                                  item.priority === 2 ? 'bg-orange-100 text-orange-700' :
+                                  item.priority === 3 ? 'bg-yellow-100 text-yellow-700' :
+                                  'bg-gray-100 text-gray-700'
+                                )}>P{item.priority}</span>
+                              )}
+                              <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded">{item.state}</span>
+                              {item.reopenCount > 0 && (
+                                <span className="px-2 py-1 bg-orange-100 text-orange-700 text-xs font-bold rounded flex items-center gap-1">
+                                  <RotateCcw className="w-3 h-3" />
+                                  {item.reopenCount}x
+                                </span>
+                              )}
+                            </div>
+                            <h3 className="font-semibold text-gray-900 mb-2">{item.title}</h3>
+                            <div className="flex items-center gap-3 text-xs text-gray-500">
+                              <span className="font-medium text-gray-700">{item.assignedTo || 'Unassigned'}</span>
+                              <span>•</span>
+                              <span>{ageLabel(item.createdDate)}</span>
+                              {item.ageDays > 0 && (
+                                <>
+                                  <span>•</span>
+                                  <span>{item.ageDays} days old</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <ExternalLink className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                        </div>
+                        
+                        {item.tags.length > 0 && (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {item.tags.map((tag, idx) => (
+                              <span key={idx} className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] rounded">{tag}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              {/* Modal Footer */}
+              <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  Showing <strong className="text-gray-900">{modalWorkItems.length}</strong> work items
+                </div>
+                <button onClick={() => setShowWorkItemModal(false)}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
