@@ -5,12 +5,12 @@ import {
   getReleases, getReleaseWorkItems, getOwnerEfficiency, getFilterOptions,
   getTrend, getAgingDistribution,
   getAreaPaths, getRepositories, getKpiSummary, getBugDetailWithContext, getTodayActivity,
-  getWorkItemCommits,
+  getWorkItemCommits, getTeamWorkload,
   QualityWorkItemDto, QualityReleaseDto,
   OwnerEfficiencyDto, QualityFilterOptionsDto, QualityTrendPointDto,
   BugAgingDistributionDto, QualityConnection, QualityAreaPath, QualityRepository,
   KpiSummary, BugDetailContext, TodayActivity,
-  WorkItemRelations,
+  WorkItemRelations, TeamWorkloadResponse, TeamWorkloadPersonDto,
   getSeverityColor, getStateColor, getReleaseStateColor,
   formatDate, formatRelativeTime, getEfficiencyColor, getCompletionColor
 } from '../services/qualityService';
@@ -20,13 +20,15 @@ import {
   HrDepartment, HrBirthday
 } from '../services/hrPortalService';
 import { useAuth } from '../context/AuthContext';
+import { useDevHierarchy } from '../hooks/useDevHierarchy';
+import { DirectorSummaryInfo } from '../stores/devHierarchyStore';
 import {
   Bug, Calendar, ChevronDown, ChevronRight, Clock, ExternalLink, Filter,
   Loader2, RefreshCw, Search, User, Users, X,
   AlertTriangle, BarChart3, Target, ArrowUpDown,
   TrendingUp, TrendingDown, Activity, Shield, GitBranch, Layers,
   FileText, Link2, CheckCircle2, Minus, Cake, GitPullRequest, GitCommitHorizontal, FolderGit2,
-  Image, Copy, ClipboardList, UserCircle
+  Image, Copy, ClipboardList, UserCircle, UsersRound, ListChecks, Star, Workflow
 } from 'lucide-react';
 
 // ============================================================================
@@ -39,6 +41,11 @@ type TabType = 'overview' | 'my-bugs' | 'sprints' | 'team' | 'query';
 // ============================================================================
 const QualityDashboardV2: React.FC = () => {
   const { user } = useAuth();
+  const { hierarchyEmails, selectedDirector, directors, isAdmin, selectDirector, clearSelection } = useDevHierarchy();
+
+  // Team workload (hierarchy-scoped manager view)
+  const [teamWorkload, setTeamWorkload] = useState<TeamWorkloadResponse | null>(null);
+  const [teamWorkloadLoading, setTeamWorkloadLoading] = useState(false);
 
   // Connection & area state
   const [connections, setConnections] = useState<QualityConnection[]>([]);
@@ -57,19 +64,19 @@ const QualityDashboardV2: React.FC = () => {
 
   // Data state
   const [kpi, setKpi] = useState<KpiSummary | null>(null);
-  const [bugs, setBugs] = useState<QualityWorkItemDto[]>([]);
+  const [_bugs, setBugs] = useState<QualityWorkItemDto[]>([]);
   const [myBugs, setMyBugs] = useState<QualityWorkItemDto[]>([]);
   const [releases, setReleases] = useState<QualityReleaseDto[]>([]);
   const [ownerEfficiency, setOwnerEfficiency] = useState<OwnerEfficiencyDto[]>([]);
   const [filterOptions, setFilterOptions] = useState<QualityFilterOptionsDto | null>(null);
-  const [trendData, setTrendData] = useState<QualityTrendPointDto[]>([]);
-  const [agingData, setAgingData] = useState<BugAgingDistributionDto[]>([]);
+  const [_trendData, setTrendData] = useState<QualityTrendPointDto[]>([]);
+  const [_agingData, setAgingData] = useState<BugAgingDistributionDto[]>([]);
 
   // Data freshness
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
 
   // Today Activity (PRs + Commits grouped by Repo)
-  const [todayActivity, setTodayActivity] = useState<TodayActivity | null>(null);
+  const [_todayActivity, setTodayActivity] = useState<TodayActivity | null>(null);
   const [userScope, setUserScope] = useState<'mine' | 'all'>('mine');
 
   // User tracker — select any team member to view their work items
@@ -84,7 +91,7 @@ const QualityDashboardV2: React.FC = () => {
   const [selectedDepartment, setSelectedDepartment] = useState<string>(() =>
     localStorage.getItem('quality_hr_dept') || ''
   );
-  const [birthdays, setBirthdays] = useState<HrBirthday[]>([]);
+  const [_birthdays, setBirthdays] = useState<HrBirthday[]>([]);
 
   // Bug detail modal (replaces side panel)
   const [selectedBugId, setSelectedBugId] = useState<number | null>(null);
@@ -102,7 +109,7 @@ const QualityDashboardV2: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [expandedRelease, setExpandedRelease] = useState<string | null>(null);
   const [releaseWorkItems, setReleaseWorkItems] = useState<QualityWorkItemDto[]>([]);
-  const [bugFilter, setBugFilter] = useState({ state: '', severity: '', search: '' });
+  const [_bugFilter, _setBugFilter] = useState({ state: '', severity: '', search: '' });
   const [sortField, setSortField] = useState<string>('changedDate');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
@@ -167,13 +174,38 @@ const QualityDashboardV2: React.FC = () => {
     }
   }, [selectedConnectionId, selectedAreaPath, selectedRepoIds, userScope]);
 
+  const loadTeamWorkload = useCallback(async () => {
+    if (!selectedConnectionId) return;
+    setTeamWorkloadLoading(true);
+    try {
+      const data = await getTeamWorkload(
+        selectedConnectionId,
+        selectedAreaPath,
+        hierarchyEmails.length > 0 ? hierarchyEmails : undefined
+      );
+      setTeamWorkload(data);
+    } catch (err) {
+      console.error('Failed to load team workload:', err);
+    } finally {
+      setTeamWorkloadLoading(false);
+    }
+  }, [selectedConnectionId, selectedAreaPath, hierarchyEmails]);
+
   useEffect(() => { loadInitialData(); }, [loadInitialData]);
   useEffect(() => {
     if (selectedConnectionId) {
       loadDashboardData();
+      loadTeamWorkload();
       loadTabData(activeTab);
     }
   }, [selectedConnectionId, selectedAreaPath, selectedRepoIds, loadDashboardData]);
+
+  // Reload team workload when hierarchy changes (director selection or user hierarchy loads)
+  useEffect(() => {
+    if (selectedConnectionId) {
+      loadTeamWorkload();
+    }
+  }, [hierarchyEmails, loadTeamWorkload]);
 
   // Reload repos when connection changes
   useEffect(() => {
@@ -277,6 +309,7 @@ const QualityDashboardV2: React.FC = () => {
     setMyBugs([]);
     setOwnerEfficiency([]);
     loadDashboardData();
+    loadTeamWorkload();
     loadTabData(activeTab);
   };
 
@@ -359,13 +392,6 @@ const QualityDashboardV2: React.FC = () => {
     else { setSortField(field); setSortDir('desc'); }
   };
 
-  // Filtered bugs for overview
-  const filteredBugs = sortedBugs(bugs.filter(b => {
-    if (bugFilter.state && b.state !== bugFilter.state) return false;
-    if (bugFilter.severity && b.severity !== bugFilter.severity) return false;
-    if (bugFilter.search && !b.title.toLowerCase().includes(bugFilter.search.toLowerCase()) && !b.id.toString().includes(bugFilter.search)) return false;
-    return true;
-  }));
 
   // ============================================================================
   // Render
@@ -780,15 +806,17 @@ const QualityDashboardV2: React.FC = () => {
             </div>
 
             {/* Tab Content */}
-            {activeTab === 'overview' && <OverviewTab
-              kpi={kpi} bugs={filteredBugs} trendData={trendData} agingData={agingData}
-              todayActivity={todayActivity} birthdays={birthdays}
-              bugFilter={bugFilter} setBugFilter={setBugFilter}
-              sortField={sortField} sortDir={sortDir} toggleSort={toggleSort}
-              onBugClick={handleBugClick} selectedBugId={selectedBugId}
-              onContextMenu={handleContextMenu}
-            />}
-            {activeTab === 'my-bugs' && (
+            {activeTab === 'overview' && <ManagerOverviewTab
+              teamWorkload={teamWorkload}
+              isLoading={teamWorkloadLoading}
+              onBugClick={handleBugClick}
+              selectedBugId={selectedBugId}
+              isAdmin={isAdmin}
+              directors={directors}
+              selectedDirector={selectedDirector}
+              onSelectDirector={selectDirector}
+              onClearDirector={clearSelection}
+            />}            {activeTab === 'my-bugs' && (
               selectedUser ? (
                 <MyBugsTab
                   bugs={sortedBugs(userWorkItemsLoading ? [] : userWorkItems)}
@@ -1409,22 +1437,315 @@ const Card: React.FC<{ children: React.ReactNode; className?: string; title?: st
 // ============================================================================
 // Overview Tab — insights + charts + table
 // ============================================================================
-const OverviewTab: React.FC<{
-  kpi: KpiSummary | null; bugs: QualityWorkItemDto[];
-  trendData: QualityTrendPointDto[]; agingData: BugAgingDistributionDto[];
-  todayActivity: TodayActivity | null; birthdays: HrBirthday[];
-  bugFilter: { state: string; severity: string; search: string };
-  setBugFilter: React.Dispatch<React.SetStateAction<{ state: string; severity: string; search: string }>>;
-  sortField: string; sortDir: string; toggleSort: (f: string) => void;
-  onBugClick: (id: number) => void; selectedBugId: number | null;
-  onContextMenu?: (e: React.MouseEvent, bug: QualityWorkItemDto) => void;
-}> = ({ kpi, bugs, trendData, agingData, todayActivity, birthdays, bugFilter, setBugFilter, sortField, sortDir, toggleSort, onBugClick, selectedBugId, onContextMenu }) => {
+// ============================================================
+// Manager Overview Tab — Hierarchy-Scoped Command Center
+// ============================================================
+interface ManagerOverviewProps {
+  teamWorkload: TeamWorkloadResponse | null;
+  isLoading: boolean;
+  onBugClick: (id: number) => void;
+  selectedBugId: number | null;
+  isAdmin: boolean;
+  directors: DirectorSummaryInfo[];
+  selectedDirector: DirectorSummaryInfo | null;
+  onSelectDirector: (d: DirectorSummaryInfo) => void;
+  onClearDirector: () => void;
+}
+
+const ManagerOverviewTab: React.FC<ManagerOverviewProps> = ({
+  teamWorkload, isLoading, onBugClick, selectedBugId,
+  isAdmin, directors, selectedDirector, onSelectDirector, onClearDirector,
+}) => {
+  const tw = teamWorkload;
+
+  const typeBuckets = tw ? [
+    {
+      label: 'Bugs',
+      icon: <Bug className="w-4 h-4 text-red-500" />,
+      total: tw.typeSummary.bugs.total,
+      a: { label: 'Open', val: tw.typeSummary.bugs.open ?? 0 },
+      b: { label: 'Closed', val: tw.typeSummary.bugs.closed ?? 0 },
+      accent: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
+      barColor: 'bg-red-500',
+      badge: tw.typeSummary.bugs.critical! > 0
+        ? <span className="ml-1 text-[10px] font-bold bg-red-600 text-white rounded px-1.5 py-0.5">{tw.typeSummary.bugs.critical} CRIT</span>
+        : null,
+    },
+    {
+      label: 'Features',
+      icon: <Star className="w-4 h-4 text-purple-500" />,
+      total: tw.typeSummary.features.total,
+      a: { label: 'Active', val: tw.typeSummary.features.active ?? 0 },
+      b: { label: 'Done', val: tw.typeSummary.features.completed ?? 0 },
+      accent: 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800',
+      barColor: 'bg-purple-500',
+      badge: null,
+    },
+    {
+      label: 'User Stories',
+      icon: <FileText className="w-4 h-4 text-blue-500" />,
+      total: tw.typeSummary.userStories.total,
+      a: { label: 'Active', val: tw.typeSummary.userStories.active ?? 0 },
+      b: { label: 'Done', val: tw.typeSummary.userStories.completed ?? 0 },
+      accent: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
+      barColor: 'bg-blue-500',
+      badge: null,
+    },
+    {
+      label: 'Tasks',
+      icon: <ListChecks className="w-4 h-4 text-green-500" />,
+      total: tw.typeSummary.tasks.total,
+      a: { label: 'Active', val: tw.typeSummary.tasks.active ?? 0 },
+      b: { label: 'Done', val: tw.typeSummary.tasks.completed ?? 0 },
+      accent: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
+      barColor: 'bg-green-500',
+      badge: null,
+    },
+    {
+      label: 'Change Requests',
+      icon: <Workflow className="w-4 h-4 text-amber-500" />,
+      total: tw.typeSummary.changeRequests.total,
+      a: { label: 'Active', val: tw.typeSummary.changeRequests.active ?? 0 },
+      b: { label: 'Done', val: tw.typeSummary.changeRequests.completed ?? 0 },
+      accent: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800',
+      barColor: 'bg-amber-500',
+      badge: null,
+    },
+  ] : [];
+
+  return (
+    <div className="space-y-5">
+      {/* ── Hierarchy Director Picker (admin only) ── */}
+      {isAdmin && directors.length > 0 && (
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <UsersRound className="w-4 h-4 text-indigo-500" />
+            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Scope to Director's Team</span>
+            {selectedDirector && (
+              <button onClick={onClearDirector}
+                className="ml-auto text-xs text-slate-400 hover:text-red-500 flex items-center gap-1 transition-colors">
+                <X className="w-3 h-3" /> Clear
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {directors.map(d => (
+              <button key={d.employeeId}
+                onClick={() => onSelectDirector(d)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border
+                  ${selectedDirector?.employeeId === d.employeeId
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                    : 'bg-slate-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-indigo-400'}`}>
+                {d.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Loading state ── */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+          <span className="ml-3 text-sm text-slate-500 dark:text-slate-400">Loading team workload...</span>
+        </div>
+      )}
+
+      {/* ── No connection ── */}
+      {!isLoading && !tw && (
+        <div className="text-center py-16 text-slate-400 dark:text-slate-500">
+          <BarChart3 className="w-12 h-12 mx-auto mb-3 opacity-40" />
+          <p className="text-sm">Select a DevOps connection to view team workload</p>
+        </div>
+      )}
+
+      {!isLoading && tw && (
+        <>
+          {/* ── Scope banner ── */}
+          <div className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium
+            ${tw.isScoped
+              ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700'
+              : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'}`}>
+            {tw.isScoped
+              ? <><UsersRound className="w-3.5 h-3.5" /> Scoped to {tw.teamSize} team member{tw.teamSize !== 1 ? 's' : ''} — {tw.totalWorkItems} work items</>
+              : <><Users className="w-3.5 h-3.5" /> All contributors — {tw.totalWorkItems} work items across {tw.teamSize} assignees</>}
+          </div>
+
+          {/* ── Type Summary Cards ── */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {typeBuckets.map(b => {
+              const closedVal = b.b.val;
+              const pct = b.total > 0 ? Math.round((closedVal / b.total) * 100) : 0;
+              return (
+                <div key={b.label} className={`rounded-xl border p-4 ${b.accent}`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-1.5">
+                      {b.icon}
+                      <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{b.label}</span>
+                    </div>
+                    {b.badge}
+                  </div>
+                  <div className="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-1">{b.total}</div>
+                  <div className="flex justify-between text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    <span>{b.a.label}: <strong className="text-slate-700 dark:text-slate-200">{b.a.val}</strong></span>
+                    <span>{b.b.label}: <strong className="text-slate-700 dark:text-slate-200">{b.b.val}</strong></span>
+                  </div>
+                  <div className="mt-2 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                    <div className={`h-full rounded-full ${b.barColor}`} style={{ width: `${pct}%` }} />
+                  </div>
+                  <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 text-right">{pct}% done</div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ── Per-Person Workload Table ── */}
+          {tw.perPerson.length > 0 && (
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+              <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
+                <Activity className="w-4 h-4 text-indigo-500" />
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Team Member Workload</h3>
+                <span className="ml-auto text-xs text-slate-400 dark:text-slate-500">{tw.perPerson.length} assignees</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                      <th className="text-left px-4 py-2.5 font-semibold">Member</th>
+                      <th className="text-center px-3 py-2.5 font-semibold">Total</th>
+                      <th className="text-center px-3 py-2.5 font-semibold">Active</th>
+                      <th className="text-center px-3 py-2.5 font-semibold">Done</th>
+                      <th className="text-center px-3 py-2.5 font-semibold">Completion</th>
+                      <th className="text-center px-3 py-2.5 font-semibold">Open Bugs</th>
+                      <th className="text-center px-3 py-2.5 font-semibold">Features</th>
+                      <th className="text-center px-3 py-2.5 font-semibold">Tasks</th>
+                      <th className="text-right px-4 py-2.5 font-semibold">Last Activity</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                    {tw.perPerson.map((p: TeamWorkloadPersonDto, i: number) => (
+                      <tr key={p.name + i}
+                        className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-[10px] font-bold text-indigo-700 dark:text-indigo-300 shrink-0">
+                              {p.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="font-medium text-slate-800 dark:text-slate-200">{p.name}</div>
+                              {p.email && <div className="text-[10px] text-slate-400 dark:text-slate-500">{p.email}</div>}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="text-center px-3 py-2.5 font-semibold text-slate-700 dark:text-slate-200">{p.total}</td>
+                        <td className="text-center px-3 py-2.5">
+                          <span className="inline-block min-w-[1.5rem] px-1.5 py-0.5 rounded bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 font-semibold">{p.active}</span>
+                        </td>
+                        <td className="text-center px-3 py-2.5">
+                          <span className="inline-block min-w-[1.5rem] px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 font-semibold">{p.completed}</span>
+                        </td>
+                        <td className="text-center px-3 py-2.5">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <div className="w-16 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                              <div className={`h-full rounded-full ${p.completionRate >= 70 ? 'bg-green-500' : p.completionRate >= 40 ? 'bg-yellow-500' : 'bg-red-400'}`}
+                                style={{ width: `${p.completionRate}%` }} />
+                            </div>
+                            <span className={`text-[11px] font-semibold ${p.completionRate >= 70 ? 'text-green-600 dark:text-green-400' : p.completionRate >= 40 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-500 dark:text-red-400'}`}>
+                              {p.completionRate}%
+                            </span>
+                          </div>
+                        </td>
+                        <td className="text-center px-3 py-2.5">
+                          {p.openBugs > 0 ? (
+                            <span className={`inline-block px-1.5 py-0.5 rounded font-semibold text-[11px] ${p.criticalBugs > 0 ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300' : 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300'}`}>
+                              {p.openBugs}{p.criticalBugs > 0 ? ` (${p.criticalBugs}🔴)` : ''}
+                            </span>
+                          ) : <span className="text-slate-300 dark:text-slate-600">—</span>}
+                        </td>
+                        <td className="text-center px-3 py-2.5 text-slate-600 dark:text-slate-300">{p.features || <span className="text-slate-300 dark:text-slate-600">—</span>}</td>
+                        <td className="text-center px-3 py-2.5 text-slate-600 dark:text-slate-300">{p.tasks || <span className="text-slate-300 dark:text-slate-600">—</span>}</td>
+                        <td className="text-right px-4 py-2.5 text-slate-400 dark:text-slate-500">
+                          {p.lastActivity ? formatRelativeTime(p.lastActivity) : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ── Active Bugs Attention List ── */}
+          {tw.activeBugs.length > 0 && (
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+              <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-500" />
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Open Bugs — Needs Attention</h3>
+                <span className="ml-auto text-xs text-slate-400 dark:text-slate-500">{tw.activeBugs.length} open</span>
+              </div>
+              <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                {tw.activeBugs.slice(0, 50).map(bug => (
+                  <div key={bug.id}
+                    onClick={() => onBugClick(bug.id)}
+                    className={`flex items-start gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/30 cursor-pointer transition-colors
+                      ${selectedBugId === bug.id ? 'bg-indigo-50 dark:bg-indigo-900/20 border-l-2 border-indigo-500' : ''}`}>
+                    {/* Priority badge */}
+                    <div className={`shrink-0 mt-0.5 w-5 h-5 rounded text-center text-[10px] font-bold leading-5
+                      ${bug.priority === 1 ? 'bg-red-600 text-white'
+                        : bug.priority === 2 ? 'bg-orange-500 text-white'
+                        : bug.priority === 3 ? 'bg-yellow-400 text-slate-800'
+                        : 'bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300'}`}>
+                      {bug.priority ?? '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs text-slate-400 dark:text-slate-500 font-mono shrink-0">#{bug.id}</span>
+                        <span className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{bug.title}</span>
+                        {bug.severity && (
+                          <span className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded ${getSeverityColor(bug.severity)}`}>{bug.severity}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 mt-0.5 text-[11px] text-slate-400 dark:text-slate-500 flex-wrap">
+                        {bug.assignedTo && <span className="flex items-center gap-1"><User className="w-3 h-3" />{bug.assignedTo}</span>}
+                        {bug.areaPath && <span className="truncate max-w-[200px]">{bug.areaPath.split('\\').pop()}</span>}
+                        <span>{bug.ageDays}d old</span>
+                        <span className={`px-1.5 py-0.5 rounded ${getStateColor(bug.state)}`}>{bug.state}</span>
+                      </div>
+                    </div>
+                    {bug.devOpsUrl && (
+                      <a href={bug.devOpsUrl} target="_blank" rel="noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="shrink-0 text-slate-300 hover:text-indigo-500 dark:text-slate-600 dark:hover:text-indigo-400 transition-colors mt-0.5">
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
+                ))}
+                {tw.activeBugs.length > 50 && (
+                  <div className="px-4 py-3 text-xs text-center text-slate-400 dark:text-slate-500">
+                    + {tw.activeBugs.length - 50} more — use Filters tab for full list
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
+// ============================================================================
+// My Bugs Tab — personal work item tracker
+// ============================================================================
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _OverviewTabLegacy: React.FC<any> = ({ kpi, bugs, trendData, agingData, todayActivity, birthdays, bugFilter, setBugFilter, sortField, sortDir, toggleSort, onBugClick, selectedBugId, onContextMenu }) => {
   const [expandedPrRepo, setExpandedPrRepo] = useState<string | null>(null);
   const [expandedCommitRepo, setExpandedCommitRepo] = useState<string | null>(null);
   
   if (!kpi) return null;
 
-  const upcomingBirthdays = birthdays.filter(b => b.daysUntil <= 30);
+  const upcomingBirthdays = birthdays.filter((b: any) => b.daysUntil <= 30);
 
   const pr = todayActivity?.pullRequests;
   const cm = todayActivity?.commits;
@@ -1464,25 +1785,25 @@ const OverviewTab: React.FC<{
                 </div>
                 {/* Repo accordion */}
                 <div className="space-y-1.5 max-h-[340px] overflow-y-auto">
-                  {pr.byRepo.map(repo => (
+                  {pr.byRepo.map((repo: any) => (
                     <div key={repo.repo} className="border border-slate-200 dark:border-slate-700/50 rounded-lg overflow-hidden">
                       <button onClick={() => setExpandedPrRepo(expandedPrRepo === repo.repo ? null : repo.repo)}
                         className="w-full flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-left">
                         {expandedPrRepo === repo.repo ? <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />}
                         <FolderGit2 className="w-3.5 h-3.5 text-purple-500 shrink-0" />
                         <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate flex-1">{repo.repo}</span>
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">{repo.branches.reduce((s, b) => s + b.prs.length, 0)} PRs</span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">{repo.branches.reduce((s: any, b: any) => s + b.prs.length, 0)} PRs</span>
                       </button>
                       {expandedPrRepo === repo.repo && (
                         <div className="px-3 py-2 space-y-2">
-                          {repo.branches.map(branch => (
+                          {repo.branches.map((branch: any) => (
                             <div key={branch.branch}>
                               <div className="flex items-center gap-1.5 mb-1">
                                 <GitBranch className="w-3 h-3 text-blue-500" />
                                 <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">{branch.branch}</span>
                                 <span className="text-[10px] text-slate-400">({branch.prs.length})</span>
                               </div>
-                              {branch.prs.map(p => (
+                              {branch.prs.map((p: any) => (
                                 <div key={p.pullRequestId} className="flex items-center gap-2 pl-4 py-1 hover:bg-slate-50 dark:hover:bg-slate-800/30 rounded transition-colors">
                                   <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${p.status === 'active' ? 'bg-blue-500' : p.status === 'completed' ? 'bg-green-500' : 'bg-slate-400'}`} />
                                   <span className="text-[10px] font-mono text-slate-400">!{p.pullRequestId}</span>
@@ -1536,7 +1857,7 @@ const OverviewTab: React.FC<{
                 </div>
                 {/* Repo accordion */}
                 <div className="space-y-1.5 max-h-[340px] overflow-y-auto">
-                  {cm.byRepo.map(repo => (
+                  {cm.byRepo.map((repo: any) => (
                     <div key={repo.repo} className="border border-slate-200 dark:border-slate-700/50 rounded-lg overflow-hidden">
                       <button onClick={() => setExpandedCommitRepo(expandedCommitRepo === repo.repo ? null : repo.repo)}
                         className="w-full flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-left">
@@ -1547,14 +1868,14 @@ const OverviewTab: React.FC<{
                       </button>
                       {expandedCommitRepo === repo.repo && (
                         <div className="px-3 py-2 space-y-2">
-                          {repo.authors.map(author => (
+                          {repo.authors.map((author: any) => (
                             <div key={author.author}>
                               <div className="flex items-center gap-1.5 mb-1">
                                 <User className="w-3 h-3 text-indigo-500" />
                                 <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400">{author.author}</span>
                                 <span className="text-[10px] text-slate-400">({author.commits.length})</span>
                               </div>
-                              {author.commits.map(c => (
+                              {author.commits.map((c: any) => (
                                 <div key={c.shortCommitId} className="flex items-center gap-2 pl-4 py-1 hover:bg-slate-50 dark:hover:bg-slate-800/30 rounded transition-colors">
                                   <span className="text-[10px] font-mono text-cyan-600 dark:text-cyan-400 shrink-0">{c.shortCommitId}</span>
                                   <span className="text-xs text-slate-700 dark:text-slate-300 truncate flex-1">{c.comment}</span>
@@ -1579,7 +1900,7 @@ const OverviewTab: React.FC<{
         <Card title="Upcoming Birthdays" titleIcon={<Cake className="w-3.5 h-3.5 text-pink-500" />}>
           <div className="px-5 py-4">
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2">
-              {upcomingBirthdays.slice(0, 12).map(b => (
+              {upcomingBirthdays.slice(0, 12).map((b: any) => (
                 <div key={b.employeeId} className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
                   b.isToday ? 'bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-800/40' :
                   b.daysUntil <= 2 ? 'bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-800/30' :
@@ -1605,7 +1926,7 @@ const OverviewTab: React.FC<{
         {kpi.byType && Object.keys(kpi.byType).length > 0 && (
           <Card title="By Type">
             <div className="px-5 py-4 space-y-3">
-              {Object.entries(kpi.byType).map(([type, count]) => (
+              {Object.entries(kpi.byType).map(([type, count]: [string, any]) => (
                 <div key={type} className="flex items-center justify-between">
                   <span className={`px-2 py-0.5 rounded-md border text-xs font-semibold ${getTypeBadge(type)}`}>{type}</span>
                   <div className="flex items-center gap-2.5">
@@ -1623,7 +1944,7 @@ const OverviewTab: React.FC<{
         {/* By State */}
         <Card title="By State">
           <div className="px-5 py-4 space-y-3">
-            {Object.entries(kpi.byState).map(([state, count]) => (
+            {Object.entries(kpi.byState).map(([state, count]: [string, any]) => (
               <div key={state} className="flex items-center justify-between">
                 <span className={`px-2.5 py-1 rounded-md text-xs font-semibold ${getStateColor(state)}`}>{state}</span>
                 <div className="flex items-center gap-2.5">
@@ -1640,7 +1961,7 @@ const OverviewTab: React.FC<{
         {/* By Severity */}
         <Card title="By Severity">
           <div className="px-5 py-4 space-y-3">
-            {Object.entries(kpi.bySeverity).map(([sev, count]) => (
+            {Object.entries(kpi.bySeverity).map(([sev, count]: [string, any]) => (
               <div key={sev} className="flex items-center justify-between">
                 <span className={`px-2.5 py-1 rounded-md text-xs font-semibold ${getSeverityColor(sev)}`}>{sev}</span>
                 <span className="text-sm font-semibold text-slate-900 dark:text-white">{count}</span>
@@ -1654,7 +1975,7 @@ const OverviewTab: React.FC<{
           <div className="px-5 py-4 space-y-3">
             {kpi.topAreas.length === 0 ? (
               <p className="text-xs text-slate-400 dark:text-slate-500 py-4 text-center">No area data available</p>
-            ) : kpi.topAreas.slice(0, 6).map(area => (
+            ) : kpi.topAreas.slice(0, 6).map((area: any) => (
               <div key={area.area} className="flex items-center justify-between">
                 <span className="text-xs text-slate-700 dark:text-slate-300 truncate max-w-[110px]" title={area.area}>{area.area}</span>
                 <div className="flex items-center gap-2">
@@ -1676,7 +1997,7 @@ const OverviewTab: React.FC<{
         {trendData.length > 0 && (
           <Card title={`Bug Trend (${trendData.length} Days)`} titleIcon={<Activity className="w-3.5 h-3.5 text-blue-500" />}>
             <div className="px-5 py-4">
-              {trendData.every(p => p.opened === 0 && p.closed === 0) ? (
+              {trendData.every((p: any) => p.opened === 0 && p.closed === 0) ? (
                 <div className="py-10 text-center">
                   <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center mx-auto mb-2">
                     <CheckCircle2 className="w-5 h-5 text-emerald-500" />
@@ -1687,9 +2008,9 @@ const OverviewTab: React.FC<{
               ) : (
               <><div className="h-36 flex items-end gap-[2px] overflow-hidden">
                 {(() => {
-                  const maxVal = Math.max(...trendData.map(d => d.opened + d.closed), 1);
+                  const maxVal = Math.max(...trendData.map((d: any) => d.opened + d.closed), 1);
                   const chartH = 132; // px available for bars
-                  return trendData.map((p, i) => {
+                  return trendData.map((p: any, i: any) => {
                     const openedH = (p.opened / maxVal) * chartH;
                     const closedH = (p.closed / maxVal) * chartH;
                     return (
@@ -1727,7 +2048,7 @@ const OverviewTab: React.FC<{
               </div>
             ) : (
               <div className="space-y-3">
-                {agingData.map(a => (
+                {agingData.map((a: any) => (
                   <div key={a.range} className="flex items-center gap-3">
                     <span className="text-xs text-slate-600 dark:text-slate-400 w-24 shrink-0 font-medium">{a.range}</span>
                     <div className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-2.5">
@@ -1755,7 +2076,7 @@ const OverviewTab: React.FC<{
               Critical Active Bugs ({kpi.criticalActive})
             </h3>
             <div className="space-y-1.5">
-              {kpi.recentCritical.map(b => (
+              {kpi.recentCritical.map((b: any) => (
                 <button key={b.id} onClick={() => onBugClick(b.id)}
                   className="w-full text-left flex items-center gap-3 px-3 py-2 hover:bg-red-100/50 dark:hover:bg-red-900/20 rounded-lg transition-colors group">
                   <span className="text-blue-600 dark:text-blue-400 font-mono text-xs font-semibold">#{b.id}</span>
@@ -1775,13 +2096,13 @@ const OverviewTab: React.FC<{
         titleIcon={<Bug className="w-3.5 h-3.5 text-red-500" />}
         action={
           <div className="flex items-center gap-2">
-            <select value={bugFilter.state} onChange={e => setBugFilter(f => ({ ...f, state: e.target.value }))}
+            <select value={bugFilter.state} onChange={e => setBugFilter((f: any) => ({ ...f, state: e.target.value }))}
               className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
               <option value="">All States</option>
               <option value="New">New</option><option value="Active">Active</option>
               <option value="Resolved">Resolved</option><option value="Closed">Closed</option>
             </select>
-            <select value={bugFilter.severity} onChange={e => setBugFilter(f => ({ ...f, severity: e.target.value }))}
+            <select value={bugFilter.severity} onChange={e => setBugFilter((f: any) => ({ ...f, severity: e.target.value }))}
               className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
               <option value="">All Severities</option>
               <option value="1 - Critical">Critical</option><option value="2 - High">High</option>
@@ -1789,7 +2110,7 @@ const OverviewTab: React.FC<{
             </select>
             <div className="relative">
               <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input value={bugFilter.search} onChange={e => setBugFilter(f => ({ ...f, search: e.target.value }))}
+              <input value={bugFilter.search} onChange={e => setBugFilter((f: any) => ({ ...f, search: e.target.value }))}
                 placeholder="Search..."
                 className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs rounded-lg pl-8 pr-3 py-1.5 w-44 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
             </div>
@@ -1806,6 +2127,7 @@ const OverviewTab: React.FC<{
     </div>
   );
 };
+void _OverviewTabLegacy;
 
 // ============================================================================
 // My Bugs Tab — personal work item tracker

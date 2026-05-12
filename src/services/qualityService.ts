@@ -580,6 +580,66 @@ export const getWorkItemCommits = async (workItemId: number, connectionId?: stri
 };
 
 // ============================================================================
+// Team Workload (hierarchy-scoped manager view)
+// ============================================================================
+
+export interface TeamWorkloadTypeBucket {
+  total: number;
+  open?: number;
+  closed?: number;
+  active?: number;
+  completed?: number;
+  critical?: number;
+  high?: number;
+}
+
+export interface TeamWorkloadTypeSummary {
+  bugs: TeamWorkloadTypeBucket;
+  features: TeamWorkloadTypeBucket;
+  userStories: TeamWorkloadTypeBucket;
+  tasks: TeamWorkloadTypeBucket;
+  changeRequests: TeamWorkloadTypeBucket;
+}
+
+export interface TeamWorkloadPersonDto {
+  name: string;
+  email?: string;
+  total: number;
+  active: number;
+  completed: number;
+  completionRate: number;
+  openBugs: number;
+  criticalBugs: number;
+  features: number;
+  tasks: number;
+  stories: number;
+  lastActivity?: string;
+}
+
+export interface TeamWorkloadResponse {
+  totalWorkItems: number;
+  teamSize: number;
+  isScoped: boolean;
+  typeSummary: TeamWorkloadTypeSummary;
+  perPerson: TeamWorkloadPersonDto[];
+  activeBugs: QualityWorkItemDto[];
+}
+
+export const getTeamWorkload = async (
+  connectionId?: string,
+  areaPath?: string,
+  emails?: string[]
+): Promise<TeamWorkloadResponse> => {
+  const p = new URLSearchParams();
+  if (connectionId) p.append('connectionId', connectionId);
+  if (areaPath) p.append('areaPath', areaPath);
+  if (emails && emails.length > 0) p.append('emails', emails.join(','));
+  const qs = p.toString();
+  const response = await api.get<TeamWorkloadResponse>(`/quality/team-workload${qs ? `?${qs}` : ''}`);
+  return response.data;
+};
+
+// ============================================================================
 // Helper Functions
 // ============================================================================
 
