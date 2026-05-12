@@ -37,7 +37,7 @@ export interface HrDepartment {
 
 export interface HrEmployee {
   id: string;
-  employeeId: string;
+  employeeId: number;
   name: string;
   email?: string;
   department?: string;
@@ -50,12 +50,24 @@ export interface HrEmployee {
   joiningDate?: string;
   reportingTo?: string;
   reportingToId?: string;
+  managerId?: string;
+  managerName?: string;
+  managerDesignation?: string;
+  managerEmployeeId?: string;
+  directReports?: { id: string; employeeId?: number; name: string; designation?: string; department?: string; avatarUrl?: string; }[];
+  team?: string;
+  project?: string;
+  activity?: string;
+  gender?: string;
   avatarUrl?: string;
   status: string;
+  appUserId?: string;
+  appUserName?: string;
+  appUserEmail?: string;
 }
 
 export interface HrBirthday {
-  employeeId: string;
+  employeeId: number;
   name: string;
   department?: string;
   departmentCode?: string;
@@ -74,8 +86,8 @@ export interface DepartmentSummary {
   managerName?: string;
   totalEmployees: number;
   activeEmployees: number;
-  upcomingBirthdays: { employeeId: string; name: string; designation?: string; birthday: string; daysUntil: number; isToday: boolean }[];
-  newJoiners: { employeeId: string; name: string; designation?: string; joiningDate: string }[];
+  upcomingBirthdays: { employeeId: number; name: string; designation?: string; birthday: string; daysUntil: number; isToday: boolean }[];
+  newJoiners: { employeeId: number; name: string; designation?: string; joiningDate: string }[];
   byDesignation: { designation: string; count: number }[];
   byLocation: { location: string; count: number }[];
   employees: HrEmployee[];
@@ -210,23 +222,48 @@ export const getEmployees = async (params: {
   return data;
 };
 
-export const getEmployee = async (employeeId: string): Promise<HrEmployee> => {
+export const getEmployee = async (employeeId: number): Promise<HrEmployee> => {
   const { data } = await api.get(`${BASE}/employees/${employeeId}`);
   return data;
 };
 
-export const createEmployee = async (dto: Partial<HrEmployee> & { employeeId: string; name: string }) => {
+export const createEmployee = async (dto: Partial<HrEmployee> & { employeeId: number; name: string }) => {
   const { data } = await api.post(`${BASE}/employees`, dto);
   return data;
 };
 
-export const bulkCreateEmployees = async (employees: Array<Partial<HrEmployee> & { employeeId: string; name: string }>) => {
+export const bulkCreateEmployees = async (employees: Array<Partial<HrEmployee> & { employeeId: number; name: string }>) => {
   const { data } = await api.post(`${BASE}/employees/bulk`, employees);
   return data as { created: number; updated: number; total: number };
 };
 
-export const updateEmployee = async (employeeId: string, dto: Partial<HrEmployee>) => {
+export const updateEmployee = async (employeeId: number, dto: Partial<HrEmployee>) => {
   const { data } = await api.put(`${BASE}/employees/${employeeId}`, dto);
+  return data;
+};
+
+export const deleteEmployee = async (employeeId: number): Promise<{ message: string }> => {
+  const { data } = await api.delete(`${BASE}/employees/${employeeId}`);
+  return data;
+};
+
+export const deleteAllEmployees = async (): Promise<{ message: string }> => {
+  const { data } = await api.delete(`${BASE}/employees`);
+  return data;
+};
+
+export const checkEmailForAppUser = async (email: string): Promise<{
+  found: boolean;
+  appUserId?: string;
+  displayName?: string;
+  username?: string;
+}> => {
+  const { data } = await api.get(`${BASE}/employees/check-email`, { params: { email } });
+  return data;
+};
+
+export const linkAllEmployeesToAppUsers = async (): Promise<{ message: string; linked: number; total: number }> => {
+  const { data } = await api.post(`${BASE}/employees/link-app-users`);
   return data;
 };
 
@@ -248,6 +285,52 @@ export const getDepartmentSummary = async (departmentCode: string, connectionId?
 
 export const getStats = async (): Promise<HrStats> => {
   const { data } = await api.get(`${BASE}/stats`);
+  return data;
+};
+
+// ========================================
+// Org Tree Types & API
+// ========================================
+
+export interface OrgNode {
+  id: string;
+  employeeId: number;
+  name: string;
+  designation?: string;
+  department?: string;
+  team?: string;
+  project?: string;
+  activity?: string;
+  location?: string;
+  avatarUrl?: string;
+  status: string;
+  managerId?: string;
+  reportingTo?: string;
+  // set only on the root of a tree fetch
+  managerName?: string;
+  managerEmployeeId?: string;
+  managerDesignation?: string;
+  // children — null means depth limit reached, check hasMore
+  children?: OrgNode[] | null;
+  hasMore?: boolean;
+}
+
+export const getOrgRoots = async (connectionId?: string): Promise<OrgNode[]> => {
+  const params: Record<string, string> = {};
+  if (connectionId) params.connectionId = connectionId;
+  const { data } = await api.get(`${BASE}/employees/roots`, { params });
+  return data;
+};
+
+export const getOrgTree = async (employeeId: number, depth = 5): Promise<OrgNode> => {
+  const { data } = await api.get(`${BASE}/employees/${employeeId}/org-tree`, { params: { depth } });
+  return data;
+};
+
+export const resolveManagers = async (connectionId?: string): Promise<{ resolved: number; message: string }> => {
+  const params: Record<string, string> = {};
+  if (connectionId) params.connectionId = connectionId;
+  const { data } = await api.post(`${BASE}/employees/resolve-managers`, null, { params });
   return data;
 };
 
@@ -371,9 +454,22 @@ export const getSyncLogs = async (params: {
   return data;
 };
 
-export const importCsv = async (file: File, connectionId?: string): Promise<CsvImportResult> => {
+export const previewCsv = async (file: File, connectionId?: string): Promise<ExcelPreviewResult> => {
   const formData = new FormData();
   formData.append('file', file);
+  const params = connectionId ? `?connectionId=${connectionId}` : '';
+  const { data } = await api.post(`${BASE}/import/csv/preview${params}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+};
+
+export const importCsv = async (file: File, columnMapping?: ExcelImportMapping, connectionId?: string): Promise<CsvImportResult> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (columnMapping && Object.keys(columnMapping).length > 0) {
+    formData.append('columnMapping', JSON.stringify(columnMapping));
+  }
   const params = connectionId ? `?connectionId=${connectionId}` : '';
   const { data } = await api.post(`${BASE}/import/csv${params}`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
@@ -381,11 +477,156 @@ export const importCsv = async (file: File, connectionId?: string): Promise<CsvI
   return data;
 };
 
-export const downloadCsvTemplate = (): string => {
-  return `/api${BASE}/import/template`;
+export interface ExcelPreviewResult {
+  headers: string[];
+  previewRows: string[][];
+  totalRows: number;
+}
+
+export type ExcelImportMapping = Record<string, string>; // fieldName → excelColumnHeader
+
+export const previewExcel = async (file: File, connectionId?: string): Promise<ExcelPreviewResult> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const params = connectionId ? `?connectionId=${connectionId}` : '';
+  const { data } = await api.post(`${BASE}/import/excel/preview${params}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
 };
 
-export const getExportCsvUrl = (departmentCode?: string): string => {
+export const importExcel = async (file: File, columnMapping: ExcelImportMapping, connectionId?: string): Promise<CsvImportResult> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('columnMapping', JSON.stringify(columnMapping));
+  const params = connectionId ? `?connectionId=${connectionId}` : '';
+  const { data } = await api.post(`${BASE}/import/excel${params}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+};
+
+const triggerBlobDownload = (blob: Blob, filename: string) => {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+export const downloadCsvTemplate = async (): Promise<void> => {
+  const { data } = await api.get(`${BASE}/import/template`, { responseType: 'blob' });
+  triggerBlobDownload(data, 'hr_employee_template.csv');
+};
+
+// ========================================
+// EMPLOYEE FIELD DISCOVERY & EXCEL TEMPLATE
+// ========================================
+
+export interface EmployeeField {
+  field: string;
+  label: string;
+  required: boolean;
+  description: string;
+}
+
+export const getEmployeeFields = async (): Promise<EmployeeField[]> => {
+  const { data } = await api.get<EmployeeField[]>(`${BASE}/employees/fields`);
+  return data;
+};
+
+export const downloadExcelTemplate = async (fields: string[]): Promise<void> => {
+  const params = fields.length > 0 ? `?fields=${fields.join(',')}` : '?fields=all';
+  const { data } = await api.get(`${BASE}/employees/excel-template${params}`, { responseType: 'blob' });
+  triggerBlobDownload(data, 'hr_employee_template.xlsx');
+};
+
+/**
+ * Download an Excel template whose column headers reflect the connection's stored field mapping.
+ * Columns = the "Excel label" values saved in the field mapping (not the default labels).
+ */
+export const downloadConnectionExcelTemplate = async (connectionId: string): Promise<void> => {
+  const { data } = await api.get(`${BASE}/connections/${connectionId}/excel-template`, { responseType: 'blob' });
+  triggerBlobDownload(data, 'hr_employee_template.xlsx');
+};
+
+/**
+ * Import an Excel file using the connection's stored field mapping to auto-resolve column names.
+ * No explicit columnMapping needed — the stored mapping on the connection handles it.
+ */
+export const importExcelWithMapping = async (file: File, connectionId: string): Promise<CsvImportResult> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const { data } = await api.post<CsvImportResult>(
+    `${BASE}/import/excel?connectionId=${connectionId}`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  );
+  return data;
+};
+
+// ========================================
+// EXCEL UPLOAD (file or URL) — auto-resolves ManagerId from ReportingToId
+// ========================================
+
+export interface EmployeeUploadResult {
+  message: string;
+  created: number;
+  updated: number;
+  failed: number;
+  total: number;
+  resolvedManagers: number;
+  linkedUsers: number;
+  errors: string[];
+  syncLogId?: string;
+}
+
+export const uploadEmployeeExcel = async (
+  file: File,
+  connectionId?: string
+): Promise<EmployeeUploadResult> => {
+  const form = new FormData();
+  form.append('file', file);
+  const params = connectionId ? `?connectionId=${connectionId}` : '';
+  const { data } = await api.post<EmployeeUploadResult>(
+    `${BASE}/employees/upload-excel${params}`,
+    form,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  );
+  return data;
+};
+
+export const uploadEmployeeExcelFromUrl = async (
+  url: string,
+  connectionId?: string
+): Promise<EmployeeUploadResult> => {
+  const params = new URLSearchParams({ url });
+  if (connectionId) params.set('connectionId', connectionId);
+  const { data } = await api.post<EmployeeUploadResult>(
+    `${BASE}/employees/upload-excel?${params.toString()}`
+  );
+  return data;
+};
+
+// ========================================
+// SYNC APP USERS → EMPLOYEES
+// ========================================
+
+export interface SyncAppUsersResult {
+  synced: number;
+  linked: number;
+  message: string;
+}
+
+export const syncEmployeesFromAppUsers = async (): Promise<SyncAppUsersResult> => {
+  const { data } = await api.post<SyncAppUsersResult>(`${BASE}/employees/sync-from-app-users`);
+  return data;
+};
+
+export const exportEmployeesCsv = async (departmentCode?: string): Promise<void> => {
   const params = departmentCode ? `?departmentCode=${departmentCode}` : '';
-  return `/api${BASE}/export/csv${params}`;
+  const { data } = await api.get(`${BASE}/export/csv${params}`, { responseType: 'blob' });
+  const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  triggerBlobDownload(data, `hr_employees_${date}.csv`);
 };

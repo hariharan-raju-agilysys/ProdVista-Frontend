@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useMsal } from '@azure/msal-react'
 import { InteractionRequiredAuthError, InteractionStatus } from '@azure/msal-browser'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { SectionAccessProvider } from './context/SectionAccessContext'
 import { AzureAuthProvider } from './context/AzureAuthContext'
 import { PersistentChatProvider } from './context/PersistentChatContext'
 import { ManagerRoute, OrgRoute, FeatureRoute } from './components/guards'
@@ -32,7 +33,6 @@ const EngineeringDashboardV2 = lazyWithRetry(() => import('./pages/EngineeringDa
 const PullRequestsPage = lazyWithRetry(() => import('./pages/PullRequestsPage'))
 const DevOpsOverviewPage = lazyWithRetry(() => import('./pages/DevOpsOverviewPage'))
 const DeveloperToolkitPage = lazyWithRetry(() => import('./pages/DeveloperToolkitPage'))
-const EngineeringCommandCenter = lazyWithRetry(() => import('./pages/EngineeringCommandCenter'))
 const ReleaseManagement = lazyWithRetry(() => import('./pages/ReleaseManagement'))
 const QualityDashboardV2 = lazyWithRetry(() => import('./pages/QualityDashboardV2'))
 const QualityCommandCenterPage = lazyWithRetry(() => import('./pages/QualityCommandCenterPage'))
@@ -71,6 +71,7 @@ const WorkItemsByReleasePage = lazyWithRetry(() => import('./pages/WorkItemsByRe
 const ReleaseStatusPage = lazyWithRetry(() => import('./pages/ReleaseStatusPage'))
 const KnowledgeCenterPage = lazyWithRetry(() => import('./pages/KnowledgeCenterPage'))
 const CareerMilestonesPage = lazyWithRetry(() => import('./pages/CareerMilestonesPage'))
+const AccessControlHubPage = lazyWithRetry(() => import('./pages/AccessControlHubPage'))
 
 // ---------------------------------------------------------------------------
 // Routes
@@ -109,7 +110,6 @@ function AppRoutes() {
         <Route path="devops-overview" element={<DevOpsOverviewPage />} />
         <Route path="developer-toolkit" element={<DeveloperToolkitPage />} />
         <Route path="devops" element={<DevOpsOverviewPage />} />
-        <Route path="command-center" element={<EngineeringCommandCenter />} />
         <Route path="releases" element={<ReleaseManagement />} />
         <Route path="quality" element={<QualityCommandCenterPage />} />
         <Route path="quality-team" element={<QualityTeamViewPage />} />
@@ -147,6 +147,7 @@ function AppRoutes() {
         <Route path="release-status" element={<ReleaseStatusPage />} />
         <Route path="knowledge-center" element={<KnowledgeCenterPage />} />
         <Route path="career-milestones" element={<CareerMilestonesPage />} />
+        <Route path="access-hub" element={<ManagerRoute><AccessControlHubPage /></ManagerRoute>} />
       </Route>
       
       {/* Access Denied page */}
@@ -335,21 +336,23 @@ function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <AzureAuthProvider>
-          <MsalTokenRefreshRegistrar>
-            <BrowserRouter basename={import.meta.env.VITE_BASE_PATH || '/'}>
-              <AuthGate>
-                <AuthModals>
-                  <PersistentChatProvider>
-                    <Suspense fallback={<LoadingSpinner label="Loading..." />}>
-                      <AppRoutes />
-                    </Suspense>
-                  </PersistentChatProvider>
-                </AuthModals>
-              </AuthGate>
-            </BrowserRouter>
-          </MsalTokenRefreshRegistrar>
-        </AzureAuthProvider>
+        <SectionAccessProvider>
+          <AzureAuthProvider>
+            <MsalTokenRefreshRegistrar>
+              <BrowserRouter basename={import.meta.env.VITE_BASE_PATH || '/'}>
+                <AuthGate>
+                  <AuthModals>
+                    <PersistentChatProvider>
+                      <Suspense fallback={<LoadingSpinner label="Loading..." />}>
+                        <AppRoutes />
+                      </Suspense>
+                    </PersistentChatProvider>
+                  </AuthModals>
+                </AuthGate>
+              </BrowserRouter>
+            </MsalTokenRefreshRegistrar>
+          </AzureAuthProvider>
+        </SectionAccessProvider>
       </AuthProvider>
     </ErrorBoundary>
   )

@@ -9,7 +9,7 @@ import * as hrService from '../services/hrPortalService'
 import type {
   HrConnection, HrStats, HrDepartment,
   HrSyncLog, SyncSettings, FieldMapping, TestConnectionResult, CsvImportResult,
-  HrAuthStatus, TestPreviewResult, DepartmentPreview
+  HrAuthStatus, TestPreviewResult, DepartmentPreview, EmployeeField
 } from '../services/hrPortalService'
 
 type SettingsTab = 'connections' | 'sync' | 'import' | 'mapping' | 'logs'
@@ -45,12 +45,17 @@ export default function HrSetupPage() {
   // Field mapping
   const [fieldMapping, setFieldMapping] = useState<FieldMapping>({})
   const [savingMapping, setSavingMapping] = useState(false)
+  const [employeeFields, setEmployeeFields] = useState<EmployeeField[]>([])
 
   // Import
   const [importResult, setImportResult] = useState<CsvImportResult | null>(null)
   const [importing, setImporting] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [importingExcel, setImportingExcel] = useState(false)
+  const [excelImportResult, setExcelImportResult] = useState<CsvImportResult | null>(null)
+  const [excelDragOver, setExcelDragOver] = useState(false)
+  const excelFileRef = useRef<HTMLInputElement>(null)
 
   // Load departments for dropdown
   const loadDepartments = useCallback(async () => {
@@ -77,6 +82,11 @@ export default function HrSetupPage() {
 
   useEffect(() => { loadData() }, [loadData])
 
+  // Load all available employee fields once (for dynamic field mapping UI)
+  useEffect(() => {
+    hrService.getEmployeeFields().then(setEmployeeFields).catch(() => {})
+  }, [])
+
   // Auto-select first connection
   useEffect(() => {
     if (connections.length > 0 && !activeConnId)
@@ -88,8 +98,20 @@ export default function HrSetupPage() {
     if (!activeConnId) return
     hrService.getSyncSettings(activeConnId).then(setSyncSettings).catch(() => {})
     hrService.getSyncLogs({ connectionId: activeConnId, count: 20 }).then(setSyncLogs).catch(() => {})
-    hrService.getFieldMapping(activeConnId).then(setFieldMapping).catch(() => {})
-  }, [activeConnId])
+    hrService.getFieldMapping(activeConnId).then(storedMapping => {
+      // Merge stored mapping with all available fields so every field is visible in the UI
+      if (employeeFields.length > 0) {
+        const merged: FieldMapping = {}
+        employeeFields.forEach(ef => {
+          const key = ef.field.charAt(0).toLowerCase() + ef.field.slice(1)
+          merged[key] = storedMapping[key] ?? storedMapping[ef.field] ?? ef.label
+        })
+        setFieldMapping(merged)
+      } else {
+        setFieldMapping(storedMapping)
+      }
+    }).catch(() => {})
+  }, [activeConnId, employeeFields])
 
   // Load departments when showing connection form
   useEffect(() => {
@@ -221,7 +243,7 @@ export default function HrSetupPage() {
     setImporting(true)
     setImportResult(null)
     try {
-      const result = await hrService.importCsv(file, activeConnId || undefined)
+      const result = await hrService.importCsv(file, undefined, activeConnId || undefined)
       setImportResult(result)
       loadData()
       if (activeConnId)
@@ -230,6 +252,21 @@ export default function HrSetupPage() {
       setImportResult({ message: err?.response?.data?.message || 'Import failed', created: 0, updated: 0, total: 0, failed: 0, errors: [], syncLogId: '' })
     }
     setImporting(false)
+  }
+
+  const handleExcelImport = async (file: File) => {
+    if (!activeConnId) return
+    setImportingExcel(true)
+    setExcelImportResult(null)
+    try {
+      const result = await hrService.importExcelWithMapping(file, activeConnId)
+      setExcelImportResult(result)
+      loadData()
+      hrService.getSyncLogs({ connectionId: activeConnId, count: 20 }).then(setSyncLogs).catch(() => {})
+    } catch (err: any) {
+      setExcelImportResult({ message: err?.response?.data?.message || 'Excel import failed', created: 0, updated: 0, total: 0, failed: 0, errors: [], syncLogId: '' })
+    }
+    setImportingExcel(false)
   }
 
   const handleFileDrop = (e: React.DragEvent) => {
@@ -579,21 +616,98 @@ export default function HrSetupPage() {
                 <FileText className="w-3.5 h-3.5 text-gray-500" /> CSV Template
               </h3>
               <p className="text-[10px] text-gray-400 mb-3">Download a sample CSV with the expected column headers</p>
-              <a href={hrService.downloadCsvTemplate()} download
+              <button onClick={() => hrService.downloadCsvTemplate()}
                 className="flex items-center gap-1.5 text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg w-fit">
                 <Download className="w-3 h-3" /> Download Template
-              </a>
+              </button>
             </div>
             <div className="bg-white border border-gray-200 rounded-xl p-4">
               <h3 className="text-xs font-semibold text-gray-900 mb-2 flex items-center gap-1.5">
                 <Download className="w-3.5 h-3.5 text-green-500" /> Export Employees
               </h3>
               <p className="text-[10px] text-gray-400 mb-3">Download all employee data as CSV</p>
-              <a href={hrService.getExportCsvUrl()} download
+              <button onClick={() => hrService.exportEmployeesCsv()}
                 className="flex items-center gap-1.5 text-xs bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1.5 rounded-lg w-fit">
                 <Download className="w-3 h-3" /> Export All Employees
-              </a>
+              </button>
             </div>
+          </div>
+
+          {/* ---- EXCEL IMPORT (auto-mapped via connection field mapping) ---- */}
+          <div className="bg-white border border-gray-200 rounded-xl p-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-1.5">
+              <Upload className="w-4 h-4 text-green-500" /> Import from Excel (Auto-Mapped)
+            </h3>
+            <p className="text-xs text-gray-500 mb-3">
+              Upload an <strong>.xlsx</strong> file. Columns are automatically matched using the{' '}
+              <span className="text-blue-600 font-medium">Field Mapping</span> saved for the selected connection —
+              no manual column selection needed.
+            </p>
+
+            {!activeConnId ? (
+              <div className="rounded-lg border border-dashed border-gray-200 p-6 text-center">
+                <ArrowRightLeft className="w-6 h-6 mx-auto mb-2 text-gray-300" />
+                <p className="text-xs text-gray-400">Select a connection first to enable auto-mapped Excel import</p>
+              </div>
+            ) : (
+              <>
+                <div
+                  className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                    excelDragOver ? 'border-green-400 bg-green-50' : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                  onDragOver={e => { e.preventDefault(); setExcelDragOver(true) }}
+                  onDragLeave={() => setExcelDragOver(false)}
+                  onDrop={e => {
+                    e.preventDefault(); setExcelDragOver(false)
+                    const f = e.dataTransfer.files?.[0]
+                    if (f && (f.name.endsWith('.xlsx') || f.name.endsWith('.xls'))) handleExcelImport(f)
+                  }}
+                >
+                  {importingExcel ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <Loader2 className="w-8 h-8 text-green-500 animate-spin" />
+                      <p className="text-xs text-gray-500">Importing from Excel…</p>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                      <p className="text-sm text-gray-600">Drag & drop an Excel (.xlsx) file here</p>
+                      <p className="text-xs text-gray-400 mt-1">or</p>
+                      <input ref={excelFileRef} type="file" accept=".xlsx,.xls" className="hidden"
+                        onChange={e => { const f = e.target.files?.[0]; if (f) handleExcelImport(f) }} />
+                      <button onClick={() => excelFileRef.current?.click()}
+                        className="mt-2 text-xs bg-green-600 text-white px-4 py-1.5 rounded-lg hover:bg-green-700">
+                        Browse Excel Files
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {excelImportResult && (
+                  <div className={`mt-3 p-3 rounded-lg text-xs ${
+                    excelImportResult.failed > 0 ? 'bg-amber-50 border border-amber-200' :
+                    excelImportResult.created > 0 || excelImportResult.updated > 0 ? 'bg-green-50 border border-green-200' :
+                    'bg-red-50 border border-red-200'
+                  }`}>
+                    <p className="font-medium">{excelImportResult.message}</p>
+                    {(excelImportResult.created > 0 || excelImportResult.updated > 0) && (
+                      <div className="flex gap-4 mt-1.5 text-[10px]">
+                        <span className="text-green-700">{excelImportResult.created} created</span>
+                        <span className="text-blue-700">{excelImportResult.updated} updated</span>
+                        {excelImportResult.failed > 0 && <span className="text-red-700">{excelImportResult.failed} failed</span>}
+                      </div>
+                    )}
+                    {excelImportResult.errors.length > 0 && (
+                      <div className="mt-2 space-y-0.5">
+                        {excelImportResult.errors.slice(0, 5).map((err, i) => (
+                          <p key={i} className="text-[10px] text-red-600"><AlertTriangle className="w-3 h-3 inline mr-1" />{err}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
       )}
@@ -613,17 +727,41 @@ export default function HrSetupPage() {
                 <span className="text-xs font-medium text-blue-800">
                   Field Mapping for: {connections.find(c => c.id === activeConnId)?.connectionName}
                 </span>
+                <span className="text-[10px] text-blue-500 ml-2">
+                  Map each employee field to its corresponding Excel column header in your HR export
+                </span>
               </div>
 
               <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                 <div className="px-4 py-2.5 border-b border-gray-100 bg-gray-50">
                   <div className="grid grid-cols-2 gap-4">
-                    <span className="text-xs font-semibold text-gray-600">Internal Field</span>
-                    <span className="text-xs font-semibold text-gray-600">CSV / Provider Column Label</span>
+                    <span className="text-xs font-semibold text-gray-600">Employee Field</span>
+                    <span className="text-xs font-semibold text-gray-600">Excel Column Header Label</span>
                   </div>
                 </div>
                 <div className="divide-y divide-gray-100">
-                  {Object.entries(fieldMapping).map(([field, label]) => (
+                  {(employeeFields.length > 0 ? employeeFields : null)?.map(ef => {
+                    const key = ef.field.charAt(0).toLowerCase() + ef.field.slice(1)
+                    const label = fieldMapping[key] ?? ef.label
+                    return (
+                      <div key={key} className="grid grid-cols-2 gap-4 px-4 py-2 hover:bg-gray-50">
+                        <div className="flex flex-col justify-center gap-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <code className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px] text-gray-700">{key}</code>
+                            {ef.required && <span className="text-[9px] text-red-500 font-bold uppercase">required</span>}
+                          </div>
+                          {ef.description && <p className="text-[10px] text-gray-400">{ef.description}</p>}
+                        </div>
+                        <input
+                          type="text"
+                          value={label}
+                          onChange={e => setFieldMapping(prev => ({ ...prev, [key]: e.target.value }))}
+                          className="text-xs border border-gray-200 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 self-center"
+                          placeholder={`Excel column header for ${key}`}
+                        />
+                      </div>
+                    )
+                  }) ?? Object.entries(fieldMapping).map(([field, label]) => (
                     <div key={field} className="grid grid-cols-2 gap-4 px-4 py-2 hover:bg-gray-50">
                       <div className="text-xs text-gray-700 flex items-center gap-1.5">
                         <code className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px]">{field}</code>
@@ -639,11 +777,22 @@ export default function HrSetupPage() {
                 </div>
               </div>
 
-              <button onClick={handleSaveFieldMapping} disabled={savingMapping}
-                className="flex items-center gap-1.5 text-xs bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                {savingMapping ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                Save Field Mapping
-              </button>
+              <div className="flex items-center gap-3">
+                <button onClick={handleSaveFieldMapping} disabled={savingMapping}
+                  className="flex items-center gap-1.5 text-xs bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                  {savingMapping ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  Save Field Mapping
+                </button>
+                <button
+                  onClick={() => activeConnId && hrService.downloadConnectionExcelTemplate(activeConnId)}
+                  className="flex items-center gap-1.5 text-xs bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
+                  <Download className="w-3.5 h-3.5" />
+                  Download Excel Template
+                </button>
+                <p className="text-[10px] text-gray-400">
+                  Template columns will match your saved mapping labels above
+                </p>
+              </div>
             </>
           )}
         </div>

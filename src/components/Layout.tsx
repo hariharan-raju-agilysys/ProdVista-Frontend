@@ -508,6 +508,7 @@ export default function Layout() {
               {isManager && navItem('/tenant-admin', <Shield className="w-4 h-4" />, 'Tenant Admin')}
               {isManager && navItem('/users', <UserCog className="w-4 h-4" />, 'Users')}
               {isManager && navItem('/menu-management', <PanelTop className="w-4 h-4" />, 'Menu Setup')}
+              {isManager && navItem('/access-hub', <ShieldCheck className="w-4 h-4" />, 'Access Control')}
             </div>
           )}
 

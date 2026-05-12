@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Search, X, ArrowRight, LayoutDashboard, Code2, Package, Server, Users,
-  Settings, FileText, Cloud, Workflow, Bot, Database, Activity, Zap, Shield,
+  Settings, FileText, Cloud, Workflow, Bot, Database, Zap, Shield,
   Rocket, BarChart3, Eye, Terminal, Sparkles, Clock, Command, Wrench,
   GitPullRequest, Lock, UserCog, Palette, Bell, Key,
   type LucideIcon,
@@ -43,7 +43,6 @@ const allCommands: CommandItem[] = [
 
   // Tools
   { id: 'tools', label: 'Tools', description: 'All engineering tools in one place', icon: Zap, path: '/tools', category: 'tools', keywords: ['tools', 'utilities', 'all'] },
-  { id: 'command-center', label: 'Command Center', description: 'App Insights & observability', icon: Activity, path: '/command-center', category: 'tools', keywords: ['insights', 'azure', 'monitor'] },
   { id: 'observability', label: 'Observability', description: 'System observability dashboard', icon: Eye, path: '/observability', category: 'tools', keywords: ['metrics', 'health', 'slo'] },
   { id: 'observability-query', label: 'Query Explorer', description: 'KQL query explorer', icon: Zap, path: '/observability-query', category: 'tools', keywords: ['kql', 'kusto', 'app insights'] },
   { id: 'jenkins', label: 'Jenkins Pipelines', description: 'CI/CD pipeline management', icon: Workflow, path: '/jenkins', category: 'tools', keywords: ['ci', 'cd', 'build', 'pipeline'] },

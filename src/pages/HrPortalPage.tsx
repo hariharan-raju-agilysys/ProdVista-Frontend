@@ -3,17 +3,21 @@ import {
   Users, Building2, Cake, MapPin, Briefcase, Search, Plus, Settings, UserPlus,
   ChevronRight, Calendar, Phone, Mail, Star, TrendingUp, X, Save,
   Globe, RefreshCw, CheckCircle, XCircle, Upload, Download,
-  Zap, ArrowRightLeft, FileText, Loader2, Trash2, History
+  Zap, ArrowRightLeft, FileText, Loader2, Trash2, History, GitBranch
 } from 'lucide-react'
 import * as hrService from '../services/hrPortalService'
 import type {
   HrConnection, HrDepartment, HrEmployee, HrBirthday, DepartmentSummary, HrStats,
-  HrSyncLog, FieldMapping, TestConnectionResult, CsvImportResult
+  HrSyncLog, FieldMapping, TestConnectionResult, CsvImportResult, ExcelPreviewResult
 } from '../services/hrPortalService'
+import HrOrgTree from '../components/HrOrgTree'
+import HrEmployeeUploadModal from '../components/HrEmployeeUploadModal'
+import { useAuth } from '../context/AuthContext'
 
-type ViewMode = 'overview' | 'directory' | 'birthdays' | 'department' | 'settings'
+type ViewMode = 'overview' | 'directory' | 'birthdays' | 'department' | 'settings' | 'org-tree'
 
 export default function HrPortalPage() {
+  const { user } = useAuth()
   const [view, setView] = useState<ViewMode>('overview')
   const [stats, setStats] = useState<HrStats | null>(null)
   const [departments, setDepartments] = useState<HrDepartment[]>([])
@@ -33,10 +37,25 @@ export default function HrPortalPage() {
   const [showConnectionForm, setShowConnectionForm] = useState(false)
   const [connForm, setConnForm] = useState({ connectionName: '', providerType: 'GreytHR', baseUrl: '', clientId: '', apiKey: '', useSso: false })
   const [showAddEmployee, setShowAddEmployee] = useState(false)
-  const [empForm, setEmpForm] = useState<Partial<HrEmployee> & { employeeId: string; name: string }>({
+  const [showUploadModal, setShowUploadModal] = useState(false)
+  const [empForm, setEmpForm] = useState<{ employeeId: string; name: string; email?: string; department?: string; departmentCode?: string; designation?: string; location?: string; extensionNo?: string; reportingTo?: string; reportingToId?: string; status?: string; team?: string; project?: string; activity?: string; gender?: string; dateOfBirth?: string; joiningDate?: string }>({
     employeeId: '', name: '', email: '', department: '', departmentCode: '', designation: '',
-    location: '', extensionNo: '', reportingTo: '', reportingToId: '', status: 'Active'
+    location: '', extensionNo: '', reportingTo: '', reportingToId: '', status: 'Active',
+    team: '', project: '', activity: '', gender: ''
   })
+  const [emailLinkedUser, setEmailLinkedUser] = useState<{ found: boolean; displayName?: string } | null>(null)
+  const [checkingEmail, setCheckingEmail] = useState(false)
+  const [empModalTab, setEmpModalTab] = useState<'manual' | 'upload'>('manual')
+  const [csvQuickFile, setCsvQuickFile] = useState<File | null>(null)
+  const [csvQuickUploading, setCsvQuickUploading] = useState(false)
+  const [csvQuickResult, setCsvQuickResult] = useState<{ created: number; updated: number; failed: number; message?: string } | null>(null)
+  const [csvQuickDrag, setCsvQuickDrag] = useState(false)
+  const csvQuickRef = useRef<HTMLInputElement>(null)
+  // Modal column-mapper state
+  const [modalCsvPreview, setModalCsvPreview] = useState<ExcelPreviewResult | null>(null)
+  const [modalCsvMapping, setModalCsvMapping] = useState<Record<string, string>>({})
+  const [modalShowMapper, setModalShowMapper] = useState(false)
+  const [modalCsvPreviewLoading, setModalCsvPreviewLoading] = useState(false)
   const [showAddDept, setShowAddDept] = useState(false)
   const [deptForm, setDeptForm] = useState({ departmentCode: '', departmentName: '', location: '', managerName: '', managerEmployeeId: '' })
 
@@ -52,6 +71,20 @@ export default function HrPortalPage() {
   const [importing, setImporting] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // CSV import state (column mapping flow)
+  const [csvFile, setCsvFile] = useState<File | null>(null)
+  const [csvPreview, setCsvPreview] = useState<ExcelPreviewResult | null>(null)
+  const [csvMapping, setCsvMapping] = useState<Record<string, string>>({})
+  const [showCsvMapper, setShowCsvMapper] = useState(false)
+  const [previewingCsv, setPreviewingCsv] = useState(false)
+  // Excel import state
+  const [excelFile, setExcelFile] = useState<File | null>(null)
+  const [excelPreview, setExcelPreview] = useState<ExcelPreviewResult | null>(null)
+  const [excelMapping, setExcelMapping] = useState<Record<string, string>>({})
+  const [showExcelMapper, setShowExcelMapper] = useState(false)
+  const [previewingExcel, setPreviewingExcel] = useState(false)
+  const [excelDragOver, setExcelDragOver] = useState(false)
+  const excelFileRef = useRef<HTMLInputElement>(null)
   const [, setConnectionDepts] = useState<HrDepartment[]>([])
   const [, setFetchingDepts] = useState(false)
 
@@ -128,12 +161,80 @@ export default function HrPortalPage() {
 
   const handleSaveEmployee = async () => {
     try {
-      await hrService.createEmployee(empForm)
+      await hrService.createEmployee({ ...empForm, employeeId: parseInt(empForm.employeeId, 10) || 0 })
       setShowAddEmployee(false)
-      setEmpForm({ employeeId: '', name: '', email: '', department: '', departmentCode: '', designation: '', location: '', extensionNo: '', reportingTo: '', reportingToId: '', status: 'Active' })
+      setEmpForm({ employeeId: '', name: '', email: '', department: '', departmentCode: '', designation: '', location: '', extensionNo: '', reportingTo: '', reportingToId: '', status: 'Active', team: '', project: '', activity: '', gender: '' })
+      setEmailLinkedUser(null)
       loadEmployees(selectedDept || undefined, searchText || undefined)
       loadData()
     } catch { /* ignore */ }
+  }
+
+  const handleDeleteEmployee = async (employeeId: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!confirm(`Delete employee #${employeeId}?`)) return
+    try {
+      await hrService.deleteEmployee(employeeId)
+      loadEmployees(selectedDept || undefined, searchText || undefined, employeesPage)
+      loadData()
+    } catch { /* ignore */ }
+  }
+
+  const handleDeleteAllEmployees = async () => {
+    if (!confirm(`Delete ALL ${employeesTotal} employees for this tenant? This cannot be undone.`)) return
+    try {
+      await hrService.deleteAllEmployees()
+      loadEmployees()
+      loadData()
+    } catch { /* ignore */ }
+  }
+
+  const handleLinkAllEmployees = async () => {
+    try {
+      const result = await hrService.linkAllEmployeesToAppUsers()
+      alert(result.message)
+      loadEmployees(selectedDept || undefined, searchText || undefined, employeesPage)
+    } catch { /* ignore */ }
+  }
+
+  const handleEmailBlur = async (email: string) => {
+    if (!email || !email.includes('@')) { setEmailLinkedUser(null); return }
+    setCheckingEmail(true)
+    try {
+      const result = await hrService.checkEmailForAppUser(email)
+      setEmailLinkedUser(result)
+    } catch { setEmailLinkedUser(null) }
+    setCheckingEmail(false)
+  }
+
+  const handleQuickCsvImport = async () => {
+    if (!csvQuickFile) return
+    setCsvQuickUploading(true)
+    setCsvQuickResult(null)
+    try {
+      const result = await hrService.importCsv(csvQuickFile, Object.keys(modalCsvMapping).length > 0 ? modalCsvMapping : undefined)
+      setCsvQuickResult(result)
+      setModalShowMapper(false)
+      loadEmployees(selectedDept || undefined, searchText || undefined, employeesPage)
+      loadData()
+    } catch (e: any) {
+      setCsvQuickResult({ created: 0, updated: 0, failed: 0, message: e?.response?.data?.message || 'Import failed' })
+    }
+    setCsvQuickUploading(false)
+  }
+
+  const handleModalCsvSelect = async (file: File) => {
+    setCsvQuickFile(file)
+    setCsvQuickResult(null)
+    setModalCsvPreviewLoading(true)
+    setModalShowMapper(false)
+    try {
+      const preview = await hrService.previewCsv(file)
+      setModalCsvPreview(preview)
+      autoMapFields(preview.headers, setModalCsvMapping)
+      setModalShowMapper(true)
+    } catch { /* preview failed — still allow import without mapping */ }
+    setModalCsvPreviewLoading(false)
   }
 
   const handleSaveDept = async () => {
@@ -223,14 +324,64 @@ export default function HrPortalPage() {
     setSavingMapping(false)
   }
 
-  const handleCsvImport = async (file: File) => {
+  const autoMapFields = (headers: string[], setter: (m: Record<string, string>) => void) => {
+    const autoDefaults: Record<string, string[]> = {
+      employeeId: ['Employee No', 'Employee ID', 'Emp No', 'EmpId'],
+      name: ['Employee Name', 'Name', 'Full Name'],
+      email: ['Email', 'Email Address'],
+      department: ['Department', 'Dept'],
+      departmentCode: ['Department Code', 'Dept Code'],
+      designation: ['Designation', 'Title', 'Job Title'],
+      location: ['Location', 'Office', 'Branch'],
+      extensionNo: ['Extension No', 'Extension', 'Ext'],
+      dateOfBirth: ['Date of Birth', 'DOB', 'Birth Date'],
+      joiningDate: ['Joining Date', 'Join Date', 'Start Date'],
+      reportingTo: ['Reporting To', 'Manager', 'Reports To'],
+      reportingToId: ['Reporting To ID', 'Manager ID'],
+      team: ['Team', 'Team Name'],
+      project: ['Project', 'Project Name'],
+      activity: ['Activity', 'Activity Type'],
+      gender: ['Gender', 'Sex'],
+      status: ['Status'],
+      category: ['Category'],
+    }
+    const autoMap: Record<string, string> = {}
+    for (const [field, alts] of Object.entries(autoDefaults)) {
+      const match = alts.find(alt => headers.some(h => h.toLowerCase() === alt.toLowerCase()))
+      if (match) {
+        const found = headers.find(h => h.toLowerCase() === match.toLowerCase())
+        if (found) autoMap[field] = found
+      }
+    }
+    setter(autoMap)
+  }
+
+  const handleCsvSelect = async (file: File) => {
+    setCsvFile(file)
+    setPreviewingCsv(true)
+    setImportResult(null)
+    try {
+      const preview = await hrService.previewCsv(file, activeConnId || undefined)
+      setCsvPreview(preview)
+      autoMapFields(preview.headers, setCsvMapping)
+      setShowCsvMapper(true)
+    } catch (err: any) {
+      setImportResult({ message: err?.response?.data?.message || 'Failed to read CSV file', created: 0, updated: 0, total: 0, failed: 0, errors: [], syncLogId: '' })
+    }
+    setPreviewingCsv(false)
+  }
+
+  const handleCsvImportWithMapping = async () => {
+    if (!csvFile) return
     setImporting(true)
     setImportResult(null)
     try {
-      const result = await hrService.importCsv(file, activeConnId || undefined)
+      const result = await hrService.importCsv(csvFile, csvMapping, activeConnId || undefined)
       setImportResult(result)
+      setShowCsvMapper(false)
+      setCsvFile(null)
+      setCsvPreview(null)
       loadData()
-      // Refresh logs
       if (activeConnId)
         hrService.getSyncLogs({ connectionId: activeConnId, count: 20 }).then(setSyncLogs).catch(() => {})
     } catch (err: any) {
@@ -243,7 +394,62 @@ export default function HrPortalPage() {
     e.preventDefault()
     setDragOver(false)
     const file = e.dataTransfer.files[0]
-    if (file?.name.endsWith('.csv')) handleCsvImport(file)
+    if (file?.name.endsWith('.csv')) handleCsvSelect(file)
+  }
+
+  const HR_FIELDS: { key: string; label: string; required?: boolean }[] = [
+    { key: 'employeeId', label: 'Employee ID', required: true },
+    { key: 'name', label: 'Full Name', required: true },
+    { key: 'email', label: 'Email' },
+    { key: 'department', label: 'Department' },
+    { key: 'departmentCode', label: 'Department Code' },
+    { key: 'designation', label: 'Designation / Job Title' },
+    { key: 'location', label: 'Location' },
+    { key: 'extensionNo', label: 'Extension No' },
+    { key: 'dateOfBirth', label: 'Date of Birth' },
+    { key: 'joiningDate', label: 'Joining Date' },
+    { key: 'reportingTo', label: 'Reporting To' },
+    { key: 'reportingToId', label: 'Reporting To ID' },
+    { key: 'team', label: 'Team' },
+    { key: 'project', label: 'Project' },
+    { key: 'activity', label: 'Activity' },
+    { key: 'gender', label: 'Gender' },
+    { key: 'status', label: 'Status' },
+    { key: 'category', label: 'Category' },
+  ]
+
+  const handleExcelSelect = async (file: File) => {
+    setExcelFile(file)
+    setPreviewingExcel(true)
+    setImportResult(null)
+    try {
+      const preview = await hrService.previewExcel(file, activeConnId || undefined)
+      setExcelPreview(preview)
+      autoMapFields(preview.headers, setExcelMapping)
+      setShowExcelMapper(true)
+    } catch (err: any) {
+      setImportResult({ message: err?.response?.data?.message || 'Failed to read Excel file', created: 0, updated: 0, total: 0, failed: 0, errors: [], syncLogId: '' })
+    }
+    setPreviewingExcel(false)
+  }
+
+  const handleExcelImport = async () => {
+    if (!excelFile) return
+    setImporting(true)
+    setImportResult(null)
+    try {
+      const result = await hrService.importExcel(excelFile, excelMapping, activeConnId || undefined)
+      setImportResult(result)
+      setShowExcelMapper(false)
+      setExcelFile(null)
+      setExcelPreview(null)
+      loadData()
+      if (activeConnId)
+        hrService.getSyncLogs({ connectionId: activeConnId, count: 20 }).then(setSyncLogs).catch(() => {})
+    } catch (err: any) {
+      setImportResult({ message: err?.response?.data?.message || 'Import failed', created: 0, updated: 0, total: 0, failed: 0, errors: [], syncLogId: '' })
+    }
+    setImporting(false)
   }
 
   const handleDeleteConnection = async (connId: string) => {
@@ -301,6 +507,7 @@ export default function HrPortalPage() {
           { key: 'overview', label: 'Overview', icon: TrendingUp },
           { key: 'directory', label: 'Employee Directory', icon: Users },
           { key: 'birthdays', label: 'Birthdays', icon: Cake },
+          { key: 'org-tree', label: 'Org Chart', icon: GitBranch },
           { key: 'settings', label: 'Settings', icon: Settings },
         ] as { key: ViewMode; label: string; icon: any }[]).map(tab => (
           <button
@@ -426,9 +633,20 @@ export default function HrPortalPage() {
                 className="w-full pl-9 pr-4 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            <button onClick={() => setShowAddEmployee(true)} className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700">
+            <button onClick={() => { setShowAddEmployee(true); setEmpModalTab('manual'); setCsvQuickFile(null); setCsvQuickResult(null); setModalCsvPreview(null); setModalShowMapper(false) }} className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700">
               <Plus className="w-3.5 h-3.5" /> Add Employee
             </button>
+            <button onClick={() => setShowUploadModal(true)} className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white text-xs rounded-lg hover:bg-emerald-700">
+              <Upload className="w-3.5 h-3.5" /> Upload Employees
+            </button>
+            <button onClick={handleLinkAllEmployees} title="Auto-link employees to app users by email" className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 text-white text-xs rounded-lg hover:bg-purple-700">
+              <ArrowRightLeft className="w-3.5 h-3.5" /> Link Users
+            </button>
+            {employees.length > 0 && (
+              <button onClick={handleDeleteAllEmployees} title="Delete all employees" className="flex items-center gap-1.5 px-3 py-2 bg-red-600 text-white text-xs rounded-lg hover:bg-red-700">
+                <Trash2 className="w-3.5 h-3.5" /> Clear All
+              </button>
+            )}
           </div>
 
           <p className="text-[10px] text-gray-400">{employeesTotal} employees found{selectedDept ? ` in department ${selectedDept}` : ''}</p>
@@ -446,6 +664,8 @@ export default function HrPortalPage() {
                   <th className="text-left px-3 py-2 font-medium text-gray-600">Joined</th>
                   <th className="text-left px-3 py-2 font-medium text-gray-600">DOB</th>
                   <th className="text-left px-3 py-2 font-medium text-gray-600">Status</th>
+                  <th className="text-left px-3 py-2 font-medium text-gray-600">App User</th>
+                  <th className="px-3 py-2"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -467,10 +687,20 @@ export default function HrPortalPage() {
                         {emp.status}
                       </span>
                     </td>
+                    <td className="px-3 py-2">
+                      {emp.appUserId
+                        ? <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700" title={emp.appUserEmail}>✓ {emp.appUserName || 'Linked'}</span>
+                        : <span className="text-[10px] text-gray-300">—</span>}
+                    </td>
+                    <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
+                      <button onClick={e => handleDeleteEmployee(emp.employeeId, e)} className="p-1 text-gray-300 hover:text-red-500 rounded" title="Delete">
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </td>
                   </tr>
                 ))}
                 {employees.length === 0 && (
-                  <tr><td colSpan={9} className="text-center py-12 text-gray-400">No employees found</td></tr>
+                  <tr><td colSpan={11} className="text-center py-12 text-gray-400">No employees found</td></tr>
                 )}
               </tbody>
             </table>
@@ -686,6 +916,21 @@ export default function HrPortalPage() {
       {/* ================================================================
           SETTINGS VIEW — REDESIGNED BY PROVIDER TYPE
           ================================================================ */}
+      {/* ================================================================
+          ORG CHART VIEW
+          ================================================================ */}
+      {view === 'org-tree' && (
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">Org Chart</h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Explore your reporting hierarchy — click any manager to drill down into their team's projects, activities, and members.
+            </p>
+          </div>
+          <HrOrgTree connectionId={activeConnId || undefined} />
+        </div>
+      )}
+
       {view === 'settings' && (
         <div className="space-y-4">
           {/* Header */}
@@ -874,55 +1119,272 @@ export default function HrPortalPage() {
                             ) : (
                               /* =========== MANUAL PROVIDER =========== */
                               <div className="p-4 space-y-4">
-                                {/* CSV Import */}
-                                <div className="bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200 rounded-xl p-4">
-                                  <h5 className="text-xs font-semibold text-gray-800 flex items-center gap-1.5 mb-3">
-                                    <Upload className="w-3.5 h-3.5" /> Import Employees from CSV
-                                  </h5>
-                                  
-                                  <div
-                                    className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                                      dragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-gray-400 bg-white'
-                                    }`}
-                                    onDragOver={e => { e.preventDefault(); setDragOver(true) }}
-                                    onDragLeave={() => setDragOver(false)}
-                                    onDrop={handleFileDrop}
-                                  >
-                                    {importing ? (
-                                      <div className="flex flex-col items-center gap-2">
-                                        <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-                                        <p className="text-xs text-gray-500">Importing...</p>
-                                      </div>
-                                    ) : (
-                                      <>
-                                        <Upload className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                                        <p className="text-sm text-gray-600">Drag & drop CSV here</p>
-                                        <input ref={fileInputRef} type="file" accept=".csv" className="hidden"
-                                          onChange={e => { const f = e.target.files?.[0]; if (f) handleCsvImport(f) }} />
-                                        <button onClick={() => fileInputRef.current?.click()}
-                                          className="mt-3 text-xs bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700">
-                                          Browse Files
-                                        </button>
-                                      </>
-                                    )}
-                                  </div>
-
-                                  {importResult && (
-                                    <div className={`mt-3 p-3 rounded-lg text-xs ${
-                                      importResult.failed > 0 ? 'bg-amber-50 border border-amber-200' :
-                                      importResult.created > 0 || importResult.updated > 0 ? 'bg-green-50 border border-green-200' :
-                                      'bg-red-50 border border-red-200'
-                                    }`}>
-                                      <p className="font-medium">{importResult.message}</p>
-                                      {(importResult.created > 0 || importResult.updated > 0) && (
-                                        <div className="flex gap-4 mt-1.5 text-[10px]">
-                                          <span className="text-green-700">{importResult.created} created</span>
-                                          <span className="text-blue-700">{importResult.updated} updated</span>
+                                {/* Import Row: CSV + Excel side by side */}
+                                <div className="grid grid-cols-2 gap-3">
+                                  {/* CSV Import */}
+                                  <div className="bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200 rounded-xl p-4">
+                                    <h5 className="text-xs font-semibold text-gray-800 flex items-center gap-1.5 mb-3">
+                                      <Upload className="w-3.5 h-3.5" /> Import from CSV
+                                    </h5>
+                                    <div
+                                      className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
+                                        dragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-gray-400 bg-white'
+                                      }`}
+                                      onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+                                      onDragLeave={() => setDragOver(false)}
+                                      onDrop={handleFileDrop}
+                                    >
+                                      {previewingCsv ? (
+                                        <div className="flex flex-col items-center gap-2 py-2">
+                                          <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
+                                          <p className="text-xs text-gray-500">Reading file...</p>
                                         </div>
+                                      ) : (
+                                        <>
+                                          <Upload className="w-6 h-6 mx-auto mb-1.5 text-gray-300" />
+                                          <p className="text-xs text-gray-500">Drop .csv here</p>
+                                          <input ref={fileInputRef} type="file" accept=".csv" className="hidden"
+                                            onChange={e => { const f = e.target.files?.[0]; if (f) handleCsvSelect(f); e.target.value = '' }} />
+                                          <button onClick={() => fileInputRef.current?.click()}
+                                            className="mt-2 text-xs bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700">
+                                            Browse
+                                          </button>
+                                        </>
                                       )}
                                     </div>
-                                  )}
+                                    <p className="text-[10px] text-blue-600 mt-1.5 text-center">Map columns after upload</p>
+                                  </div>
+
+                                  {/* Excel Import */}
+                                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
+                                    <h5 className="text-xs font-semibold text-gray-800 flex items-center gap-1.5 mb-3">
+                                      <FileText className="w-3.5 h-3.5 text-green-600" /> Import from Excel
+                                    </h5>
+                                    <div
+                                      className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
+                                        excelDragOver ? 'border-green-400 bg-green-50' : 'border-green-200 hover:border-green-400 bg-white'
+                                      }`}
+                                      onDragOver={e => { e.preventDefault(); setExcelDragOver(true) }}
+                                      onDragLeave={() => setExcelDragOver(false)}
+                                      onDrop={e => {
+                                        e.preventDefault(); setExcelDragOver(false)
+                                        const f = e.dataTransfer.files[0]
+                                        if (f && (f.name.endsWith('.xlsx') || f.name.endsWith('.xls'))) handleExcelSelect(f)
+                                      }}
+                                    >
+                                      {previewingExcel ? (
+                                        <div className="flex flex-col items-center gap-2 py-2">
+                                          <Loader2 className="w-6 h-6 text-green-500 animate-spin" />
+                                          <p className="text-xs text-gray-500">Reading file...</p>
+                                        </div>
+                                      ) : (
+                                        <>
+                                          <FileText className="w-6 h-6 mx-auto mb-1.5 text-green-300" />
+                                          <p className="text-xs text-gray-500">Drop .xlsx here</p>
+                                          <input ref={excelFileRef} type="file" accept=".xlsx,.xls" className="hidden"
+                                            onChange={e => { const f = e.target.files?.[0]; if (f) handleExcelSelect(f); e.target.value = '' }} />
+                                          <button onClick={() => excelFileRef.current?.click()}
+                                            className="mt-2 text-xs bg-green-600 text-white px-3 py-1 rounded-lg hover:bg-green-700">
+                                            Browse
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                    <p className="text-[10px] text-green-600 mt-1.5 text-center">Map columns after upload</p>
+                                  </div>
                                 </div>
+
+                                {/* Import Result */}
+                                {importResult && (
+                                  <div className={`p-3 rounded-lg text-xs ${
+                                    importResult.failed > 0 ? 'bg-amber-50 border border-amber-200' :
+                                    importResult.created > 0 || importResult.updated > 0 ? 'bg-green-50 border border-green-200' :
+                                    'bg-red-50 border border-red-200'
+                                  }`}>
+                                    <p className="font-medium">{importResult.message}</p>
+                                    {(importResult.created > 0 || importResult.updated > 0) && (
+                                      <div className="flex gap-4 mt-1.5 text-[10px]">
+                                        <span className="text-green-700">{importResult.created} created</span>
+                                        <span className="text-blue-700">{importResult.updated} updated</span>
+                                        {importResult.failed > 0 && <span className="text-red-600">{importResult.failed} failed</span>}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* CSV Column Mapper Modal */}
+                                {showCsvMapper && csvPreview && (
+                                  <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+                                      <div className="flex items-center justify-between p-4 border-b border-gray-100">
+                                        <div>
+                                          <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                                            <ArrowRightLeft className="w-4 h-4 text-blue-600" /> Map CSV Columns
+                                          </h3>
+                                          <p className="text-[11px] text-gray-500 mt-0.5">
+                                            {csvFile?.name} · {csvPreview.totalRows} rows
+                                          </p>
+                                        </div>
+                                        <button onClick={() => { setShowCsvMapper(false); setCsvFile(null); setCsvPreview(null) }}
+                                          className="text-gray-400 hover:text-gray-600">
+                                          <X className="w-4 h-4" />
+                                        </button>
+                                      </div>
+
+                                      <div className="overflow-y-auto flex-1 p-4">
+                                        {/* Preview table */}
+                                        <div className="mb-4 overflow-x-auto rounded-lg border border-gray-100">
+                                          <table className="text-[10px] w-full">
+                                            <thead>
+                                              <tr className="bg-gray-50">
+                                                {csvPreview.headers.map((h, i) => (
+                                                  <th key={i} className="px-2 py-1.5 text-left text-gray-500 font-medium whitespace-nowrap border-b border-gray-100">{h}</th>
+                                                ))}
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {csvPreview.previewRows.slice(0, 3).map((row, ri) => (
+                                                <tr key={ri} className="border-b border-gray-50 hover:bg-gray-50">
+                                                  {row.map((cell, ci) => (
+                                                    <td key={ci} className="px-2 py-1 text-gray-600 whitespace-nowrap max-w-[120px] truncate">{cell}</td>
+                                                  ))}
+                                                </tr>
+                                              ))}
+                                            </tbody>
+                                          </table>
+                                        </div>
+
+                                        {/* Mapping rows */}
+                                        <div className="space-y-2">
+                                          <p className="text-[11px] font-semibold text-gray-700 mb-2">Map HR fields → CSV columns</p>
+                                          {HR_FIELDS.map(field => (
+                                            <div key={field.key} className="flex items-center gap-3">
+                                              <div className="w-44 flex-shrink-0">
+                                                <span className="text-xs text-gray-700">{field.label}</span>
+                                                {field.required && <span className="ml-1 text-[10px] text-red-500">*</span>}
+                                              </div>
+                                              <select
+                                                value={csvMapping[field.key] ?? ''}
+                                                onChange={e => setCsvMapping(prev => ({ ...prev, [field.key]: e.target.value }))}
+                                                className="flex-1 text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                                              >
+                                                <option value="">— Skip —</option>
+                                                {csvPreview.headers.map(h => (
+                                                  <option key={h} value={h}>{h}</option>
+                                                ))}
+                                              </select>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+
+                                      <div className="p-4 border-t border-gray-100 flex items-center justify-between gap-3">
+                                        <p className="text-[11px] text-gray-400">
+                                          <span className="text-red-500">*</span> Employee ID and Full Name are required
+                                        </p>
+                                        <div className="flex gap-2">
+                                          <button onClick={() => { setShowCsvMapper(false); setCsvFile(null); setCsvPreview(null) }}
+                                            className="text-xs px-4 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">
+                                            Cancel
+                                          </button>
+                                          <button
+                                            onClick={handleCsvImportWithMapping}
+                                            disabled={importing || !csvMapping['employeeId'] || !csvMapping['name']}
+                                            className="text-xs px-4 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5">
+                                            {importing ? <><Loader2 className="w-3 h-3 animate-spin" /> Importing...</> : <><Upload className="w-3 h-3" /> Import {csvPreview.totalRows} rows</>}
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Excel Column Mapper Modal */}
+                                {showExcelMapper && excelPreview && (
+                                  <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+                                      <div className="flex items-center justify-between p-4 border-b border-gray-100">
+                                        <div>
+                                          <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                                            <ArrowRightLeft className="w-4 h-4 text-green-600" /> Map Excel Columns
+                                          </h3>
+                                          <p className="text-[11px] text-gray-500 mt-0.5">
+                                            {excelFile?.name} · {excelPreview.totalRows} rows
+                                          </p>
+                                        </div>
+                                        <button onClick={() => { setShowExcelMapper(false); setExcelFile(null); setExcelPreview(null) }}
+                                          className="text-gray-400 hover:text-gray-600">
+                                          <X className="w-4 h-4" />
+                                        </button>
+                                      </div>
+
+                                      <div className="overflow-y-auto flex-1 p-4">
+                                        {/* Preview table */}
+                                        <div className="mb-4 overflow-x-auto rounded-lg border border-gray-100">
+                                          <table className="text-[10px] w-full">
+                                            <thead>
+                                              <tr className="bg-gray-50">
+                                                {excelPreview.headers.map((h, i) => (
+                                                  <th key={i} className="px-2 py-1.5 text-left text-gray-500 font-medium whitespace-nowrap border-b border-gray-100">{h}</th>
+                                                ))}
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {excelPreview.previewRows.slice(0, 3).map((row, ri) => (
+                                                <tr key={ri} className="border-b border-gray-50 hover:bg-gray-50">
+                                                  {row.map((cell, ci) => (
+                                                    <td key={ci} className="px-2 py-1 text-gray-600 whitespace-nowrap max-w-[120px] truncate">{cell}</td>
+                                                  ))}
+                                                </tr>
+                                              ))}
+                                            </tbody>
+                                          </table>
+                                        </div>
+
+                                        {/* Mapping rows */}
+                                        <div className="space-y-2">
+                                          <p className="text-[11px] font-semibold text-gray-700 mb-2">Map HR fields → Excel columns</p>
+                                          {HR_FIELDS.map(field => (
+                                            <div key={field.key} className="flex items-center gap-3">
+                                              <div className="w-44 flex-shrink-0">
+                                                <span className="text-xs text-gray-700">{field.label}</span>
+                                                {field.required && <span className="ml-1 text-[10px] text-red-500">*</span>}
+                                              </div>
+                                              <select
+                                                value={excelMapping[field.key] ?? ''}
+                                                onChange={e => setExcelMapping(prev => ({ ...prev, [field.key]: e.target.value }))}
+                                                className="flex-1 text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-green-400"
+                                              >
+                                                <option value="">— Skip —</option>
+                                                {excelPreview.headers.map(h => (
+                                                  <option key={h} value={h}>{h}</option>
+                                                ))}
+                                              </select>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+
+                                      <div className="p-4 border-t border-gray-100 flex items-center justify-between gap-3">
+                                        <p className="text-[11px] text-gray-400">
+                                          <span className="text-red-500">*</span> Employee ID and Full Name are required
+                                        </p>
+                                        <div className="flex gap-2">
+                                          <button onClick={() => { setShowExcelMapper(false); setExcelFile(null); setExcelPreview(null) }}
+                                            className="text-xs px-4 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">
+                                            Cancel
+                                          </button>
+                                          <button
+                                            onClick={handleExcelImport}
+                                            disabled={importing || !excelMapping['employeeId'] || !excelMapping['name']}
+                                            className="text-xs px-4 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5">
+                                            {importing ? <><Loader2 className="w-3 h-3 animate-spin" /> Importing...</> : <><Upload className="w-3 h-3" /> Import {excelPreview.totalRows} rows</>}
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
 
                                 {/* Manual Entry & Export */}
                                 <div className="grid grid-cols-2 gap-3">
@@ -946,14 +1408,14 @@ export default function HrPortalPage() {
                                       <Download className="w-3.5 h-3.5 text-blue-500" /> Export & Templates
                                     </h6>
                                     <div className="space-y-1.5">
-                                      <a href={hrService.getExportCsvUrl()} download
+                                      <button onClick={() => hrService.exportEmployeesCsv()}
                                         className="w-full text-left text-xs px-3 py-1.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 flex items-center gap-1.5">
                                         <Download className="w-3 h-3" /> Export Employees
-                                      </a>
-                                      <a href={hrService.downloadCsvTemplate()} download
+                                      </button>
+                                      <button onClick={() => hrService.downloadCsvTemplate()}
                                         className="w-full text-left text-xs px-3 py-1.5 rounded bg-gray-50 hover:bg-gray-100 text-gray-700 flex items-center gap-1.5">
                                         <FileText className="w-3 h-3" /> Download Template
-                                      </a>
+                                      </button>
                                     </div>
                                   </div>
                                 </div>
@@ -1107,48 +1569,318 @@ export default function HrPortalPage() {
 
       {/* Add Employee Modal */}
       {showAddEmployee && (
-        <Modal title="Add Employee" onClose={() => setShowAddEmployee(false)}>
-          <div className="space-y-3 max-h-[60vh] overflow-y-auto">
-            <div className="grid grid-cols-2 gap-3">
-              <FormField label="Employee ID *" value={empForm.employeeId} onChange={v => setEmpForm(p => ({ ...p, employeeId: v }))} placeholder="e.g. 3022" />
-              <FormField label="Name *" value={empForm.name} onChange={v => setEmpForm(p => ({ ...p, name: v }))} placeholder="Full name" />
-            </div>
-            <FormField label="Email" value={empForm.email || ''} onChange={v => setEmpForm(p => ({ ...p, email: v }))} placeholder="email@company.com" />
-            <div className="grid grid-cols-2 gap-3">
-              <FormField label="Department Code" value={empForm.departmentCode || ''} onChange={v => setEmpForm(p => ({ ...p, departmentCode: v }))} placeholder="e.g. 2630" />
-              <FormField label="Department Name" value={empForm.department || ''} onChange={v => setEmpForm(p => ({ ...p, department: v }))} placeholder="e.g. 2630: R&D" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <FormField label="Designation" value={empForm.designation || ''} onChange={v => setEmpForm(p => ({ ...p, designation: v }))} />
-              <FormField label="Location" value={empForm.location || ''} onChange={v => setEmpForm(p => ({ ...p, location: v }))} placeholder="e.g. Chennai" />
-            </div>
-            <FormField label="Extension No" value={empForm.extensionNo || ''} onChange={v => setEmpForm(p => ({ ...p, extensionNo: v }))} />
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-medium text-gray-700 mb-1 block">Date of Birth</label>
-                <input type="date" value={empForm.dateOfBirth ? String(empForm.dateOfBirth).substring(0, 10) : ''}
-                  onChange={e => setEmpForm(p => ({ ...p, dateOfBirth: e.target.value || undefined }))}
-                  className="w-full text-xs border border-gray-200 rounded px-3 py-1.5" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-700 mb-1 block">Joining Date</label>
-                <input type="date" value={empForm.joiningDate ? String(empForm.joiningDate).substring(0, 10) : ''}
-                  onChange={e => setEmpForm(p => ({ ...p, joiningDate: e.target.value || undefined }))}
-                  className="w-full text-xs border border-gray-200 rounded px-3 py-1.5" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <FormField label="Reporting To" value={empForm.reportingTo || ''} onChange={v => setEmpForm(p => ({ ...p, reportingTo: v }))} placeholder="Manager name [ID]" />
-              <FormField label="Reporting To ID" value={empForm.reportingToId || ''} onChange={v => setEmpForm(p => ({ ...p, reportingToId: v }))} placeholder="e.g. 1060" />
-            </div>
-            <button onClick={handleSaveEmployee} className="w-full bg-green-600 text-white text-xs py-2 rounded-lg hover:bg-green-700 flex items-center justify-center gap-1.5">
-              <Save className="w-3.5 h-3.5" /> Save Employee
+        <Modal title="Add Employee" onClose={() => setShowAddEmployee(false)} wide>
+          {/* Tabs */}
+          <div className="flex gap-1 mb-4 border-b border-gray-200">
+            <button
+              onClick={() => setEmpModalTab('manual')}
+              className={`flex items-center gap-1.5 px-4 py-2 text-xs font-medium border-b-2 -mb-px transition-colors ${empModalTab === 'manual' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            >
+              <UserPlus className="w-3.5 h-3.5" /> Manual Entry
             </button>
+            <button
+              onClick={() => setEmpModalTab('upload')}
+              className={`flex items-center gap-1.5 px-4 py-2 text-xs font-medium border-b-2 -mb-px transition-colors ${empModalTab === 'upload' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            >
+              <Upload className="w-3.5 h-3.5" /> Upload CSV
+            </button>
+          </div>
+
+          {/* Manual Entry Tab */}
+          {empModalTab === 'manual' && (
+            <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
+              {/* Section: Identity */}
+              <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 space-y-2.5">
+                <p className="text-[10px] font-semibold text-blue-700 uppercase tracking-wide">Identity</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField label="Employee ID *" value={empForm.employeeId} onChange={v => setEmpForm(p => ({ ...p, employeeId: v }))} placeholder="e.g. 3022" />
+                  <FormField label="Full Name *" value={empForm.name} onChange={v => setEmpForm(p => ({ ...p, name: v }))} placeholder="Full name" />
+                </div>
+              </div>
+
+              {/* Section: Contact */}
+              <div className="space-y-2.5">
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Contact & App Linking</p>
+                <FormField label="Email" value={empForm.email || ''}
+                  onChange={v => { setEmpForm(p => ({ ...p, email: v })); setEmailLinkedUser(null) }}
+                  onBlur={() => handleEmailBlur(empForm.email || '')}
+                  placeholder="email@company.com" />
+                {checkingEmail && (
+                  <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Checking for linked app user…
+                  </div>
+                )}
+                {emailLinkedUser && (
+                  <div className={`text-[10px] px-3 py-2 rounded-lg flex items-center gap-2 ${emailLinkedUser.found ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-gray-50 text-gray-500 border border-gray-200'}`}>
+                    {emailLinkedUser.found
+                      ? <><CheckCircle className="w-3.5 h-3.5 shrink-0" /><span>App user <strong>{emailLinkedUser.displayName}</strong> will be linked automatically</span></>
+                      : <><XCircle className="w-3.5 h-3.5 shrink-0" /><span>No app user found — employee saved without link</span></>}
+                  </div>
+                )}
+                <FormField label="Extension No" value={empForm.extensionNo || ''} onChange={v => setEmpForm(p => ({ ...p, extensionNo: v }))} placeholder="e.g. 4512" />
+              </div>
+
+              {/* Section: Work Details */}
+              <div className="space-y-2.5">
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Work Details</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField label="Department Code" value={empForm.departmentCode || ''} onChange={v => setEmpForm(p => ({ ...p, departmentCode: v }))} placeholder="e.g. 2630" />
+                  <FormField label="Department Name" value={empForm.department || ''} onChange={v => setEmpForm(p => ({ ...p, department: v }))} placeholder="e.g. R&D" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField label="Designation" value={empForm.designation || ''} onChange={v => setEmpForm(p => ({ ...p, designation: v }))} placeholder="e.g. Sr. Developer" />
+                  <FormField label="Location" value={empForm.location || ''} onChange={v => setEmpForm(p => ({ ...p, location: v }))} placeholder="e.g. Chennai" />
+                </div>
+              </div>
+
+              {/* Section: Dates */}
+              <div className="space-y-2.5">
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Dates</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 mb-1 block">Date of Birth</label>
+                    <input type="date" value={empForm.dateOfBirth ? String(empForm.dateOfBirth).substring(0, 10) : ''}
+                      onChange={e => setEmpForm(p => ({ ...p, dateOfBirth: e.target.value || undefined }))}
+                      className="w-full text-xs border border-gray-200 rounded px-3 py-1.5 focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 mb-1 block">Joining Date</label>
+                    <input type="date" value={empForm.joiningDate ? String(empForm.joiningDate).substring(0, 10) : ''}
+                      onChange={e => setEmpForm(p => ({ ...p, joiningDate: e.target.value || undefined }))}
+                      className="w-full text-xs border border-gray-200 rounded px-3 py-1.5 focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section: Reporting */}
+              <div className="space-y-2.5">
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Reporting</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField label="Reporting To" value={empForm.reportingTo || ''} onChange={v => setEmpForm(p => ({ ...p, reportingTo: v }))} placeholder="Manager name" />
+                  <FormField label="Reporting To ID" value={empForm.reportingToId || ''} onChange={v => setEmpForm(p => ({ ...p, reportingToId: v }))} placeholder="e.g. 1060" />
+                </div>
+              </div>
+
+              {/* Section: Team & Project */}
+              <div className="space-y-2.5">
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Team & Project</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField label="Team" value={empForm.team || ''} onChange={v => setEmpForm(p => ({ ...p, team: v }))} placeholder="e.g. Platform Engineering" />
+                  <FormField label="Gender" value={empForm.gender || ''} onChange={v => setEmpForm(p => ({ ...p, gender: v }))} placeholder="Male / Female / Other" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField label="Project" value={empForm.project || ''} onChange={v => setEmpForm(p => ({ ...p, project: v }))} placeholder="e.g. ProdVista" />
+                  <FormField label="Activity" value={empForm.activity || ''} onChange={v => setEmpForm(p => ({ ...p, activity: v }))} placeholder="e.g. Development" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Upload CSV Tab */}
+          {empModalTab === 'upload' && (
+            <div className="space-y-4">
+              {/* Template Download */}
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3.5 flex items-start gap-3">
+                <Download className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-xs font-semibold text-amber-800">Step 1 — Download the template</p>
+                  <p className="text-[10px] text-amber-700 mt-0.5">Fill employee details in the CSV template, then upload it below.</p>
+                </div>
+                <button
+                  onClick={() => hrService.downloadCsvTemplate()}
+                  className="shrink-0 px-3 py-1.5 bg-amber-600 text-white text-xs rounded-lg hover:bg-amber-700 flex items-center gap-1.5"
+                >
+                  <Download className="w-3 h-3" /> Template
+                </button>
+              </div>
+
+              {/* Upload Zone */}
+              <div>
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Step 2 — Upload CSV &amp; Map Columns</p>
+                <div
+                  onClick={() => !modalCsvPreviewLoading && csvQuickRef.current?.click()}
+                  onDragOver={e => { e.preventDefault(); setCsvQuickDrag(true) }}
+                  onDragLeave={() => setCsvQuickDrag(false)}
+                  onDrop={e => { e.preventDefault(); setCsvQuickDrag(false); const f = e.dataTransfer.files[0]; if (f) handleModalCsvSelect(f) }}
+                  className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${csvQuickDrag ? 'border-blue-400 bg-blue-50' : csvQuickFile ? 'border-green-400 bg-green-50' : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'}`}
+                >
+                  <input ref={csvQuickRef} type="file" accept=".csv" className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) handleModalCsvSelect(f) }} />
+                  {modalCsvPreviewLoading ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
+                      <p className="text-xs text-blue-600">Reading columns…</p>
+                    </div>
+                  ) : csvQuickFile ? (
+                    <div className="flex flex-col items-center gap-1.5">
+                      <CheckCircle className="w-6 h-6 text-green-500" />
+                      <p className="text-xs font-medium text-green-700">{csvQuickFile.name}</p>
+                      <p className="text-[10px] text-green-600">{(csvQuickFile.size / 1024).toFixed(1)} KB · Click to change</p>
+                      {modalCsvPreview && (
+                        <button onClick={e => { e.stopPropagation(); setModalShowMapper(true) }}
+                          className="mt-1 text-[10px] underline text-blue-600 hover:text-blue-800">
+                          {modalCsvPreview.totalRows} rows · Re-open mapper
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-1.5">
+                      <Upload className="w-6 h-6 text-gray-400" />
+                      <p className="text-xs text-gray-600 font-medium">Drop CSV here or click to browse</p>
+                      <p className="text-[10px] text-gray-400">.csv files only · Column mapper will open automatically</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Import Result */}
+              {csvQuickResult && (
+                <div className={`rounded-lg p-3 text-xs border ${csvQuickResult.failed === 0 && (csvQuickResult.created + csvQuickResult.updated) > 0 ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+                  {csvQuickResult.message
+                    ? csvQuickResult.message
+                    : <span>Created: <strong>{csvQuickResult.created}</strong> · Updated: <strong>{csvQuickResult.updated}</strong>{csvQuickResult.failed > 0 && <> · Failed: <strong className="text-red-600">{csvQuickResult.failed}</strong></>}</span>
+                  }
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Footer Buttons */}
+          <div className={`flex gap-2 mt-4 pt-4 border-t border-gray-100 ${empModalTab === 'manual' ? 'justify-end' : 'justify-between'}`}>
+            {empModalTab === 'upload' && (
+              <button onClick={() => { setCsvQuickFile(null); setCsvQuickResult(null); setModalCsvPreview(null); setModalShowMapper(false) }} className="text-xs text-gray-500 hover:text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-100">
+                Clear
+              </button>
+            )}
+            <div className="flex gap-2">
+              <button onClick={() => setShowAddEmployee(false)} className="px-4 py-2 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
+                Cancel
+              </button>
+              {empModalTab === 'manual' ? (
+                <button onClick={handleSaveEmployee} className="px-4 py-2 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 flex items-center gap-1.5">
+                  <Save className="w-3.5 h-3.5" /> Save Employee
+                </button>
+              ) : (
+                <button
+                  onClick={() => csvQuickFile && modalCsvPreview ? setModalShowMapper(true) : undefined}
+                  disabled={!csvQuickFile || modalCsvPreviewLoading}
+                  className="px-4 py-2 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5">
+                  <ArrowRightLeft className="w-3.5 h-3.5" />
+                  {modalCsvPreviewLoading ? 'Reading…' : 'Map &amp; Import'}
+                </button>
+              )}
+            </div>
           </div>
         </Modal>
       )}
 
+      {/* Modal CSV Column Mapper — rendered outside Modal to sit above it */}
+      {showAddEmployee && modalShowMapper && modalCsvPreview && (
+        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                  <ArrowRightLeft className="w-4 h-4 text-blue-600" /> Map CSV Columns
+                </h3>
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  {csvQuickFile?.name} · <strong>{modalCsvPreview.totalRows}</strong> rows detected
+                </p>
+              </div>
+              <button onClick={() => setModalShowMapper(false)} className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 p-5 space-y-5">
+              {/* Data preview */}
+              <div>
+                <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Preview (first 3 rows)</p>
+                <div className="overflow-x-auto rounded-lg border border-gray-100">
+                  <table className="text-[10px] w-full">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        {modalCsvPreview.headers.map((h, i) => (
+                          <th key={i} className="px-2.5 py-2 text-left text-gray-500 font-semibold whitespace-nowrap border-b border-gray-100">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {modalCsvPreview.previewRows.slice(0, 3).map((row, ri) => (
+                        <tr key={ri} className="border-b border-gray-50 hover:bg-gray-50">
+                          {row.map((cell, ci) => (
+                            <td key={ci} className="px-2.5 py-1.5 text-gray-600 whitespace-nowrap max-w-[140px] truncate">{cell || <span className="text-gray-300">—</span>}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Column mapping */}
+              <div>
+                <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-3">Map employee fields → CSV columns</p>
+                <div className="space-y-2">
+                  {HR_FIELDS.map(field => {
+                    const mapped = modalCsvMapping[field.key]
+                    return (
+                      <div key={field.key} className={`flex items-center gap-3 px-3 py-2 rounded-lg ${mapped ? 'bg-blue-50/50' : 'bg-gray-50/50'}`}>
+                        <div className="w-44 shrink-0 flex items-center gap-1">
+                          <span className="text-xs text-gray-700">{field.label}</span>
+                          {field.required && <span className="text-[10px] text-red-500">*</span>}
+                        </div>
+                        <select
+                          value={mapped ?? ''}
+                          onChange={e => setModalCsvMapping(prev => ({ ...prev, [field.key]: e.target.value }))}
+                          className={`flex-1 text-xs border rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 ${mapped ? 'border-blue-300 text-blue-800' : 'border-gray-200 text-gray-700'}`}
+                        >
+                          <option value="">— Skip / leave blank —</option>
+                          {modalCsvPreview.headers.map(h => (
+                            <option key={h} value={h}>{h}</option>
+                          ))}
+                        </select>
+                        {mapped && <CheckCircle className="w-3.5 h-3.5 text-blue-500 shrink-0" />}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between gap-3">
+              <p className="text-[11px] text-gray-400">
+                <span className="text-red-500">*</span> Employee ID and Full Name are required. Unmapped fields will be blank.
+              </p>
+              <div className="flex gap-2">
+                <button onClick={() => setModalShowMapper(false)}
+                  className="text-xs px-4 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">
+                  Back
+                </button>
+                <button
+                  onClick={handleQuickCsvImport}
+                  disabled={csvQuickUploading || !modalCsvMapping['employeeId'] || !modalCsvMapping['name']}
+                  className="text-xs px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5">
+                  {csvQuickUploading
+                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Importing…</>
+                    : <><Upload className="w-3.5 h-3.5" /> Import {modalCsvPreview.totalRows} rows</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add Department Modal */}
+      <HrEmployeeUploadModal
+        isOpen={showUploadModal}
+        onClose={() => { setShowUploadModal(false); loadEmployees(selectedDept || undefined, searchText) }}
+        connectionId={activeConnId || undefined}
+        userRole={user?.role}
+      />
+
       {showAddDept && (
         <Modal title="Add Department" onClose={() => setShowAddDept(false)}>
           <div className="space-y-3">
@@ -1225,10 +1957,10 @@ function StatCard({ icon: Icon, label, value, color }: { icon: any; label: strin
   )
 }
 
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+      <div className={`bg-white rounded-xl shadow-xl w-full ${wide ? 'max-w-2xl' : 'max-w-lg'}`} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200">
           <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
           <button onClick={onClose} className="p-1 rounded hover:bg-gray-100"><X className="w-4 h-4" /></button>
@@ -1239,13 +1971,13 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   )
 }
 
-function FormField({ label, value, onChange, placeholder, type = 'text' }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string
+function FormField({ label, value, onChange, onBlur, placeholder, type = 'text' }: {
+  label: string; value: string; onChange: (v: string) => void; onBlur?: () => void; placeholder?: string; type?: string
 }) {
   return (
     <div>
       <label className="text-xs font-medium text-gray-700 mb-1 block">{label}</label>
-      <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+      <input type={type} value={value} onChange={e => onChange(e.target.value)} onBlur={onBlur} placeholder={placeholder}
         className="w-full text-xs border border-gray-200 rounded px-3 py-1.5 focus:ring-2 focus:ring-blue-500" />
     </div>
   )

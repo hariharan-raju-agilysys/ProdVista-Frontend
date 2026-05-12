@@ -19,17 +19,6 @@ interface ToolCard {
 
 const tools: ToolCard[] = [
   {
-    id: 'command-center',
-    name: 'Command Center',
-    description: 'Real-time engineering operations dashboard with live metrics and alerts',
-    icon: Activity,
-    path: '/command-center',
-    color: 'text-cyan-600',
-    bgColor: 'bg-cyan-50 border-cyan-200',
-    category: 'monitoring',
-    featureFlag: 'enableCommandCenter',
-  },
-  {
     id: 'observability',
     name: 'Observability',
     description: 'Application performance monitoring with Azure App Insights integration',
