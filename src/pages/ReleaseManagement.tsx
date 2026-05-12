@@ -164,10 +164,10 @@ export default function ReleaseManagement() {
       ])
       setServices(servicesRes.data)
       setReleases(releasesRes.data)
-    } catch {
-      // Mock data for demo
-      setServices(getMockServices())
-      setReleases(getMockReleases())
+    } catch (error) {
+      console.error('Failed to load release management data:', error)
+      setServices([])
+      setReleases([])
     } finally {
       setIsLoading(false)
     }
@@ -225,13 +225,12 @@ export default function ReleaseManagement() {
       }
       
       setAiMessages(prev => prev.filter(m => m.id !== loadingId).concat(assistantMessage))
-    } catch {
-      // Mock response for demo
-      const mockResponse = generateMockAIResponse(aiInput, services, releases)
+    } catch (error) {
+      console.error('AI query failed:', error)
       setAiMessages(prev => prev.filter(m => m.id !== loadingId).concat({
         id: Date.now().toString(),
         role: 'assistant',
-        content: mockResponse,
+        content: 'I apologize, but I encountered an error processing your request. Please ensure the release management backend is configured.',
         timestamp: new Date()
       }))
     } finally {
@@ -1576,183 +1575,8 @@ function AIAssistantTab({
 }
 
 // ============================================================================
-// Mock Data Generators
+// Helper Functions
 // ============================================================================
-
-function getMockServices(): Service[] {
-  return [
-    {
-      id: '1',
-      name: 'pms-api',
-      displayName: 'PMS Stay Service',
-      repository: 'agilysys/pms-stayservice',
-      currentVersion: 'v2.6.1',
-      previousVersion: 'v2.6.0',
-      icon: 'Server',
-      status: 'healthy',
-      lastDeployedAt: '2024-03-15T10:30:00Z',
-      lastDeployedBy: 'john.doe',
-      deployedEnvironments: [
-        { environment: 'development', version: 'v2.7.0-dev.1', deployedAt: '2024-03-18T08:00:00Z', deployedBy: 'ci-bot', commitHash: 'a1b2c3d4', status: 'running' },
-        { environment: 'staging', version: 'v2.6.1', deployedAt: '2024-03-17T14:00:00Z', deployedBy: 'jane.smith', commitHash: 'e5f6g7h8', status: 'running' },
-        { environment: 'production', version: 'v2.6.1', deployedAt: '2024-03-15T10:30:00Z', deployedBy: 'john.doe', commitHash: 'e5f6g7h8', status: 'running' }
-      ],
-      branches: [
-        { name: 'main', type: 'main', lastCommit: 'Fix payment processing', lastCommitAuthor: 'john.doe', lastCommitDate: '2 hours ago', aheadBehind: { ahead: 0, behind: 0 }, buildStatus: 'success', isProtected: true },
-        { name: 'release/2.6', type: 'release', lastCommit: 'Bump version', lastCommitAuthor: 'jane.smith', lastCommitDate: '1 day ago', aheadBehind: { ahead: 3, behind: 0 }, buildStatus: 'success', isProtected: true },
-        { name: 'feature/new-dashboard', type: 'feature', lastCommit: 'Add charts', lastCommitAuthor: 'bob.wilson', lastCommitDate: '5 hours ago', aheadBehind: { ahead: 12, behind: 2 }, buildStatus: 'pending', isProtected: false },
-        { name: 'hotfix/auth-fix', type: 'hotfix', lastCommit: 'Fix token refresh', lastCommitAuthor: 'alice.johnson', lastCommitDate: '30 min ago', aheadBehind: { ahead: 1, behind: 0 }, buildStatus: 'success', isProtected: false }
-      ]
-    },
-    {
-      id: '2',
-      name: 'frontend',
-      displayName: 'ProdVista Frontend',
-      repository: 'agilysys/prodvista-frontend',
-      currentVersion: 'v3.2.0',
-      previousVersion: 'v3.1.8',
-      icon: 'Globe',
-      status: 'healthy',
-      lastDeployedAt: '2024-03-16T09:15:00Z',
-      lastDeployedBy: 'bob.wilson',
-      deployedEnvironments: [
-        { environment: 'development', version: 'v3.3.0-dev.3', deployedAt: '2024-03-18T07:00:00Z', deployedBy: 'ci-bot', commitHash: 'i9j0k1l2', status: 'running' },
-        { environment: 'staging', version: 'v3.2.0', deployedAt: '2024-03-17T11:00:00Z', deployedBy: 'bob.wilson', commitHash: 'm3n4o5p6', status: 'running' },
-        { environment: 'production', version: 'v3.2.0', deployedAt: '2024-03-16T09:15:00Z', deployedBy: 'bob.wilson', commitHash: 'm3n4o5p6', status: 'running' }
-      ],
-      branches: [
-        { name: 'main', type: 'main', lastCommit: 'Release v3.2.0', lastCommitAuthor: 'bob.wilson', lastCommitDate: '2 days ago', aheadBehind: { ahead: 0, behind: 0 }, buildStatus: 'success', isProtected: true },
-        { name: 'develop', type: 'develop', lastCommit: 'Merge PR #234', lastCommitAuthor: 'jane.smith', lastCommitDate: '6 hours ago', aheadBehind: { ahead: 8, behind: 0 }, buildStatus: 'success', isProtected: true },
-        { name: 'feature/dark-mode', type: 'feature', lastCommit: 'Fix contrast', lastCommitAuthor: 'alice.johnson', lastCommitDate: '2 hours ago', aheadBehind: { ahead: 15, behind: 3 }, buildStatus: 'failure', isProtected: false }
-      ]
-    },
-    {
-      id: '3',
-      name: 'payment-gateway',
-      displayName: 'Retail Payment Gateway',
-      repository: 'agilysys/retail-paymentgateway',
-      currentVersion: 'v1.8.4',
-      icon: 'Database',
-      status: 'warning',
-      lastDeployedAt: '2024-03-10T16:00:00Z',
-      lastDeployedBy: 'alice.johnson',
-      deployedEnvironments: [
-        { environment: 'development', version: 'v1.9.0-dev.1', deployedAt: '2024-03-17T10:00:00Z', deployedBy: 'ci-bot', commitHash: 'q7r8s9t0', status: 'running' },
-        { environment: 'staging', version: 'v1.8.4', deployedAt: '2024-03-15T08:00:00Z', deployedBy: 'alice.johnson', commitHash: 'u1v2w3x4', status: 'running' },
-        { environment: 'production', version: 'v1.8.4', deployedAt: '2024-03-10T16:00:00Z', deployedBy: 'alice.johnson', commitHash: 'u1v2w3x4', status: 'running' }
-      ],
-      branches: [
-        { name: 'main', type: 'main', lastCommit: 'Security patch', lastCommitAuthor: 'alice.johnson', lastCommitDate: '1 week ago', aheadBehind: { ahead: 0, behind: 0 }, buildStatus: 'success', isProtected: true },
-        { name: 'release/1.9', type: 'release', lastCommit: 'Add Shift4 support', lastCommitAuthor: 'john.doe', lastCommitDate: '3 days ago', aheadBehind: { ahead: 5, behind: 0 }, buildStatus: 'success', isProtected: true }
-      ]
-    },
-    {
-      id: '4',
-      name: 'mobile-app',
-      displayName: 'Guest Mobile App',
-      repository: 'agilysys/guest-mobile',
-      currentVersion: 'v4.0.2',
-      icon: 'Smartphone',
-      status: 'deploying',
-      lastDeployedAt: '2024-03-18T08:30:00Z',
-      lastDeployedBy: 'ci-bot',
-      deployedEnvironments: [
-        { environment: 'development', version: 'v4.1.0-beta.1', deployedAt: '2024-03-18T08:30:00Z', deployedBy: 'ci-bot', commitHash: 'y5z6a7b8', status: 'running' },
-        { environment: 'staging', version: 'v4.0.2', deployedAt: '2024-03-14T12:00:00Z', deployedBy: 'jane.smith', commitHash: 'c9d0e1f2', status: 'running' },
-        { environment: 'production', version: 'v4.0.1', deployedAt: '2024-03-08T15:00:00Z', deployedBy: 'john.doe', commitHash: 'g3h4i5j6', status: 'running' }
-      ],
-      branches: [
-        { name: 'main', type: 'main', lastCommit: 'v4.0.2 release', lastCommitAuthor: 'jane.smith', lastCommitDate: '4 days ago', aheadBehind: { ahead: 0, behind: 0 }, buildStatus: 'success', isProtected: true },
-        { name: 'feature/push-notifications', type: 'feature', lastCommit: 'Integrate FCM', lastCommitAuthor: 'bob.wilson', lastCommitDate: '1 hour ago', aheadBehind: { ahead: 20, behind: 1 }, buildStatus: 'pending', isProtected: false }
-      ]
-    }
-  ]
-}
-
-function getMockReleases(): Release[] {
-  return [
-    {
-      id: '1',
-      version: 'v2.6.1',
-      name: 'Security Hotfix',
-      description: 'Critical security patches for authentication',
-      status: 'released',
-      targetDate: '2024-03-15',
-      releaseDate: '2024-03-15',
-      services: [
-        { serviceId: '1', serviceName: 'PMS API', fromVersion: 'v2.6.0', toVersion: 'v2.6.1', changes: 8 }
-      ],
-      signOffs: [
-        { id: '1', userId: 'u1', userName: 'John Doe', userRole: 'Tech Lead', signedAt: '2024-03-15T09:00:00Z', type: 'lead', comment: 'LGTM - security fix verified' },
-        { id: '2', userId: 'u2', userName: 'Jane Smith', userRole: 'QA Lead', signedAt: '2024-03-15T08:30:00Z', type: 'qa', comment: 'All tests passing' },
-        { id: '3', userId: 'u3', userName: 'Bob Wilson', userRole: 'Security', signedAt: '2024-03-15T08:00:00Z', type: 'security', comment: 'Security scan passed' }
-      ],
-      tags: ['security', 'hotfix', 'critical'],
-      releaseNotes: '- Fixed authentication token refresh\n- Patched SQL injection vulnerability\n- Updated dependencies',
-      commits: 12,
-      pullRequests: 3,
-      createdBy: 'john.doe',
-      createdAt: '2024-03-14T10:00:00Z'
-    },
-    {
-      id: '2',
-      version: 'v3.2.0',
-      name: 'Dashboard Redesign',
-      description: 'Complete overhaul of the admin dashboard',
-      status: 'released',
-      targetDate: '2024-03-16',
-      releaseDate: '2024-03-16',
-      services: [
-        { serviceId: '2', serviceName: 'Frontend', fromVersion: 'v3.1.8', toVersion: 'v3.2.0', changes: 45 }
-      ],
-      signOffs: [
-        { id: '4', userId: 'u4', userName: 'Alice Johnson', userRole: 'Product', signedAt: '2024-03-16T08:00:00Z', type: 'manager' },
-        { id: '5', userId: 'u2', userName: 'Jane Smith', userRole: 'QA Lead', signedAt: '2024-03-15T16:00:00Z', type: 'qa' }
-      ],
-      tags: ['feature', 'ui', 'dashboard'],
-      releaseNotes: '- New dashboard layout\n- Added analytics widgets\n- Improved performance\n- Dark mode support',
-      commits: 89,
-      pullRequests: 12,
-      createdBy: 'bob.wilson',
-      createdAt: '2024-03-01T10:00:00Z'
-    },
-    {
-      id: '3',
-      version: 'v2.7.0',
-      name: 'Q2 Feature Release',
-      status: 'pending',
-      targetDate: '2024-04-01',
-      services: [
-        { serviceId: '1', serviceName: 'PMS API', fromVersion: 'v2.6.1', toVersion: 'v2.7.0', changes: 32 },
-        { serviceId: '3', serviceName: 'Payment Gateway', fromVersion: 'v1.8.4', toVersion: 'v1.9.0', changes: 18 }
-      ],
-      signOffs: [
-        { id: '6', userId: 'u2', userName: 'Jane Smith', userRole: 'QA Lead', signedAt: '2024-03-18T10:00:00Z', type: 'qa', comment: 'Test suite passed' }
-      ],
-      tags: ['feature', 'q2-2024'],
-      commits: 156,
-      pullRequests: 24,
-      createdBy: 'john.doe',
-      createdAt: '2024-02-15T10:00:00Z'
-    },
-    {
-      id: '4',
-      version: 'v4.1.0',
-      name: 'Mobile App Update',
-      status: 'draft',
-      targetDate: '2024-04-15',
-      services: [
-        { serviceId: '4', serviceName: 'Mobile App', fromVersion: 'v4.0.2', toVersion: 'v4.1.0', changes: 28 }
-      ],
-      signOffs: [],
-      tags: ['mobile', 'feature'],
-      commits: 45,
-      pullRequests: 8,
-      createdBy: 'bob.wilson',
-      createdAt: '2024-03-10T10:00:00Z'
-    }
-  ]
-}
 
 function formatAIResponse(data: any): string {
   if (data.data && data.data.length > 0) {
@@ -1761,78 +1585,8 @@ function formatAIResponse(data: any): string {
   return data.generatedSql || 'Query executed successfully.'
 }
 
-function generateMockAIResponse(question: string, services: Service[], releases: Release[]): string {
-  const q = question.toLowerCase()
-  
-  if (q.includes('production') || q.includes('deployed')) {
-    const prodVersions = services.map(s => {
-      const prod = s.deployedEnvironments.find(e => e.environment === 'production')
-      return `• **${s.displayName}**: ${prod?.version || 'N/A'} (deployed ${prod ? new Date(prod.deployedAt).toLocaleDateString() : 'N/A'} by ${prod?.deployedBy || 'unknown'})`
-    }).join('\n')
-    return `Here are the current production deployments:\n\n${prodVersions}`
-  }
-  
-  if (q.includes('sign') || q.includes('approved')) {
-    const latestRelease = releases.find(r => r.status === 'released')
-    if (latestRelease) {
-      const signOffs = latestRelease.signOffs.map(s => 
-        `• **${s.userName}** (${s.type.toUpperCase()}) - ${new Date(s.signedAt).toLocaleString()}${s.comment ? `\n  _"${s.comment}"_` : ''}`
-      ).join('\n')
-      return `**${latestRelease.version}** (${latestRelease.name}) was signed off by:\n\n${signOffs}`
-    }
-    return 'No recent releases with sign-offs found.'
-  }
-  
-  if (q.includes('branch') && q.includes('fail')) {
-    const failingBranches = services.flatMap(s => 
-      s.branches.filter(b => b.buildStatus === 'failure').map(b => ({
-        service: s.displayName,
-        branch: b.name,
-        author: b.lastCommitAuthor
-      }))
-    )
-    if (failingBranches.length > 0) {
-      return `Found ${failingBranches.length} failing branches:\n\n${failingBranches.map(b => 
-        `• **${b.service}** / \`${b.branch}\` - last commit by ${b.author}`
-      ).join('\n')}`
-    }
-    return 'All branches are currently passing! ✅'
-  }
-  
-  if (q.includes('release') && q.includes('last')) {
-    const released = releases.filter(r => r.status === 'released').sort((a, b) => 
-      new Date(b.releaseDate || '').getTime() - new Date(a.releaseDate || '').getTime()
-    )
-    if (released.length > 0) {
-      const r = released[0]
-      return `The last release was **${r.version}** (${r.name}):\n\n• Released: ${r.releaseDate}\n• Services: ${r.services.map(s => s.serviceName).join(', ')}\n• Commits: ${r.commits}\n• PRs: ${r.pullRequests}`
-    }
-    return 'No releases found.'
-  }
-  
-  if (q.includes('hotfix')) {
-    const hotfixBranches = services.flatMap(s => 
-      s.branches.filter(b => b.type === 'hotfix').map(b => ({
-        service: s.displayName,
-        branch: b.name,
-        commit: b.lastCommit,
-        date: b.lastCommitDate
-      }))
-    )
-    if (hotfixBranches.length > 0) {
-      return `Found ${hotfixBranches.length} hotfix branches:\n\n${hotfixBranches.map(b => 
-        `• **${b.service}** / \`${b.branch}\`\n  Last: "${b.commit}" (${b.date})`
-      ).join('\n')}`
-    }
-    return 'No active hotfix branches.'
-  }
-  
-  return `I understand you're asking about "${question}". Here's what I found:\n\n• ${services.length} services tracked\n• ${releases.length} releases in the system\n• ${releases.filter(r => r.status === 'released').length} released versions\n\nTry asking about:\n- Production deployments\n- Sign-off history\n- Failing branches\n- Recent releases`
-}
-
 // ============================================================================
 // Forms & Export Tab
-// ============================================================================
 
 function FormsAndExportTab({
   services,

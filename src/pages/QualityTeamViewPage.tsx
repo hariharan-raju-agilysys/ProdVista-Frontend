@@ -10,9 +10,13 @@ import {
   getSeverityColor, getStateColor
 } from '../services/qualityService';
 import {
+  getDepartments, getEmployees,
+  HrDepartment, HrEmployee
+} from '../services/hrPortalService';
+import {
   Bug, Shield, Clock, AlertTriangle, TrendingUp, TrendingDown, Users, Activity,
   BarChart3, Target, RefreshCw, Flame, Zap, ExternalLink,
-  ChevronDown, ChevronRight, Award, Layers
+  ChevronDown, ChevronRight, Award, Layers, Filter, UserCheck
 } from 'lucide-react';
 
 // ============================================================================
@@ -36,6 +40,12 @@ export default function QualityTeamViewPage() {
   const [loading, setLoading] = useState(true);
   const [expandedMember, setExpandedMember] = useState<string | null>(null);
 
+  // ── NEW: Employee Hierarchy Filtering ───────────────────────────────────
+  const [departments, setDepartments] = useState<HrDepartment[]>([]);
+  const [selectedDepartmentCode, setSelectedDepartmentCode] = useState<string>('');
+  const [teamMembers, setTeamMembers] = useState<HrEmployee[]>([]);
+  const [showHierarchyFilter, setShowHierarchyFilter] = useState(false);
+
   // Load connections
   useEffect(() => {
     (async () => {
@@ -47,15 +57,49 @@ export default function QualityTeamViewPage() {
     })();
   }, []);
 
-  // Load all dashboard data
+  // ── NEW: Load departments for hierarchy filtering ───────────────────────
+  useEffect(() => {
+    (async () => {
+      try {
+        const depts = await getDepartments();
+        setDepartments(depts);
+      } catch (err) {
+        console.error('Failed to load departments:', err);
+      }
+    })();
+  }, []);
+
+  // ── NEW: Load team members when department selected ─────────────────────
+  useEffect(() => {
+    if (!selectedDepartmentCode) {
+      setTeamMembers([]);
+      return;
+    }
+    (async () => {
+      try {
+        const result = await getEmployees({ departmentCode: selectedDepartmentCode, status: 'Active' });
+        setTeamMembers(result.employees || []);
+      } catch (err) {
+        console.error('Failed to load team members:', err);
+        setTeamMembers([]);
+      }
+    })();
+  }, [selectedDepartmentCode]);
+
+  // Load all dashboard data (with hierarchy filtering)
   const loadAll = useCallback(async () => {
     if (!selectedConnectionId) return;
     setLoading(true);
     try {
+      // Build email filter from selected team members
+      const emailsParam = teamMembers.length > 0
+        ? teamMembers.map(m => m.email).filter(Boolean)
+        : undefined;
+
       const [kpiData, bugsData, effData, trendData, agingData, custData, teamData, userData] = await Promise.all([
         getKpiSummary(selectedConnectionId).catch(() => null),
         getBugs({ state: 'Active' }, selectedConnectionId).catch(() => []),
-        getOwnerEfficiency(selectedConnectionId).catch(() => []),
+        getOwnerEfficiency(selectedConnectionId, undefined, emailsParam).catch(() => []),
         getTrend(90, selectedConnectionId).catch(() => []),
         getAgingDistribution(selectedConnectionId).catch(() => []),
         getCustomerIssues().catch(() => []),
@@ -72,7 +116,7 @@ export default function QualityTeamViewPage() {
       setUserAnalysis(userData.users || []);
     } catch { /* skip */ }
     setLoading(false);
-  }, [selectedConnectionId]);
+  }, [selectedConnectionId, teamMembers]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -145,6 +189,16 @@ export default function QualityTeamViewPage() {
                 </select>
               )}
               <button
+                onClick={() => setShowHierarchyFilter(!showHierarchyFilter)}
+                className={`flex items-center gap-2 px-5 py-2.5 backdrop-blur-sm text-white font-semibold rounded-xl transition-all shadow-lg ${
+                  showHierarchyFilter ? 'bg-white/30' : 'bg-white/20 hover:bg-white/30'
+                }`}
+              >
+                <Filter className="w-4 h-4" />
+                {selectedDepartmentCode ? `Dept: ${selectedDepartmentCode}` : 'Filter by Team'}
+                {selectedDepartmentCode && <span className="ml-1 text-xs bg-white/20 px-2 py-0.5 rounded-full">{teamMembers.length}</span>}
+              </button>
+              <button
                 onClick={loadAll}
                 className="flex items-center gap-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm text-white font-semibold rounded-xl hover:bg-white/30 transition-all shadow-lg"
               >
@@ -157,6 +211,74 @@ export default function QualityTeamViewPage() {
       </header>
 
       <main className="max-w-[1800px] mx-auto px-8 -mt-4 pb-12 space-y-8">
+        {/* ================================================================
+            EMPLOYEE HIERARCHY FILTER PANEL (collapsible)
+            ================================================================ */}
+        {showHierarchyFilter && (
+          <section className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 border-2 border-indigo-200 dark:border-indigo-800 rounded-2xl p-6 shadow-lg">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 bg-indigo-500 rounded-xl flex items-center justify-center shadow-lg">
+                <Filter className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-indigo-900 dark:text-indigo-100">Filter by Employee Hierarchy</h3>
+                <p className="text-sm text-indigo-600 dark:text-indigo-300">Filter bugs and analytics by department/team structure</p>
+              </div>
+              <button
+                onClick={() => {
+                  setSelectedDepartmentCode('');
+                  setTeamMembers([]);
+                  setShowHierarchyFilter(false);
+                }}
+                className="px-4 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors font-medium border border-gray-200 dark:border-gray-700"
+              >
+                Clear Filter
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Department</label>
+                <select
+                  value={selectedDepartmentCode}
+                  onChange={(e) => setSelectedDepartmentCode(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-indigo-200 dark:border-indigo-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                >
+                  <option value="">All Departments</option>
+                  {departments.map(d => (
+                    <option key={d.departmentCode} value={d.departmentCode}>
+                      {d.departmentCode}: {d.departmentName} ({d.actualCount} members)
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {selectedDepartmentCode && (
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                    Team Members ({teamMembers.length})
+                  </label>
+                  <div className="bg-white dark:bg-gray-800 border-2 border-indigo-200 dark:border-indigo-700 rounded-xl p-4 max-h-32 overflow-y-auto">
+                    {teamMembers.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {teamMembers.slice(0, 10).map(m => (
+                          <span key={m.id} className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-lg text-sm font-medium border border-indigo-200 dark:border-indigo-700">
+                            <UserCheck className="w-3.5 h-3.5" />
+                            {m.name.split(' ').slice(0, 2).join(' ')}
+                          </span>
+                        ))}
+                        {teamMembers.length > 10 && (
+                          <span className="text-sm text-gray-500">+{teamMembers.length - 10} more</span>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">No active team members found</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
         {/* ================================================================
             HERO KPI CARDS — Massive gradient cards
             ================================================================ */}
@@ -324,6 +446,177 @@ export default function QualityTeamViewPage() {
             </div>
           </div>
         </section>
+
+        {/* ================================================================
+            RESOLVER QUALITY ANALYTICS — Who resolves bugs that get reopened
+            ================================================================ */}
+        {efficiency.length > 0 && (
+          <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+            <div className="px-8 py-6 border-b border-gray-100 dark:border-gray-800">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+                <Shield className="w-7 h-7 text-emerald-500" />
+                Resolver Quality Analytics
+                <span className="text-lg font-normal text-gray-400 ml-2">
+                  — Track bugs resolved by each team member that got reopened
+                </span>
+              </h2>
+            </div>
+            <div className="p-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
+                {efficiency
+                  .filter(e => e.totalResolvedByUser > 0)
+                  .sort((a, b) => a.resolutionQuality - b.resolutionQuality)
+                  .map(member => {
+                    const displayName = member.ownerName.split(' <')[0];
+                    const qualityColor = member.resolutionQuality >= 90 ? 'emerald' : member.resolutionQuality >= 70 ? 'amber' : 'red';
+                    const avatarColors = ['bg-indigo-500', 'bg-purple-500', 'bg-blue-500', 'bg-teal-500', 'bg-rose-500', 'bg-orange-500', 'bg-cyan-500', 'bg-emerald-500'];
+                    const avatarColor = avatarColors[displayName.charCodeAt(0) % avatarColors.length];
+                    return (
+                      <div
+                        key={member.ownerName}
+                        className=\"bg-gradient-to-br from-white to-gray-50 dark:from-gray-900 dark:to-gray-800 rounded-2xl border-2 border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-lg transition-all p-6\"
+                      >
+                        <div className=\"flex items-center gap-4 mb-4\">
+                          <div className={`w-14 h-14 rounded-2xl ${avatarColor} text-white flex items-center justify-center text-xl font-bold shadow-lg`}>
+                            {displayName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                          </div>
+                          <div className=\"flex-1 min-w-0\">
+                            <h3 className=\"text-lg font-bold text-gray-900 dark:text-white truncate\">{displayName}</h3>
+                            <p className=\"text-sm text-gray-500 dark:text-gray-400\">
+                              {member.totalResolvedByUser} resolved · {member.reopenedCount} reopened
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {/* Quality Score */}
+                        <div className=\"mb-4\">
+                          <div className=\"flex items-center justify-between mb-2\">
+                            <span className=\"text-xs font-bold text-gray-500 uppercase tracking-wider\">Resolution Quality</span>
+                            <span className={`text-3xl font-extrabold ${qualityColor === 'emerald' ? 'text-emerald-600 dark:text-emerald-400' : qualityColor === 'amber' ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
+                              {member.resolutionQuality.toFixed(0)}%
+                            </span>
+                          </div>
+                          <div className=\"w-full h-3 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden\">
+                            <div
+                              className={`h-full rounded-full transition-all duration-700 ${qualityColor === 'emerald' ? 'bg-emerald-500' : qualityColor === 'amber' ? 'bg-amber-500' : 'bg-red-500'}`}
+                              style={{ width: `${Math.min(100, member.resolutionQuality)}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Stats Grid */}
+                        <div className=\"grid grid-cols-2 gap-3\">
+                          <div className=\"bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700\">
+                            <span className=\"text-2xl font-black text-emerald-600 dark:text-emerald-400\">{member.totalResolvedByUser}</span>
+                            <span className=\"text-[10px] text-gray-400 block mt-1 font-bold uppercase\">Resolved</span>
+                          </div>
+                          <div className=\"bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700\">
+                            <span className=\"text-2xl font-black text-red-600 dark:text-red-400\">{member.reopenedCount}</span>
+                            <span className=\"text-[10px] text-gray-400 block mt-1 font-bold uppercase\">Reopened</span>
+                          </div>
+                          <div className=\"bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700\">
+                            <span className=\"text-2xl font-black text-purple-600 dark:text-purple-400\">{member.reopenRate.toFixed(1)}%</span>
+                            <span className=\"text-[10px] text-gray-400 block mt-1 font-bold uppercase\">Reopen Rate</span>
+                          </div>
+                          <div className=\"bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700\">
+                            <span className=\"text-2xl font-black text-blue-600 dark:text-blue-400\">{member.avgResolutionDays.toFixed(1)}d</span>
+                            <span className=\"text-[10px] text-gray-400 block mt-1 font-bold uppercase\">Avg Time</span>
+                          </div>
+                        </div>
+
+                        {/* Quality Label */}
+                        <div className=\"mt-4 text-center\">
+                          <span className={`inline-block px-4 py-2 rounded-lg text-sm font-bold ${
+                            member.resolutionQuality >= 90 ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300' :
+                            member.resolutionQuality >= 70 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' :
+                            'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                          }`}>
+                            {member.resolutionQuality >= 90 ? '\u2728 Excellent' : member.resolutionQuality >= 70 ? '\u26A0\uFE0F Needs Improvement' : '\u{1F198} Critical'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ================================================================
+            ACTIVE BUGS BY TEAM MEMBER — Show who has which bugs still open
+            ================================================================ */}
+        {efficiency.length > 0 && (
+          <section className=\"bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden\">
+            <div className=\"px-8 py-6 border-b border-gray-100 dark:border-gray-800\">
+              <h2 className=\"text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3\">
+                <AlertTriangle className=\"w-7 h-7 text-orange-500\" />
+                Active Bugs by Team Member
+                <span className=\"text-lg font-normal text-gray-400 ml-2\">
+                  — Current bug ownership and aging
+                </span>
+              </h2>
+            </div>
+            <div className=\"p-6\">
+              <div className=\"grid grid-cols-1 lg:grid-cols-2 gap-5\">
+                {efficiency
+                  .filter(e => e.active > 0)
+                  .sort((a, b) => b.active - a.active)
+                  .map(member => {
+                    const displayName = member.ownerName.split(' <')[0];
+                    const criticalCount = member.workItems?.filter(w => w.severity === '1 - Critical' && (w.state === 'Active' || w.state === 'New')).length || 0;
+                    const staleCount = member.workItems?.filter(w => w.ageDays > 14 && (w.state === 'Active' || w.state === 'New')).length || 0;
+                    const avatarColors = ['bg-indigo-500', 'bg-purple-500', 'bg-blue-500', 'bg-teal-500', 'bg-rose-500', 'bg-orange-500', 'bg-cyan-500', 'bg-emerald-500'];
+                    const avatarColor = avatarColors[displayName.charCodeAt(0) % avatarColors.length];
+                    return (
+                      <div
+                        key={member.ownerName}
+                        className=\"bg-gradient-to-r from-white to-gray-50 dark:from-gray-900 dark:to-gray-800 rounded-2xl border-2 border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-lg transition-all p-6\"
+                      >
+                        <div className=\"flex items-center gap-4 mb-4\">
+                          <div className={`w-12 h-12 rounded-xl ${avatarColor} text-white flex items-center justify-center text-lg font-bold shadow-lg`}>
+                            {displayName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                          </div>
+                          <div className=\"flex-1\">
+                            <h3 className=\"text-xl font-bold text-gray-900 dark:text-white\">{displayName}</h3>
+                            <div className=\"flex items-center gap-3 mt-1\">
+                              <span className=\"text-sm font-bold text-gray-500\">{member.active} active bugs</span>
+                              {criticalCount > 0 && <span className=\"text-xs px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full font-bold\">{criticalCount} critical</span>}
+                              {staleCount > 0 && <span className=\"text-xs px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-full font-bold\">{staleCount} stale (14d+)</span>}
+                            </div>
+                          </div>
+                          <div className=\"text-4xl font-black text-gray-800 dark:text-gray-200\">{member.active}</div>
+                        </div>
+
+                        {/* Recent Active Bugs */}
+                        {member.workItems && member.workItems.length > 0 && (
+                          <div className=\"space-y-2\">
+                            {member.workItems
+                              .filter(bug => bug.state === 'Active' || bug.state === 'New')
+                              .slice(0, 5)
+                              .map(bug => (
+                                <a key={bug.id} href={bug.devOpsUrl} target=\"_blank\" rel=\"noopener noreferrer\"
+                                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group border-l-4 ${
+                                    bug.severity === '1 - Critical' ? 'border-red-500 bg-red-50/30 dark:bg-red-950/20' :
+                                    bug.severity?.includes('High') ? 'border-orange-400 bg-orange-50/20 dark:bg-orange-950/10' :
+                                    bug.ageDays > 14 ? 'border-yellow-400' :
+                                    'border-transparent'
+                                  }`}>
+                                  <span className=\"text-sm font-mono font-bold text-blue-600\">#{bug.id}</span>
+                                  {bug.severity && <span className={`text-xs px-2 py-0.5 rounded-lg font-bold ${getSeverityColor(bug.severity)}`}>{bug.severity.split(' - ')[1]}</span>}
+                                  <span className=\"text-sm font-semibold text-gray-800 dark:text-gray-200 truncate flex-1\">{bug.title}</span>
+                                  <span className={`text-xs font-bold font-mono ${bug.ageDays > 14 ? 'text-red-600' : bug.ageDays > 7 ? 'text-amber-600' : 'text-gray-400'}`}>{bug.ageDays}d</span>
+                                  <ExternalLink className=\"w-3.5 h-3.5 text-gray-300 group-hover:text-blue-500 transition-colors\" />
+                                </a>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* ================================================================
             FULL TEAM ROSTER — Big bold member cards
