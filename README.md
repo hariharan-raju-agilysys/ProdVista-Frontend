@@ -96,7 +96,7 @@ Engineering managers and individual contributors both need different views of th
 | Grid | react-grid-layout 1.4 (drag-and-drop widgets) |
 | Icons | lucide-react 0.294 |
 | Animation | framer-motion 11.0 |
-| Server State | @tanstack/react-query 5.8 |
+| Server State | React Context + custom hooks |
 
 ## Project Structure
 

@@ -1,19 +1,11 @@
 import ReactDOM from 'react-dom/client'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { PublicClientApplication, EventType } from '@azure/msal-browser'
 import { MsalProvider } from '@azure/msal-react'
 import { msalConfig } from './config/msalConfig'
 import App from './App'
 import './index.css'
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5,
-      refetchOnWindowFocus: false,
-    },
-  },
-})
+// Note: React Query removed — server state now handled via Context/hooks
 
 // Initialize MSAL instance (safe even if not configured — won't attempt login)
 const msalInstance = new PublicClientApplication(msalConfig)
@@ -37,8 +29,6 @@ msalInstance.initialize().then(() => {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <MsalProvider instance={msalInstance}>
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>
+    <App />
   </MsalProvider>
 )
