@@ -430,6 +430,40 @@ export default function DevEfficiencyPage() {
     setLoading(true)
     setError(null)
     try {
+      // Try stored snapshots first (instant load, no DevOps API calls)
+      const snapRes = await devEfficiencyService.getSnapshots(selectedConnectionId, days)
+      if (snapRes.data && !snapRes.data.warning && snapRes.data.developers?.length > 0) {
+        setData(snapRes.data)
+        return
+      }
+      // Fall back to real-time DevOps API
+      const res = await devEfficiencyService.getTeamEfficiency(
+        days,
+        selectedConnectionId,
+        isAdmin ? selectedDirector?.employeeId : undefined,
+        hierarchyEmails.length > 0 ? hierarchyEmails : undefined,
+        targetBranch
+      )
+      setData(res.data)
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string; title?: string } } })
+          ?.response?.data?.message ??
+        (err as { response?: { data?: { title?: string } } })?.response?.data?.title ??
+        'Failed to load team efficiency data.'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }, [days, selectedConnectionId, selectedDirector, isAdmin, targetBranch, hierarchyEmails])
+
+  // Refresh always hits real-time DevOps API (bypasses stored snapshots)
+  const refreshLive = useCallback(async () => {
+    if (isAdmin && !selectedDirector) return
+
+    setLoading(true)
+    setError(null)
+    try {
       const res = await devEfficiencyService.getTeamEfficiency(
         days,
         selectedConnectionId,
@@ -519,7 +553,7 @@ export default function DevEfficiencyPage() {
           </div>
 
           <button
-            onClick={loadData}
+            onClick={refreshLive}
             disabled={combinedLoading || (isAdmin && !selectedDirector)}
             className="flex items-center gap-1.5 px-3.5 py-2 bg-[#0f1729]/80 border border-gray-700/40 hover:border-blue-500/50 rounded-xl text-gray-300 text-xs transition-all disabled:opacity-50 backdrop-blur-sm hover:shadow-md hover:shadow-blue-900/10"
           >

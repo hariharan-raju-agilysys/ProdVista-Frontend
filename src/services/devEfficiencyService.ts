@@ -82,6 +82,17 @@ export interface HierarchyResponse {
   totalCount: number;
 }
 
+export interface TrendDataPoint {
+  snapshotDate: string;
+  prsMerged: number;
+  prsOpen: number;
+  commitsCount: number;
+  reviewsDone: number;
+  bugsResolved: number;
+  avgDaysToResolve: number;
+  efficiencyScore: number;
+}
+
 const devEfficiencyService = {
   getTeamEfficiency: (days = 30, connectionId?: string, employeeId?: number, emails?: string[], targetBranch?: string) => {
     const params = new URLSearchParams({ days: String(days) });
@@ -119,6 +130,25 @@ const devEfficiencyService = {
     if (employeeId != null) params.append('employeeId', String(employeeId));
     const qs = params.toString();
     return api.get<HierarchyResponse>(`/dev-efficiency/hierarchy${qs ? `?${qs}` : ''}`);
+  },
+
+  /**
+   * Get the most recent stored snapshot (from daily cron job).
+   * Instant loading — no Azure DevOps API calls required.
+   */
+  getSnapshots: (connectionId?: string, days = 30) => {
+    const params = new URLSearchParams({ days: String(days) });
+    if (connectionId) params.append('connectionId', connectionId);
+    return api.get<DevEfficiencyTeamResponse>(`/dev-efficiency/snapshots?${params}`);
+  },
+
+  /**
+   * Get historical trend data for a specific developer (for trend charts).
+   */
+  getTrends: (email: string, connectionId?: string, days = 90) => {
+    const params = new URLSearchParams({ email, days: String(days) });
+    if (connectionId) params.append('connectionId', connectionId);
+    return api.get<TrendDataPoint[]>(`/dev-efficiency/trends?${params}`);
   },
 };
 
