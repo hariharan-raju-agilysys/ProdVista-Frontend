@@ -43,7 +43,7 @@ function rankBadgeStyle(rank: number): string {
   if (rank === 1) return 'bg-gradient-to-br from-yellow-300 to-amber-500 text-yellow-900 shadow-lg shadow-yellow-500/30'
   if (rank === 2) return 'bg-gradient-to-br from-gray-200 to-gray-400 text-gray-800 shadow-lg shadow-gray-400/30'
   if (rank === 3) return 'bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/30'
-  return 'bg-gray-700/80 text-gray-300 border border-gray-600/50'
+  return 'bg-gray-100 text-gray-600 border border-gray-200'
 }
 
 type SortKey = 'rank' | 'name' | 'prsMerged' | 'bugsResolved' | 'reviewsDone' | 'efficiencyScore'
@@ -478,31 +478,31 @@ export default function DevEfficiencyPage() {
   ]
 
   return (
-    <div className="px-4 sm:px-6 py-6 max-w-[1600px] mx-auto bg-[#060a14] min-h-screen space-y-6">
+    <div className="px-4 sm:px-6 py-6 max-w-[1600px] mx-auto min-h-screen space-y-6 bg-gradient-to-br from-gray-50 via-white to-blue-50/30">
 
       {/* Header */}
       <motion.div {...fadeUp} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2.5">
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg shadow-blue-500/20">
               <TrendingUp className="w-5 h-5 text-white" />
             </div>
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-300">Developer Effectiveness</span>
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600">Developer Effectiveness</span>
           </h1>
-          <p className="text-gray-400 text-sm mt-1.5 ml-12">
+          <p className="text-gray-500 text-sm mt-1.5 ml-12">
             {isAdmin
               ? selectedDirector
-                ? <>Viewing hierarchy under <span className="text-indigo-300 font-medium">{selectedDirector.name}</span></>
+                ? <>Viewing hierarchy under <span className="text-indigo-600 font-medium">{selectedDirector.name}</span></>
                 : 'Admin view — select a Director to scope the metrics'
               : 'Bug resolution speed, PRs merged & code reviews for your team'}
-            {data?.projectName && <span className="text-blue-400 ml-1">— {data.projectName}</span>}
-            {data?.targetBranch && <span className="text-cyan-400 ml-1">({data.targetBranch})</span>}
+            {data?.projectName && <span className="text-blue-600 ml-1">— {data.projectName}</span>}
+            {data?.targetBranch && <span className="text-cyan-600 ml-1">({data.targetBranch})</span>}
           </p>
         </div>
 
         {/* Controls */}
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-0.5 bg-[#0f1729]/80 border border-gray-700/40 rounded-xl p-1 backdrop-blur-sm">
+          <div className="flex items-center gap-0.5 bg-white border border-gray-200 rounded-xl p-1 shadow-sm">
             {DAY_OPTIONS.map(opt => (
               <button
                 key={opt.value}
