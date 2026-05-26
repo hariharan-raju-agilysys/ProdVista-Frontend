@@ -474,29 +474,29 @@ export default function QualityTeamViewPage() {
                     return (
                       <div
                         key={member.ownerName}
-                        className=\"bg-gradient-to-br from-white to-gray-50 dark:from-gray-900 dark:to-gray-800 rounded-2xl border-2 border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-lg transition-all p-6\"
+                        className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-900 dark:to-gray-800 rounded-2xl border-2 border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-lg transition-all p-6"
                       >
-                        <div className=\"flex items-center gap-4 mb-4\">
+                        <div className="flex items-center gap-4 mb-4">
                           <div className={`w-14 h-14 rounded-2xl ${avatarColor} text-white flex items-center justify-center text-xl font-bold shadow-lg`}>
                             {displayName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
                           </div>
-                          <div className=\"flex-1 min-w-0\">
-                            <h3 className=\"text-lg font-bold text-gray-900 dark:text-white truncate\">{displayName}</h3>
-                            <p className=\"text-sm text-gray-500 dark:text-gray-400\">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white truncate">{displayName}</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
                               {member.totalResolvedByUser} resolved · {member.reopenedCount} reopened
                             </p>
                           </div>
                         </div>
                         
                         {/* Quality Score */}
-                        <div className=\"mb-4\">
-                          <div className=\"flex items-center justify-between mb-2\">
-                            <span className=\"text-xs font-bold text-gray-500 uppercase tracking-wider\">Resolution Quality</span>
+                        <div className="mb-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Resolution Quality</span>
                             <span className={`text-3xl font-extrabold ${qualityColor === 'emerald' ? 'text-emerald-600 dark:text-emerald-400' : qualityColor === 'amber' ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
                               {member.resolutionQuality.toFixed(0)}%
                             </span>
                           </div>
-                          <div className=\"w-full h-3 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden\">
+                          <div className="w-full h-3 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
                             <div
                               className={`h-full rounded-full transition-all duration-700 ${qualityColor === 'emerald' ? 'bg-emerald-500' : qualityColor === 'amber' ? 'bg-amber-500' : 'bg-red-500'}`}
                               style={{ width: `${Math.min(100, member.resolutionQuality)}%` }}
@@ -505,27 +505,27 @@ export default function QualityTeamViewPage() {
                         </div>
 
                         {/* Stats Grid */}
-                        <div className=\"grid grid-cols-2 gap-3\">
-                          <div className=\"bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700\">
-                            <span className=\"text-2xl font-black text-emerald-600 dark:text-emerald-400\">{member.totalResolvedByUser}</span>
-                            <span className=\"text-[10px] text-gray-400 block mt-1 font-bold uppercase\">Resolved</span>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700">
+                            <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{member.totalResolvedByUser}</span>
+                            <span className="text-[10px] text-gray-400 block mt-1 font-bold uppercase">Resolved</span>
                           </div>
-                          <div className=\"bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700\">
-                            <span className=\"text-2xl font-black text-red-600 dark:text-red-400\">{member.reopenedCount}</span>
-                            <span className=\"text-[10px] text-gray-400 block mt-1 font-bold uppercase\">Reopened</span>
+                          <div className="bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700">
+                            <span className="text-2xl font-black text-red-600 dark:text-red-400">{member.reopenedCount}</span>
+                            <span className="text-[10px] text-gray-400 block mt-1 font-bold uppercase">Reopened</span>
                           </div>
-                          <div className=\"bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700\">
-                            <span className=\"text-2xl font-black text-purple-600 dark:text-purple-400\">{member.reopenRate.toFixed(1)}%</span>
-                            <span className=\"text-[10px] text-gray-400 block mt-1 font-bold uppercase\">Reopen Rate</span>
+                          <div className="bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700">
+                            <span className="text-2xl font-black text-purple-600 dark:text-purple-400">{member.reopenRate.toFixed(1)}%</span>
+                            <span className="text-[10px] text-gray-400 block mt-1 font-bold uppercase">Reopen Rate</span>
                           </div>
-                          <div className=\"bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700\">
-                            <span className=\"text-2xl font-black text-blue-600 dark:text-blue-400\">{member.avgResolutionDays.toFixed(1)}d</span>
-                            <span className=\"text-[10px] text-gray-400 block mt-1 font-bold uppercase\">Avg Time</span>
+                          <div className="bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700">
+                            <span className="text-2xl font-black text-blue-600 dark:text-blue-400">{member.avgResolutionDays.toFixed(1)}d</span>
+                            <span className="text-[10px] text-gray-400 block mt-1 font-bold uppercase">Avg Time</span>
                           </div>
                         </div>
 
                         {/* Quality Label */}
-                        <div className=\"mt-4 text-center\">
+                        <div className="mt-4 text-center">
                           <span className={`inline-block px-4 py-2 rounded-lg text-sm font-bold ${
                             member.resolutionQuality >= 90 ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300' :
                             member.resolutionQuality >= 70 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' :
@@ -546,18 +546,18 @@ export default function QualityTeamViewPage() {
             ACTIVE BUGS BY TEAM MEMBER — Show who has which bugs still open
             ================================================================ */}
         {efficiency.length > 0 && (
-          <section className=\"bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden\">
-            <div className=\"px-8 py-6 border-b border-gray-100 dark:border-gray-800\">
-              <h2 className=\"text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3\">
-                <AlertTriangle className=\"w-7 h-7 text-orange-500\" />
+          <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+            <div className="px-8 py-6 border-b border-gray-100 dark:border-gray-800">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+                <AlertTriangle className="w-7 h-7 text-orange-500" />
                 Active Bugs by Team Member
-                <span className=\"text-lg font-normal text-gray-400 ml-2\">
+                <span className="text-lg font-normal text-gray-400 ml-2">
                   — Current bug ownership and aging
                 </span>
               </h2>
             </div>
-            <div className=\"p-6\">
-              <div className=\"grid grid-cols-1 lg:grid-cols-2 gap-5\">
+            <div className="p-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 {efficiency
                   .filter(e => e.active > 0)
                   .sort((a, b) => b.active - a.active)
@@ -570,42 +570,42 @@ export default function QualityTeamViewPage() {
                     return (
                       <div
                         key={member.ownerName}
-                        className=\"bg-gradient-to-r from-white to-gray-50 dark:from-gray-900 dark:to-gray-800 rounded-2xl border-2 border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-lg transition-all p-6\"
+                        className="bg-gradient-to-r from-white to-gray-50 dark:from-gray-900 dark:to-gray-800 rounded-2xl border-2 border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-lg transition-all p-6"
                       >
-                        <div className=\"flex items-center gap-4 mb-4\">
+                        <div className="flex items-center gap-4 mb-4">
                           <div className={`w-12 h-12 rounded-xl ${avatarColor} text-white flex items-center justify-center text-lg font-bold shadow-lg`}>
                             {displayName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
                           </div>
-                          <div className=\"flex-1\">
-                            <h3 className=\"text-xl font-bold text-gray-900 dark:text-white\">{displayName}</h3>
-                            <div className=\"flex items-center gap-3 mt-1\">
-                              <span className=\"text-sm font-bold text-gray-500\">{member.active} active bugs</span>
-                              {criticalCount > 0 && <span className=\"text-xs px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full font-bold\">{criticalCount} critical</span>}
-                              {staleCount > 0 && <span className=\"text-xs px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-full font-bold\">{staleCount} stale (14d+)</span>}
+                          <div className="flex-1">
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-white">{displayName}</h3>
+                            <div className="flex items-center gap-3 mt-1">
+                              <span className="text-sm font-bold text-gray-500">{member.active} active bugs</span>
+                              {criticalCount > 0 && <span className="text-xs px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full font-bold">{criticalCount} critical</span>}
+                              {staleCount > 0 && <span className="text-xs px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-full font-bold">{staleCount} stale (14d+)</span>}
                             </div>
                           </div>
-                          <div className=\"text-4xl font-black text-gray-800 dark:text-gray-200\">{member.active}</div>
+                          <div className="text-4xl font-black text-gray-800 dark:text-gray-200">{member.active}</div>
                         </div>
 
                         {/* Recent Active Bugs */}
                         {member.workItems && member.workItems.length > 0 && (
-                          <div className=\"space-y-2\">
+                          <div className="space-y-2">
                             {member.workItems
                               .filter(bug => bug.state === 'Active' || bug.state === 'New')
                               .slice(0, 5)
                               .map(bug => (
-                                <a key={bug.id} href={bug.devOpsUrl} target=\"_blank\" rel=\"noopener noreferrer\"
+                                <a key={bug.id} href={bug.devOpsUrl} target="_blank" rel="noopener noreferrer"
                                   className={`flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group border-l-4 ${
                                     bug.severity === '1 - Critical' ? 'border-red-500 bg-red-50/30 dark:bg-red-950/20' :
                                     bug.severity?.includes('High') ? 'border-orange-400 bg-orange-50/20 dark:bg-orange-950/10' :
                                     bug.ageDays > 14 ? 'border-yellow-400' :
                                     'border-transparent'
                                   }`}>
-                                  <span className=\"text-sm font-mono font-bold text-blue-600\">#{bug.id}</span>
+                                  <span className="text-sm font-mono font-bold text-blue-600">#{bug.id}</span>
                                   {bug.severity && <span className={`text-xs px-2 py-0.5 rounded-lg font-bold ${getSeverityColor(bug.severity)}`}>{bug.severity.split(' - ')[1]}</span>}
-                                  <span className=\"text-sm font-semibold text-gray-800 dark:text-gray-200 truncate flex-1\">{bug.title}</span>
+                                  <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate flex-1">{bug.title}</span>
                                   <span className={`text-xs font-bold font-mono ${bug.ageDays > 14 ? 'text-red-600' : bug.ageDays > 7 ? 'text-amber-600' : 'text-gray-400'}`}>{bug.ageDays}d</span>
-                                  <ExternalLink className=\"w-3.5 h-3.5 text-gray-300 group-hover:text-blue-500 transition-colors\" />
+                                  <ExternalLink className="w-3.5 h-3.5 text-gray-300 group-hover:text-blue-500 transition-colors" />
                                 </a>
                               ))}
                           </div>

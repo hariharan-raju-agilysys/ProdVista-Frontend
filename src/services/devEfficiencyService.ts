@@ -11,6 +11,8 @@ export interface DeveloperEfficiencyDto {
   prsOpen: number;
   commitsCount: number;
   reviewsDone: number;
+  bugsResolved: number;
+  avgDaysToResolve: number;
   efficiencyScore: number;
 }
 
@@ -32,10 +34,12 @@ export interface DevEfficiencyTeamResponse {
   totalPrsMerged: number;
   totalCommits: number;
   totalReviews: number;
+  totalBugsResolved: number;
   fromDate: string;
   toDate: string;
   connectionName?: string;
   projectName?: string;
+  targetBranch?: string;
   warning?: string;
   rootEmployee?: DirectorSummary;
 }
@@ -79,16 +83,25 @@ export interface HierarchyResponse {
 }
 
 const devEfficiencyService = {
-  getTeamEfficiency: (days = 30, connectionId?: string, employeeId?: number, emails?: string[]) => {
+  getTeamEfficiency: (days = 30, connectionId?: string, employeeId?: number, emails?: string[], targetBranch?: string) => {
     const params = new URLSearchParams({ days: String(days) });
     if (connectionId) params.append('connectionId', connectionId);
     if (employeeId != null) params.append('employeeId', String(employeeId));
     if (emails && emails.length > 0) params.append('emails', emails.join(','));
+    if (targetBranch) params.append('targetBranch', targetBranch);
     return api.get<DevEfficiencyTeamResponse>(`/dev-efficiency/team?${params}`);
   },
 
   getConnections: () =>
     api.get<DevOpsConnectionSummary[]>('/dev-efficiency/connections'),
+
+  getRepositories: (connectionId?: string) => {
+    const params = new URLSearchParams();
+    if (connectionId) params.append('connectionId', connectionId);
+    return api.get<{ id: string; name: string; defaultBranch: string; branches: string[] }[]>(
+      `/dev-efficiency/repositories${params.toString() ? `?${params}` : ''}`
+    );
+  },
 
   getReleases: () =>
     api.get<ReleaseSummary[]>('/dev-efficiency/releases'),

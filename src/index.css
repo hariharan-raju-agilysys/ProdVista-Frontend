@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Shimmer animation for progress bars */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+}
+
 /* Command Palette & Floating widget animations */
 @keyframes fadeInScale {
   from { opacity: 0; transform: scale(0.95); }

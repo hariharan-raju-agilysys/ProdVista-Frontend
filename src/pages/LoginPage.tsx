@@ -5,7 +5,7 @@ import { InteractionStatus, InteractionRequiredAuthError } from '@azure/msal-bro
 import { authService, TenantInfo } from '../services/authService';
 import { useAuth } from '../context/AuthContext';
 import { getStoredOrgCode, getStoredOrgInfo } from '../context/AuthContext';
-import { graphScopes, armScopes, devopsScopes, isMsalConfigured } from '../config/msalConfig';
+import { graphScopes, armScopes, isMsalConfigured } from '../config/msalConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Building2, Loader2, ArrowRight, Terminal,
@@ -186,15 +186,12 @@ export default function LoginPage() {
         if (response.user) setUserFromLocal(response.user as any);
         updateOrgInfo(storedOrgCode, { code: storedOrgCode, name: response.user?.tenantName || storedOrgInfo?.name || storedOrgCode });
 
-        // Acquire optional tokens (ARM & DevOps) — silent only, consent granted via login extraScopesToConsent
+        // Acquire ARM token — silent only, consent granted via login extraScopesToConsent
         try {
           const armRes = await msalInstance.acquireTokenSilent({ ...armScopes, account }).catch((e: unknown) => { console.warn('[MSAL] ARM token silent failed:', e); return null; });
           if (armRes?.accessToken) sessionStorage.setItem('prodvista_azure_token', armRes.accessToken);
         } catch (err) { console.warn('[MSAL] ARM token acquisition error:', err); }
-        try {
-          const devRes = await msalInstance.acquireTokenSilent({ ...devopsScopes, account }).catch((e: unknown) => { console.warn('[MSAL] DevOps token silent failed:', e); return null; });
-          if (devRes?.accessToken) sessionStorage.setItem('prodvista_devops_token', devRes.accessToken);
-        } catch (err) { console.warn('[MSAL] DevOps token acquisition error:', err); }
+        // DevOps token is acquired on-demand when user accesses DevOps features (not during login)
 
         hasNavigated.current = true;
         navigate('/', { replace: true });
@@ -257,12 +254,7 @@ export default function LoginPage() {
             const armRes = await msalInstance.acquireTokenSilent({ ...armScopes, account: accounts[0] }).catch((e: unknown) => { console.warn('[MSAL] ARM token silent failed:', e); return null; });
             if (armRes?.accessToken) sessionStorage.setItem('prodvista_azure_token', armRes.accessToken);
           } catch (err) { console.warn('[MSAL] ARM token acquisition error:', err); }
-
-          // Acquire DevOps token — silent (consent granted via login extraScopesToConsent)
-          try {
-            const devRes = await msalInstance.acquireTokenSilent({ ...devopsScopes, account: accounts[0] }).catch((e: unknown) => { console.warn('[MSAL] DevOps token silent failed:', e); return null; });
-            if (devRes?.accessToken) sessionStorage.setItem('prodvista_devops_token', devRes.accessToken);
-          } catch (err) { console.warn('[MSAL] DevOps token acquisition error:', err); }
+          // DevOps token is acquired on-demand when user accesses DevOps features (not during login)
 
           hasNavigated.current = true;
           navigate('/', { replace: true });
@@ -311,10 +303,7 @@ export default function LoginPage() {
               const armRes = await msalInstance.acquireTokenSilent({ ...armScopes, account }).catch((e: unknown) => { console.warn('[MSAL] ARM token silent failed:', e); return null; });
               if (armRes?.accessToken) sessionStorage.setItem('prodvista_azure_token', armRes.accessToken);
             } catch (err) { console.warn('[MSAL] ARM token acquisition error:', err); }
-            try {
-              const devRes = await msalInstance.acquireTokenSilent({ ...devopsScopes, account }).catch((e: unknown) => { console.warn('[MSAL] DevOps token silent failed:', e); return null; });
-              if (devRes?.accessToken) sessionStorage.setItem('prodvista_devops_token', devRes.accessToken);
-            } catch (err) { console.warn('[MSAL] DevOps token acquisition error:', err); }
+            // DevOps token is acquired on-demand when user accesses DevOps features (not during login)
 
             hasNavigated.current = true;
             navigate('/', { replace: true });

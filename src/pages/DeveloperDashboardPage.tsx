@@ -16,10 +16,12 @@ import {
   Flame, RotateCcw, Target, Award,
   Rss, Star, Crown, Timer, GitMerge,
   Cpu, Radio, Upload, Link2, Image, FileType,
-  ChevronLeft, Video, Cake,
+  ChevronLeft, Video, Cake, ChevronDown, ChevronUp, X, Shield,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../context/AuthContext'
+import AIInsightModal from '../components/AIInsightModal'
+import WorkItemDetailModal from '../components/WorkItemDetailModal'
 import {
   getSummary, getPRSummaryWithFallback,
   type DashboardSummary, type PRInfo, type PRSummaryResponse,
@@ -583,11 +585,26 @@ export default function DeveloperDashboardPage() {
   const [aiInsightTitle, setAIInsightTitle] = useState('')
   const [aiInsightDescription, setAIInsightDescription] = useState('')
   const [searchAssignee, setSearchAssignee] = useState('')
+  const [sortBugsBy, setSortBugsBy] = useState<'priority' | 'age' | 'state' | 'reopens'>('priority')
+  const [filterPriority, setFilterPriority] = useState<'all' | '1' | '2' | '3' | '4'>('all')
+  const [filterState, setFilterState] = useState<'all' | 'active' | 'resolved'>('all')
+  const [filterAssigned, setFilterAssigned] = useState<'all' | 'assigned' | 'unassigned'>('all')
 
   // dev-only
   const [techPulse, setTechPulse] = useState<HnItem[]>([])
   const [techLoading, setTechLoading] = useState(false)
   const [reopenedBugs, setReopenedBugs] = useState<QualityWorkItemDto[]>([])
+  
+  // ── AI Hub & Modals ────────────────────────────────────────────────────────
+  const [aiHubExpanded, setAiHubExpanded] = useState(false)
+  const [showBugDetailModal, setShowBugDetailModal] = useState(false)
+  const [selectedBugDetail, setSelectedBugDetail] = useState<any>(null)
+  const [showWorkItemDetailModal, setShowWorkItemDetailModal] = useState(false)
+  const [selectedWorkItem, setSelectedWorkItem] = useState<QualityWorkItemDto | null>(null)
+  const [showPRDetailModal, setShowPRDetailModal] = useState(false)
+  const [selectedPRDetail, setSelectedPRDetail] = useState<any>(null)
+  const [iterationSearchTerm, setIterationSearchTerm] = useState('')
+  const [showIterationDropdown, setShowIterationDropdown] = useState(false)
   
   // New: Tech bytes & Calendar
   const [techBytes, setTechBytes] = useState<TechByte[]>([])
@@ -604,6 +621,22 @@ export default function DeveloperDashboardPage() {
 
   const displayName = user?.displayName || user?.email?.split('@')[0] || (isManager ? 'Manager' : 'Developer')
   const userBirthday = user?.birthMonth && user?.birthDay ? daysUntilBirthday(user.birthMonth, user.birthDay) : null
+
+  // ── Computed Values ────────────────────────────────────────────────────────
+  // Available iterations (from team or hardcoded defaults)
+  const availableIterations = iterations.length > 0 
+    ? iterations.map(i => i.path).filter(Boolean)
+    : ['Sprint 1', 'Sprint 2', 'Sprint 3'] // fallback
+  
+  // Filtered iterations based on search term
+  const filteredIterations = availableIterations.filter(iter =>
+    iter && iter.toLowerCase().includes(iterationSearchTerm.toLowerCase())
+  )
+  
+  // Bugs filtered by selected iteration
+  const filteredBugsByIteration = selectedIteration
+    ? myBugs.filter(bug => bug.iterationPath?.includes(selectedIteration))
+    : myBugs
 
   // Handle iteration selection with localStorage persistence
   const handleIterationChange = (iterationPath: string) => {
@@ -640,19 +673,73 @@ export default function DeveloperDashboardPage() {
   }
   
   // Open work item modal with filtered data
-  const openWorkItemModal = (title: string, subtitle: string, items: QualityWorkItemDto[]) => {
+  const openWorkItemModal = async (title: string, subtitle: string, items: QualityWorkItemDto[]) => {
     setModalTitle(title)
     setModalSubtitle(subtitle)
-    setModalWorkItems(items)
+    
+    // If items are empty or minimal, fetch fresh data based on the filter
+    if (items.length === 0) {
+      try {
+        let freshData: QualityWorkItemDto[] = []
+        if (title.includes('Active')) {
+          freshData = await (view === 'mine' ? getMyBugs(undefined, undefined, 'Active') : getBugs({ state: 'Active' }))
+        } else if (title.includes('Completed')) {
+          freshData = await getBugs({ state: 'Resolved' })
+        } else if (title.includes('Critical')) {
+          freshData = await getBugs({ priority: 1 })
+        } else if (title.includes('Reopened')) {
+          const allBugs = await getBugs({ state: 'Active' })
+          freshData = allBugs.filter(b => b.reopenCount > 0).sort((a, b) => b.reopenCount - a.reopenCount)
+        }
+        setModalWorkItems(freshData || [])
+      } catch (err) {
+        console.error('Error fetching work items:', err)
+        setModalWorkItems(items)
+      }
+    } else {
+      setModalWorkItems(items)
+    }
+    
     setShowWorkItemModal(true)
   }
 
-  const openAIInsightModal = (title: string, description: string, items: QualityWorkItemDto[]) => {
+  const openAIInsightModal = async (title: string, description: string, items: QualityWorkItemDto[]) => {
     setAIInsightTitle(title)
     setAIInsightDescription(description)
-    setAIInsightWorkItems(items)
+    
+    // If items are empty, fetch fresh data based on the title
+    if (items.length === 0) {
+      try {
+        let freshData: QualityWorkItemDto[] = []
+        if (title.includes('Active') && description.includes('active bugs')) {
+          freshData = await getBugs({ state: 'Active' })
+        } else if (title.includes('Critical')) {
+          freshData = await getBugs({ priority: 1 })
+        } else if (title.includes('Reopened')) {
+          const allBugs = await getBugs({ state: 'Active' })
+          freshData = allBugs.filter(b => b.reopenCount > 0).sort((a, b) => b.reopenCount - a.reopenCount)
+        } else if (title.includes('Long-Running')) {
+          const allBugs = await getBugs({ state: 'Active' })
+          freshData = allBugs.filter(b => b.ageDays > 30)
+        } else {
+          freshData = await getBugs({ state: 'Active' })
+        }
+        setAIInsightWorkItems(freshData || items)
+      } catch (err) {
+        console.error('Error fetching AI insight work items:', err)
+        setAIInsightWorkItems(items)
+      }
+    } else {
+      setAIInsightWorkItems(items)
+    }
+    
     setSearchAssignee('')
     setShowAIInsightModal(true)
+  }
+
+  const handleWorkItemClick = (item: QualityWorkItemDto) => {
+    setSelectedWorkItem(item)
+    setShowWorkItemDetailModal(true)
   }
 
   const load = useCallback(async () => {
@@ -719,6 +806,36 @@ export default function DeveloperDashboardPage() {
   }, [view, isManager, isAdmin])
 
   useEffect(() => { load() }, [load])
+
+  // ── Developer View: Fetch iterations and current release config ─────────────
+  useEffect(() => {
+    if (!isDevView) return
+    
+    const fetchIterationsAndConfig = async () => {
+      try {
+        // Fetch available iterations
+        const iters = await getIterations()
+        setIterations(iters)
+        
+        // Fetch current release config from backend
+        // TODO: Implement API endpoint /api/settings/current-release
+        // const configRes = await api.get<{ currentRelease: string }>('/settings/current-release')
+        // setCurrentReleaseConfig(configRes.data.currentRelease)
+        
+        // For now, auto-select "Current" iteration if no selection
+        if (!selectedIteration) {
+          const current = iters.find(it => it.state === 'Current')
+          if (current) {
+            setSelectedIteration(current.path)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch iterations or current release config:', error)
+      }
+    }
+    
+    fetchIterationsAndConfig()
+  }, [isDevView])
 
   // Tech Pulse — load once per session
   useEffect(() => {
@@ -1052,7 +1169,17 @@ export default function DeveloperDashboardPage() {
       })
     }
     if (workItemStats.bugs.active > workItemStats.bugs.resolved) {
-      aiInsights.push({ type: 'info', message: `Active bugs (${workItemStats.bugs.active}) exceed resolved (${workItemStats.bugs.resolved}) - Prioritize bug fixes` })
+      const activeBugsForInsight = myBugs.filter(b => b.state === 'Active' || b.state === 'New')
+      const resolvedBugsForInsight = myBugs.filter(b => b.state === 'Resolved' || b.state === 'Closed')
+      aiInsights.push({ 
+        type: 'info', 
+        message: `Active bugs (${workItemStats.bugs.active}) exceed resolved (${workItemStats.bugs.resolved}) - Prioritize bug fixes`,
+        onClick: () => openAIInsightModal(
+          'Active vs Resolved Bugs',
+          `You have ${activeBugsForInsight.length} active bugs that exceed ${resolvedBugsForInsight.length} resolved. Focus on reducing the active bug backlog to improve quality metrics.`,
+          activeBugsForInsight
+        )
+      })
     }
     if (qualitySummary?.avgResolutionDays && qualitySummary.avgResolutionDays > 7) {
       const longRunningBugs = myBugs.filter(b => b.ageDays > 30 && (b.state === 'Active' || b.state === 'New'))
@@ -1582,178 +1709,26 @@ export default function DeveloperDashboardPage() {
           </div>
         </div>
         
-        {/* AI Insight Modal with Assignee Selection */}
-        {showAIInsightModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowAIInsightModal(false)}>
-            <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden" onClick={e => e.stopPropagation()}>
-              {/* Gradient header */}
-              <div className="bg-gradient-to-r from-orange-500 via-red-500 to-pink-600 p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                    <Bot className="w-7 h-7" />
-                    {aiInsightTitle}
-                  </h2>
-                  <button onClick={() => setShowAIInsightModal(false)} className="p-2 hover:bg-white/20 rounded-lg transition-colors">
-                    <AlertCircle className="w-5 h-5 text-white" />
-                  </button>
-                </div>
-                <p className="text-sm text-orange-100">{aiInsightDescription}</p>
-              </div>
-              
-              {/* Available Team Members - Searchable */}
-              <div className="px-6 pt-4 pb-2 bg-gradient-to-b from-gray-50 to-white border-b border-gray-200">
-                <div className="flex items-center gap-3 mb-3">
-                  <Users className="w-5 h-5 text-indigo-600" />
-                  <h3 className="text-sm font-bold text-gray-900">Available Team Members</h3>
-                  <span className="text-xs text-gray-500">({ownerEfficiency.length} members)</span>
-                </div>
-                <input
-                  type="text"
-                  placeholder="Search by name..."
-                  value={searchAssignee}
-                  onChange={(e) => setSearchAssignee(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                />
-                <div className="mt-3 max-h-24 overflow-y-auto flex flex-wrap gap-2">
-                  {ownerEfficiency
-                    .filter(owner => owner.ownerName.toLowerCase().includes(searchAssignee.toLowerCase()))
-                    .slice(0, 20)
-                    .map(owner => (
-                      <div 
-                        key={owner.ownerName}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-50 border border-indigo-200 rounded-lg text-xs font-medium text-indigo-700 hover:bg-indigo-100 transition-colors cursor-default"
-                        title={`Active: ${owner.active} | Resolved: ${owner.resolved} | Efficiency: ${owner.efficiencyScore.toFixed(0)}%`}
-                      >
-                        <div className="w-2 h-2 rounded-full bg-green-500" />
-                        {owner.ownerName}
-                        <span className="text-[10px] text-indigo-500">({owner.active} active)</span>
-                      </div>
-                    ))}
-                </div>
-              </div>
-
-              {/* Scrollable content */}
-              <div className="p-6 overflow-y-auto max-h-[calc(90vh-360px)]">
-                {aiInsightWorkItems.length === 0 ? (
-                  <div className="text-center py-12">
-                    <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
-                    <p className="text-lg font-semibold text-gray-700">No items found</p>
-                    <p className="text-sm text-gray-500 mt-1">All work items have been addressed</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {aiInsightWorkItems.map(item => (
-                      <div 
-                        key={item.id} 
-                        className="border border-gray-200 rounded-xl p-4 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer group"
-                        onClick={() => window.open(item.devOpsUrl, '_blank')}
-                      >
-                        {/* Type, Priority, State, Reopen badges */}
-                        <div className="flex items-center gap-2 mb-2 flex-wrap">
-                          <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-bold rounded">{item.workItemType}</span>
-                          {item.priority && (
-                            <span className={clsx('px-2 py-1 text-xs font-bold rounded',
-                              item.priority === 1 ? 'bg-red-100 text-red-700' :
-                              item.priority === 2 ? 'bg-orange-100 text-orange-700' :
-                              item.priority === 3 ? 'bg-yellow-100 text-yellow-700' :
-                              'bg-gray-100 text-gray-700'
-                            )}>P{item.priority}</span>
-                          )}
-                          <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded">{item.state}</span>
-                          {item.reopenCount > 0 && (
-                            <span className="px-2 py-1 bg-orange-100 text-orange-700 text-xs font-bold rounded flex items-center gap-1">
-                              <RotateCcw className="w-3 h-3" />
-                              {item.reopenCount}x
-                            </span>
-                          )}
-                          {item.ageDays > 30 && (
-                            <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-bold rounded">
-                              {item.ageDays} days old
-                            </span>
-                          )}
-                        </div>
-                        
-                        {/* Title */}
-                        <h3 className="font-semibold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors">{item.title}</h3>
-                        
-                        {/* Assignee and metadata */}
-                        <div className="flex items-center gap-3 text-xs text-gray-500">
-                          <span className={clsx(
-                            'font-medium',
-                            item.assignedTo ? 'text-gray-700' : 'text-red-600'
-                          )}>
-                            {item.assignedTo ? (
-                              <span className="flex items-center gap-1">
-                                <Users className="w-3 h-3" />
-                                {item.assignedTo}
-                              </span>
-                            ) : (
-                              <span className="flex items-center gap-1">
-                                <AlertTriangle className="w-3 h-3" />
-                                Unassigned
-                              </span>
-                            )}
-                          </span>
-                          <span>•</span>
-                          <span>{ageLabel(item.createdDate)}</span>
-                          {item.ageDays > 0 && (
-                            <>
-                              <span>•</span>
-                              <span className={clsx(
-                                item.ageDays > 60 ? 'text-red-600 font-semibold' :
-                                item.ageDays > 30 ? 'text-orange-600 font-semibold' :
-                                'text-gray-500'
-                              )}>{item.ageDays} days</span>
-                            </>
-                          )}
-                        </div>
-                        
-                        {/* Tags */}
-                        {item.tags && item.tags.length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {item.tags.slice(0, 5).map(tag => (
-                              <span key={tag} className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-medium rounded">
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        
-                        {/* Click hint */}
-                        <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
-                          <span className="text-xs text-gray-500 flex items-center gap-1">
-                            <ExternalLink className="w-3 h-3" />
-                            Click to open in Azure DevOps and assign
-                          </span>
-                          {!item.assignedTo && (
-                            <span className="text-xs text-orange-600 font-semibold flex items-center gap-1">
-                              <AlertTriangle className="w-3 h-3" />
-                              Needs assignment
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              
-              {/* Footer */}
-              <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-                <div className="text-sm text-gray-600">
-                  Showing <strong className="text-gray-900">{aiInsightWorkItems.length}</strong> work items • 
-                  <strong className="text-orange-600">{aiInsightWorkItems.filter(i => !i.assignedTo).length}</strong> unassigned
-                </div>
-                <button 
-                  onClick={() => setShowAIInsightModal(false)}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition-colors"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* AI Insight Modal Component */}
+        <AIInsightModal
+          open={showAIInsightModal}
+          onClose={() => setShowAIInsightModal(false)}
+          title={aiInsightTitle}
+          description={aiInsightDescription}
+          workItems={aiInsightWorkItems}
+          ownerEfficiency={ownerEfficiency}
+          searchAssignee={searchAssignee}
+          setSearchAssignee={setSearchAssignee}
+          sortBugsBy={sortBugsBy}
+          setSortBugsBy={setSortBugsBy}
+          filterPriority={filterPriority}
+          setFilterPriority={setFilterPriority}
+          filterState={filterState}
+          setFilterState={setFilterState}
+          filterAssigned={filterAssigned}
+          setFilterAssigned={setFilterAssigned}
+          onCardClick={handleWorkItemClick}
+        />
         
         {/* Work Item Details Modal */}
         {showWorkItemModal && (
@@ -1782,7 +1757,7 @@ export default function DeveloperDashboardPage() {
                   <div className="space-y-3">
                     {modalWorkItems.map(item => (
                       <div key={item.id} className="border border-gray-200 rounded-xl p-4 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer"
-                        onClick={() => window.open(item.devOpsUrl, '_blank')}
+                        onClick={() => handleWorkItemClick(item)}
                       >
                         <div className="flex items-start justify-between gap-4 mb-3">
                           <div className="flex-1">
@@ -1817,7 +1792,7 @@ export default function DeveloperDashboardPage() {
                               )}
                             </div>
                           </div>
-                          <ExternalLink className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                          <ChevronRight className="w-5 h-5 text-indigo-400 flex-shrink-0" />
                         </div>
                         
                         {item.tags.length > 0 && (
@@ -1857,6 +1832,127 @@ export default function DeveloperDashboardPage() {
   return (
     <div className="p-6 max-w-[1400px] mx-auto space-y-6">
       {header}
+      
+      {/* ─── Compact AI Productivity Hub ─────────────────────────────── */}
+      <div className={clsx(
+        'bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-700 rounded-2xl shadow-xl border border-indigo-400/20 transition-all duration-300',
+        aiHubExpanded ? 'shadow-indigo-500/30' : 'shadow-indigo-500/10'
+      )}>
+        <button
+          onClick={() => setAiHubExpanded(!aiHubExpanded)}
+          className="w-full flex items-center justify-between p-4 text-white hover:bg-white/5 rounded-2xl transition-all"
+        >
+          <div className="flex items-center gap-2">
+            <Bot className="w-5 h-5 animate-pulse" />
+            <h2 className="text-sm font-bold uppercase tracking-wider">AI Productivity Hub</h2>
+            <span className="text-xs text-white/60">{AI_TOOLS.length} tools</span>
+          </div>
+          {aiHubExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+        </button>
+        
+        {aiHubExpanded && (
+          <div className="px-4 pb-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              {AI_TOOLS.map(({ label, sub, icon: Icon, path, gradient }) => (
+                <button key={path} onClick={() => {
+                  if (path === 'release-notes-redirect') {
+                    window.open(getReleaseNotesUrl(tenantCode), '_blank')
+                  } else {
+                    navigate(path)
+                  }
+                }}
+                  className="group flex flex-col gap-1.5 p-3 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur transition-all text-left hover:scale-105"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className={clsx('w-8 h-8 rounded-lg flex items-center justify-center', gradient)}>
+                      <Icon className="w-4 h-4 text-white" />
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-white leading-tight">{label}</span>
+                  <span className="text-[10px] text-white/60 leading-tight">{sub}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+      
+      {/* ─── Birthday & Iteration Filter Bar ────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Birthday Widget */}
+        {userBirthday && userBirthday.days >= 0 && (
+          <div className={clsx(
+            'p-4 rounded-xl border-2',
+            userBirthday.isToday 
+              ? 'bg-gradient-to-br from-pink-50 to-rose-50 border-pink-300'
+              : 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200'
+          )}>
+            <div className="flex items-center gap-3">
+              <div className={clsx(
+                'w-12 h-12 rounded-full flex items-center justify-center text-2xl',
+                userBirthday.isToday ? 'bg-pink-100' : 'bg-blue-100'
+              )}>
+                🎂
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-gray-800">
+                  {userBirthday.isToday ? '🎉 Happy Birthday!' : `Birthday in ${userBirthday.days} days`}
+                </p>
+                <p className="text-xs text-gray-600">Have a great day! 🎈</p>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Iteration Filter */}
+        <div className="relative p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
+          <label className="block text-xs font-semibold text-gray-600 mb-2">Current Release / Iteration</label>
+          <div className="relative">
+            <button
+              onClick={() => setShowIterationDropdown(!showIterationDropdown)}
+              className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg hover:border-indigo-300 transition-colors"
+            >
+              <span className="text-sm text-gray-800 truncate">
+                {selectedIteration || 'Select iteration...'}
+              </span>
+              <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            </button>
+            
+            {showIterationDropdown && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-64 overflow-hidden">
+                <div className="p-2 border-b border-gray-100">
+                  <input
+                    type="text"
+                    value={iterationSearchTerm}
+                    onChange={(e) => setIterationSearchTerm(e.target.value)}
+                    placeholder="Search iterations..."
+                    className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    autoFocus
+                  />
+                </div>
+                <div className="max-h-48 overflow-y-auto">
+                  {filteredIterations.map(iter => (
+                    <button
+                      key={iter}
+                      onClick={() => {
+                        setSelectedIteration(iter)
+                        setShowIterationDropdown(false)
+                        setIterationSearchTerm('')
+                      }}
+                      className={clsx(
+                        'w-full text-left px-3 py-2 text-sm hover:bg-indigo-50 transition-colors',
+                        iter === selectedIteration ? 'bg-indigo-100 text-indigo-700 font-semibold' : 'text-gray-700'
+                      )}
+                    >
+                      {iter}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Admin/Manager Dev Preview mode indicator */}
       {canOverrideView && viewOverride === 'dev' && (
@@ -1892,47 +1988,14 @@ export default function DeveloperDashboardPage() {
           loading={loading}    onClick={() => navigate('/devops')} />
       </div>
 
-      {/* ── Main Grid ───────────────────────────────────────────────────── */}
-      {/* ── AI Productivity Hub (FULL WIDTH TOP) ─────────────────────────── */}
-      <div className="bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-700 rounded-2xl p-6 shadow-xl shadow-indigo-500/30 border border-indigo-400/20">
-        <div className="flex items-center gap-2 mb-4">
-          <Bot className="w-5 h-5 text-white/90 animate-pulse" />
-          <h2 className="text-base font-bold text-white uppercase tracking-widest">AI Productivity Hub</h2>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          {AI_TOOLS.map(({ label, sub, icon: Icon, path, gradient, key }) => (
-            <button key={path} onClick={() => {
-              if (path === 'release-notes-redirect') {
-                window.open(getReleaseNotesUrl(tenantCode), '_blank')
-              } else {
-                navigate(path)
-              }
-            }}
-              className="group flex flex-col gap-1.5 p-3 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur transition-all text-left hover:scale-105"
-            >
-              <div className="flex items-center justify-between">
-                <div className={clsx('w-8 h-8 rounded-lg flex items-center justify-center', gradient)}>
-                  <Icon className="w-4 h-4 text-white" />
-                </div>
-                <span className="text-[9px] text-white/40 font-mono">^{key}</span>
-              </div>
-              <span className="text-xs font-bold text-white leading-tight">{label}</span>
-              <span className="text-[10px] text-white/60 leading-tight">{sub}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* ── Main Content Grid ───────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* ── Left 2/3 ─────────────────────────────────────────────────── */}
         <div className="lg:col-span-2 space-y-6">
 
-          {/* ────────────── Bug Priority Flow Chart ────────────────────── */}
-          <SectionCard title="Today's Fix Priority" icon={Target} iconColor="text-red-500"
-            action="Quality Center" onAction={() => navigate('/quality')}
-          >
+          {/* ────────────── Bug Priority Flow Chart (Filtered) ─────────── */}
+          <SectionCard title="Today's Fix Priority" icon={Target} iconColor="text-red-500">
             <div className="p-5">
               {loading ? (
                 <div className="space-y-3">
@@ -1940,16 +2003,18 @@ export default function DeveloperDashboardPage() {
                     <div key={i} className="h-14 bg-gray-50 animate-pulse rounded-xl" />
                   ))}
                 </div>
-              ) : myBugs.length === 0 ? (
+              ) : filteredBugsByIteration.length === 0 ? (
                 <div className="py-8 text-center text-gray-400 text-sm">
                   <CheckCircle2 className="w-10 h-10 text-green-300 mx-auto mb-2" />
-                  <p className="font-semibold text-gray-500">No active bugs!</p>
-                  <p className="text-xs mt-1">Connect Azure DevOps quality to see your bug queue.</p>
+                  <p className="font-semibold text-gray-500">No bugs in selected iteration!</p>
+                  <p className="text-xs mt-1">{selectedIteration || 'Select an iteration to filter bugs'}</p>
                 </div>
               ) : (
                 <div className="space-y-2.5">
                   {PRIORITY_CFG.map(({ p, label, bar, badge, dot, flame }) => {
-                    const bugs = bugsByPriority[p] ?? []
+                    const bugs = (bugsByPriority[p] ?? []).filter(bug => 
+                      !selectedIteration || bug.iterationPath?.includes(selectedIteration)
+                    )
                     const count = bugs.length
                     if (count === 0) return null
                     const barPct = Math.round((count / maxBugCount) * 100)
@@ -1961,8 +2026,11 @@ export default function DeveloperDashboardPage() {
                     return (
                       <button
                         key={p}
-                        onClick={() => navigate('/quality')}
-                        className="w-full group rounded-xl border border-gray-100 hover:border-indigo-200 hover:shadow-md transition-all duration-300 p-3.5 text-left bg-white hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50"
+                        onClick={() => {
+                          setSelectedBugDetail({ priority: p, bugs, label })
+                          setShowBugDetailModal(true)
+                        }}
+                        className="w-full group rounded-xl border border-gray-100 hover:border-indigo-200 hover:shadow-md transition-all duration-300 p-3.5 text-left bg-white"
                       >
                         <div className="flex items-center gap-3 mb-2">
                           <div className="flex items-center gap-2 flex-shrink-0">
@@ -1978,7 +2046,6 @@ export default function DeveloperDashboardPage() {
                           <div className="flex items-center gap-3 flex-shrink-0">
                             <span className="text-lg font-black text-gray-900">{count}</span>
                             <span className="text-[10px] text-gray-400 font-mono">oldest {oldest}d</span>
-                            <ArrowUpRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-blue-500 transition-colors" />
                           </div>
                         </div>
                         {topBug && (
@@ -1991,10 +2058,7 @@ export default function DeveloperDashboardPage() {
                     )
                   })}
                   <div className="pt-2 flex items-center justify-between text-xs text-gray-400 border-t border-gray-50">
-                    <span>Fix P1 → P2 → P3 → P4 order · <strong className="text-gray-600">{myBugs.length}</strong> total active</span>
-                    <button onClick={() => navigate('/quality')} className="text-blue-500 hover:text-blue-700 flex items-center gap-1">
-                      View all <ChevronRight className="w-3 h-3" />
-                    </button>
+                    <span>Fix P1 → P2 → P3 → P4 order · <strong className="text-gray-600">{filteredBugsByIteration.length}</strong> in iteration</span>
                   </div>
                 </div>
               )}
@@ -2046,9 +2110,7 @@ export default function DeveloperDashboardPage() {
           )}
 
           {/* ────────────── PR Review Queue ──────────────────────────────── */}
-          <SectionCard title="PR Review Queue" icon={GitPullRequest} iconColor="text-purple-500"
-            action="All PRs" onAction={() => navigate('/pull-requests')}
-          >
+          <SectionCard title="PR Review Queue" icon={GitPullRequest} iconColor="text-purple-500">
             <div className="border-b border-gray-50 px-5 py-2 flex items-center gap-2">
               <div className="flex items-center bg-gray-100 rounded-lg p-1 text-xs">
                 {(['pending', 'all'] as const).map(v => (
@@ -2076,7 +2138,14 @@ export default function DeveloperDashboardPage() {
                 </div>
               ) : (
                 prsToReview.slice(0, 6).map((pr: PRInfo) => (
-                  <div key={pr.pullRequestId} className="px-5 py-3 flex items-start gap-3 hover:bg-gradient-to-r hover:from-purple-50 hover:to-blue-50 group transition-all duration-200 rounded-lg">
+                  <button
+                    key={pr.pullRequestId}
+                    onClick={() => {
+                      setSelectedPRDetail(pr)
+                      setShowPRDetailModal(true)
+                    }}
+                    className="w-full px-5 py-3 flex items-start gap-3 hover:bg-gradient-to-r hover:from-purple-50 hover:to-blue-50 group transition-all duration-200 rounded-lg text-left"
+                  >
                     <div className={clsx(
                       'mt-0.5 flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center',
                       pr.needsMyReview ? 'bg-purple-100' : 'bg-gray-100'
@@ -2101,7 +2170,7 @@ export default function DeveloperDashboardPage() {
                         Open <ArrowUpRight className="w-3 h-3" />
                       </a>
                     )}
-                  </div>
+                  </button>
                 ))
               )}
             </div>
@@ -2109,9 +2178,7 @@ export default function DeveloperDashboardPage() {
 
           {/* ────────────── Build Pipeline Status ──────────────────────── */}
           {buildFeed.length > 0 && (
-            <SectionCard title="Build Pipeline Status" icon={Rocket} iconColor="text-green-500"
-              action="Jenkins" onAction={() => navigate('/jenkins')}
-            >
+            <SectionCard title="Build Pipeline Status" icon={Rocket} iconColor="text-green-500">
               <div className="divide-y divide-gray-50">
                 {buildFeed.map((b: any) => {
                   const ok   = b.result === 'succeeded'
@@ -2361,6 +2428,7 @@ export default function DeveloperDashboardPage() {
           <SectionCard title="Resources" icon={BookOpen} iconColor="text-amber-500">
             <div className="p-3 space-y-1">
               {[
+                { label: 'Personal Vault',  path: '/vault',            icon: Shield,          color: 'text-indigo-600 bg-indigo-50' },
                 { label: 'Knowledge Base',  path: '/knowledge-center', icon: BookOpen,        color: 'text-amber-600 bg-amber-50' },
                 { label: 'API Catalog',     path: '/tools',            icon: Code2,           color: 'text-blue-600 bg-blue-50' },
                 { label: 'MCP Tools',       path: '/mcp-tools',        icon: Cpu,             color: 'text-violet-600 bg-violet-50' },
@@ -2382,6 +2450,168 @@ export default function DeveloperDashboardPage() {
 
         </div>
       </div>
+
+      {/* ─── Bug Detail Modal ──────────────────────────────────────────── */}
+      {showBugDetailModal && selectedBugDetail && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-red-500 to-orange-500 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold text-white">{selectedBugDetail.label} Bugs</h3>
+                <p className="text-sm text-white/80 mt-0.5">{selectedBugDetail.bugs.length} items</p>
+              </div>
+              <button onClick={() => setShowBugDetailModal(false)}
+                className="w-8 h-8 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto max-h-[70vh]">
+              <div className="space-y-3">
+                {selectedBugDetail.bugs.map((bug: QualityWorkItemDto) => (
+                  <div key={bug.id} className="p-4 border border-gray-200 rounded-xl hover:border-red-300 hover:shadow-md transition-all">
+                    <div className="flex items-start gap-3 mb-2">
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-gray-900">{bug.title}</p>
+                        <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                          <span className="font-mono">#{bug.id}</span>
+                          <span>•</span>
+                          <span>Assigned: {bug.assignedTo || 'Unassigned'}</span>
+                          <span>•</span>
+                          <span>Age: {bug.ageDays || 0}d</span>
+                          {bug.iterationPath && (
+                            <>
+                              <span>•</span>
+                              <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px]">{bug.iterationPath}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      {bug.devOpsUrl && (
+                        <a href={bug.devOpsUrl} target="_blank" rel="noreferrer"
+                          className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-semibold rounded-lg transition-colors"
+                        >
+                          Open <ArrowUpRight className="w-3 h-3" />
+                        </a>
+                      )}
+                    </div>
+                    {bug.tags && bug.tags.length > 0 && (
+                      <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                        {bug.tags.map((tag, idx) => (
+                          <span key={idx} className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] rounded">{tag}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                Showing <strong className="text-gray-900">{selectedBugDetail.bugs.length}</strong> {selectedBugDetail.label} bugs
+              </div>
+              <button onClick={() => setShowBugDetailModal(false)}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── PR Detail Modal ─────────────────────────────────────────────── */}
+      {showPRDetailModal && selectedPRDetail && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-purple-500 to-blue-500 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold text-white">Pull Request Details</h3>
+                <p className="text-sm text-white/80 mt-0.5">#{selectedPRDetail.pullRequestId}</p>
+              </div>
+              <button onClick={() => setShowPRDetailModal(false)}
+                className="w-8 h-8 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              <h4 className="text-lg font-bold text-gray-900 mb-4">{selectedPRDetail.title}</h4>
+              
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Repository</p>
+                  <p className="text-sm font-semibold text-gray-800">{selectedPRDetail.repositoryName}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Created By</p>
+                  <p className="text-sm font-semibold text-gray-800">{selectedPRDetail.createdBy}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Created</p>
+                  <p className="text-sm font-semibold text-gray-800">{ageLabel(selectedPRDetail.creationDate)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Status</p>
+                  <span className={clsx(
+                    'inline-block px-2 py-1 text-xs font-bold rounded',
+                    selectedPRDetail.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                  )}>
+                    {selectedPRDetail.status || 'Active'}
+                  </span>
+                </div>
+              </div>
+
+              {selectedPRDetail.needsMyReview && (
+                <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                  <p className="text-sm font-semibold text-purple-700 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4" />
+                    This PR needs your review
+                  </p>
+                </div>
+              )}
+
+              {selectedPRDetail.description && (
+                <div className="mb-4">
+                  <p className="text-xs text-gray-500 mb-1">Description</p>
+                  <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedPRDetail.description}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+              {selectedPRDetail.webUrl && (
+                <a href={selectedPRDetail.webUrl} target="_blank" rel="noreferrer"
+                  className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                >
+                  Open in Azure DevOps <ArrowUpRight className="w-4 h-4" />
+                </a>
+              )}
+              <button onClick={() => setShowPRDetailModal(false)}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors ml-auto"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Work Item Detail Modal - Shows when clicking a specific bug/work item */}
+      <WorkItemDetailModal
+        open={showWorkItemDetailModal}
+        onClose={() => setShowWorkItemDetailModal(false)}
+        item={selectedWorkItem}
+      />
     </div>
   )
 }

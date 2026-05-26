@@ -16,7 +16,7 @@ import TokenExpirationWarning from './components/TokenExpirationWarning'
 import { AdminConsentModal } from './components/AdminConsentModal'
 import { registerTokenRefresh } from './services/api'
 import { tokenSyncService } from './services/tokenSyncService'
-import { graphScopes, armScopes, devopsScopes } from './config/msalConfig'
+import { graphScopes, armScopes } from './config/msalConfig'
 import { lazyWithRetry, lazyNamedWithRetry } from './utils/lazyWithRetry'
 
 // ---------------------------------------------------------------------------
@@ -75,6 +75,7 @@ const KnowledgeCenterPage = lazyWithRetry(() => import('./pages/KnowledgeCenterP
 const CareerMilestonesPage = lazyWithRetry(() => import('./pages/CareerMilestonesPage'))
 const AccessControlHubPage = lazyWithRetry(() => import('./pages/AccessControlHubPage'))
 const DevEfficiencyPage = lazyWithRetry(() => import('./pages/DevEfficiencyPage'))
+const PersonalVaultPage = lazyWithRetry(() => import('./pages/PersonalVaultPage'))
 
 // ---------------------------------------------------------------------------
 // Routes
@@ -133,6 +134,7 @@ function AppRoutes() {
         <Route path="automation" element={<ManagerRoute><AutomationJobsPage /></ManagerRoute>} />
         <Route path="mcp-tools" element={<McpToolsPage />} />
         <Route path="tools" element={<ToolsPage />} />
+        <Route path="vault" element={<PersonalVaultPage />} />
         <Route path="data-feed" element={<DataFeedPage />} />
         <Route path="hr-setup" element={<HrSetupPage />} />
         <Route path="production-customers" element={<ProductionCustomersPage />} />
@@ -206,17 +208,7 @@ function MsalTokenRefreshRegistrar({ children }: { children: React.ReactNode }) 
         console.warn('[MSAL] ARM token refresh failed:', err);
       }
 
-      // Refresh Azure DevOps token
-      try {
-        const devopsResponse = await instance.acquireTokenSilent({
-          ...devopsScopes, account, forceRefresh: true
-        }).catch(() => null);
-        if (devopsResponse?.accessToken) {
-          sessionStorage.setItem('prodvista_devops_token', devopsResponse.accessToken);
-        }
-      } catch (err) {
-        console.warn('[MSAL] DevOps token refresh failed:', err);
-      }
+      // DevOps token is acquired on-demand when user accesses DevOps features (not during token refresh)
 
       return true;
     } catch {
@@ -253,27 +245,8 @@ function MsalTokenRefreshRegistrar({ children }: { children: React.ReactNode }) 
     ensureAzureToken();
   }, [instance, accounts]);
 
-  // Proactively acquire DevOps token on mount if missing (covers existing sessions)
-  useEffect(() => {
-    const ensureDevOpsToken = async () => {
-      if (sessionStorage.getItem('prodvista_devops_token')) return;
-      const account = accounts[0] || instance.getActiveAccount();
-      if (!account) return;
-      try {
-        const response = await instance.acquireTokenSilent({ ...devopsScopes, account });
-        if (response?.accessToken) {
-          sessionStorage.setItem('prodvista_devops_token', response.accessToken);
-        }
-      } catch (err) {
-        if (err instanceof InteractionRequiredAuthError) {
-          console.warn('[MSAL] DevOps token requires consent — will be granted on next login');
-        } else {
-          console.warn('[MSAL] DevOps token silent acquisition failed:', err);
-        }
-      }
-    };
-    ensureDevOpsToken();
-  }, [instance, accounts]);
+  // DevOps token is acquired on-demand when user accesses DevOps features
+  // This prevents unnecessary OAuth2 consent prompts during login
 
   return <>{children}</>;
 }

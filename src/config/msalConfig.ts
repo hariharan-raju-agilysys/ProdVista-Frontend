@@ -93,6 +93,10 @@ export const armScopes = {
  * Azure DevOps scopes — 499b84ac… is the well-known Microsoft-published
  * Application ID for Azure DevOps (not a secret).
  * See: https://learn.microsoft.com/en-us/azure/devops/integrate/get-started/authentication/oauth?view=azure-devops#scopes
+ * 
+ * IMPORTANT: This scope should ONLY be acquired on-demand when the user accesses DevOps features.
+ * DO NOT add this to loginRequest.scopes or acquire it automatically during app initialization.
+ * This prevents the OAuth2 consent prompt: "Have full access to Visual Studio Team Services REST APIs"
  */
 export const devopsScopes = {
   scopes: ['499b84ac-1321-427f-aa17-267ca6975798/user_impersonation'],
