@@ -1,5 +1,3 @@
-import React from 'react'
-import clsx from 'clsx'
 import { Bot, AlertCircle, Users, CheckCircle2 } from 'lucide-react'
 import WorkItemCard from './WorkItemCard'
 import type { QualityWorkItemDto, OwnerEfficiencyDto } from '../services/qualityService'

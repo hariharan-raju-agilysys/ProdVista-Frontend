@@ -93,7 +93,7 @@ export default function QualityTeamViewPage() {
     try {
       // Build email filter from selected team members
       const emailsParam = teamMembers.length > 0
-        ? teamMembers.map(m => m.email).filter(Boolean)
+        ? (teamMembers.map(m => m.email).filter(Boolean) as string[])
         : undefined;
 
       const [kpiData, bugsData, effData, trendData, agingData, custData, teamData, userData] = await Promise.all([

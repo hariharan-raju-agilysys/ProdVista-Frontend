@@ -1,4 +1,3 @@
-import React from 'react'
 import clsx from 'clsx'
 import { X, AlertTriangle, Users, Calendar, RotateCcw, Tag, MapPin, GitBranch, CheckCircle2, Clock } from 'lucide-react'
 import type { QualityWorkItemDto } from '../services/qualityService'

@@ -1,11 +1,10 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, createElement } from 'react'
 import { 
   Lock, Key, FileText, Link as LinkIcon, Settings, Plus, Search, 
-  Tag, Filter, Star, Clock, Edit2, Trash2, Copy, ExternalLink,
-  Shield, FolderOpen, BookOpen, Code2, Database, Terminal, Check, X
+  Tag, Star, Clock, Edit2, Trash2, Copy,
+  Shield, FolderOpen, BookOpen, X
 } from 'lucide-react'
 import clsx from 'clsx'
-import { useAuth } from '../context/AuthContext'
 import vaultService, { VaultItem, CreateVaultItemDto } from '../services/vaultService'
 
 // ═══════════════════════════════════════════════════════════════════
@@ -13,33 +12,6 @@ import vaultService, { VaultItem, CreateVaultItemDto } from '../services/vaultSe
 // ═══════════════════════════════════════════════════════════════════
 
 type VaultItemType = 'credential' | 'document' | 'url' | 'app-config' | 'note'
-
-interface CredentialData {
-  username?: string
-  password?: string
-  url?: string
-  notes?: string
-}
-
-interface DocumentData {
-  content: string
-  fileType?: string
-  fileUrl?: string
-}
-
-interface UrlData {
-  url: string
-  category?: string
-  notes?: string
-}
-
-interface AppConfigData {
-  appName: string
-  environment: string
-  config: Record<string, any>
-  apiKeys?: string[]
-  connectionStrings?: string[]
-}
 
 const ITEM_TYPES = [
   { value: 'credential', label: 'Credential', icon: Key, color: 'text-red-600', bg: 'bg-red-50' },
@@ -114,8 +86,6 @@ function searchVaultItems(items: VaultItem[], query: string): VaultItem[] {
 // ═══════════════════════════════════════════════════════════════════
 
 export default function PersonalVaultPage() {
-  const { user } = useAuth()
-  
   // State
   const [items, setItems] = useState<VaultItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -129,7 +99,6 @@ export default function PersonalVaultPage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [selectedItem, setSelectedItem] = useState<VaultItem | null>(null)
-  const [editMode, setEditMode] = useState(false)
   
   // Form state
   const [formType, setFormType] = useState<VaultItemType>('note')
@@ -621,7 +590,7 @@ export default function PersonalVaultPage() {
           <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
             <div className={clsx('px-6 py-4 flex items-center justify-between', getTypeConfig(selectedItem.type).bg)}>
               <div className="flex items-center gap-3">
-                {React.createElement(getTypeConfig(selectedItem.type).icon, {
+                {createElement(getTypeConfig(selectedItem.type).icon, {
                   className: clsx('w-6 h-6', getTypeConfig(selectedItem.type).color)
                 })}
                 <div>
