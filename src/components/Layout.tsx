@@ -430,7 +430,7 @@ export default function Layout() {
           {navItem('/', <Rocket className="w-4 h-4" />, 'Home')}
 
           {/* --- Release Intelligence --- */}
-          {navGroup('releases', 'Release', <Layers className="w-3.5 h-3.5" />)}
+          {/* {navGroup('releases', 'Release', <Layers className="w-3.5 h-3.5" />)}
           {expandedGroups.has('releases') && (
             <div className="pl-1 space-y-0.5 mb-1">
               {navItem('/releases', <Package className="w-4 h-4" />, 'Releases')}
@@ -438,7 +438,7 @@ export default function Layout() {
               {navItem('/work-items-by-release', <ListFilter className="w-4 h-4" />, 'Work Items by Release', 'New')}
               {isManager && navItem('/release-branches', <GitBranch className="w-4 h-4" />, 'Branch Setup')}
             </div>
-          )}
+          )} */}  
 
           {/* --- Quality Center --- */}
           {navGroup('quality', 'Quality', <ShieldCheck className="w-3.5 h-3.5" />)}

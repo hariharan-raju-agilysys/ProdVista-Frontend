@@ -637,7 +637,7 @@ const DevOpsWorkItemsCard = memo(function DevOpsWorkItemsCard({ context, onFollo
   }), [items]);
 
   return (
-    <div className="mt-3 rounded-xl border border-indigo-200 dark:border-indigo-800/50 overflow-hidden bg-gradient-to-b from-indigo-50 to-white dark:from-indigo-950/30 dark:to-slate-800/40">
+    <div className="!mt-[29px] mt-3 rounded-xl border border-indigo-200 dark:border-indigo-800/50 overflow-hidden bg-gradient-to-b from-indigo-50 to-white dark:from-indigo-950/30 dark:to-slate-800/40">
       {/* Header */}
       <div className="px-4 py-2.5 flex items-center justify-between bg-indigo-100/60 dark:bg-indigo-900/30 border-b border-indigo-200/60 dark:border-indigo-800/40">
         <div className="flex items-center gap-2">

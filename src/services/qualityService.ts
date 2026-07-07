@@ -197,6 +197,7 @@ export interface QualityIteration {
   startDate?: string;
   finishDate?: string;
   state: 'Past' | 'Current' | 'Future' | 'Unscheduled';
+  children?: QualityIteration[]; // Hierarchical child iterations
 }
 
 // ============================================================================
@@ -217,7 +218,7 @@ export const getConnections = async (): Promise<QualityConnection[]> => {
 };
 
 export const getIterations = async (connectionId?: string): Promise<QualityIteration[]> => {
-  const response = await api.get<QualityIteration[]>(`/quality/iterations${buildParams(connectionId)}`);
+  const response = await api.get<QualityIteration[]>(`/quality/iterations${buildParams(connectionId, { scopedIterationsOnly: 'true' })}`);
   return response.data;
 };
 

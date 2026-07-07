@@ -109,16 +109,45 @@ export const authService = {
 
   async loginWithAzure(tenantCode: string): Promise<AuthResponse> {
     try {
+      console.log('[AzureLogin] Starting Azure CLI login for tenant:', tenantCode);
+      
       // First check if Azure CLI auth is valid
       const statusResponse = await fetch(`${API_BASE}/azure/auth-status`);
-      const status = await statusResponse.json();
       
-      if (!status.authenticated) {
+      if (!statusResponse.ok) {
+        console.error('[AzureLogin] Auth-status endpoint failed:', statusResponse.status, statusResponse.statusText);
         return {
           success: false,
-          message: status.message || 'Azure CLI authentication required. Please run "az login" first.'
+          message: `Server error checking Azure CLI status (HTTP ${statusResponse.status}). Ensure backend is running and 'az login' was executed.`
         };
       }
+      
+      const status = await statusResponse.json();
+      console.log('[AzureLogin] Auth status:', {
+        authenticated: status.authenticated,
+        method: status.method,
+        hasUser: !!status.user,
+        message: status.message
+      });
+      
+      if (!status.authenticated) {
+        const instruction = status.instructions || status.message || 'Run "az login" in your terminal first';
+        console.warn('[AzureLogin] Not authenticated. Instructions:', instruction);
+        return {
+          success: false,
+          message: instruction
+        };
+      }
+
+      if (!status.user?.email) {
+        console.error('[AzureLogin] No email in Azure user info');
+        return {
+          success: false,
+          message: 'Unable to retrieve email from Azure CLI. Make sure you are logged in with an account.'
+        };
+      }
+
+      console.log('[AzureLogin] Azure CLI authenticated as:', status.user.email);
 
       // Use the Azure auth to create a session
       const response = await fetch(`${API_BASE}/auth/azure-login`, {
@@ -131,44 +160,185 @@ export const authService = {
       });
       
       const data = await response.json();
+      console.log('[AzureLogin] Backend login response:', {
+        success: data.success,
+        message: data.message,
+        hasToken: !!data.token,
+        hasUser: !!data.user
+      });
+      
+      if (!response.ok) {
+        console.error('[AzureLogin] Backend login failed (HTTP ' + response.status + '):', data);
+        return data;
+      }
       
       if (data.success && data.token && data.user) {
         sessionStorage.setItem(AUTH_TOKEN_KEY, data.token);
         sessionStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
         sessionStorage.setItem(AUTH_TENANT_KEY, tenantCode);
+        console.log('[AzureLogin] Success - user logged in:', data.user.email);
       }
       
       return data;
     } catch (error: any) {
+      console.error('[AzureLogin] Exception occurred:', error);
       return {
         success: false,
-        message: error.message || 'Azure authentication failed'
+        message: `Azure authentication error: ${error.message || 'Unknown error'}. Check browser console for details.`
       };
     }
   },
 
   async loginWithMsal(tenantCode: string, accessToken: string): Promise<AuthResponse> {
     try {
+      console.log('[MSAL] Starting MSAL login for tenant:', tenantCode);
+      console.log('[MSAL] Access token length:', accessToken?.length || 0);
+      console.log('[MSAL] Sending POST to:', `${API_BASE}/auth/msal-login`);
+      
+      const requestBody = { tenantCode, accessToken };
+      console.log('[MSAL] Request body keys:', Object.keys(requestBody));
+      
       const response = await fetch(`${API_BASE}/auth/msal-login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantCode, accessToken }),
+        body: JSON.stringify(requestBody),
       });
 
+      console.log('[MSAL] Response received - Status:', response.status, 'OK:', response.ok);
+      console.log('[MSAL] Response headers:', {
+        contentType: response.headers.get('content-type'),
+        authorization: response.headers.get('authorization') ? 'present' : 'absent'
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[MSAL] HTTP Error - Status:', response.status, 'Body:', errorText.substring(0, 500));
+        return {
+          success: false,
+          message: `Authentication failed: ${response.statusText}`
+        };
+      }
+
       const data = await response.json();
+      console.log('[MSAL] Response JSON parsed:', {
+        success: data.success,
+        hasToken: !!data.token,
+        hasUser: !!data.user,
+        tokenLength: data.token?.length || 0,
+        message: data.message,
+        fullData: JSON.stringify(data).substring(0, 200)
+      });
 
       if (data.success && data.token && data.user) {
+        // Store token and user data
+        console.error('[MSAL] 🟢 ✅ Storing token to sessionStorage...');
+        console.error('[MSAL] Token details:', { length: data.token?.length, hasUser: !!data.user, success: data.success });
+        
         sessionStorage.setItem(AUTH_TOKEN_KEY, data.token);
         sessionStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
         sessionStorage.setItem(AUTH_TENANT_KEY, tenantCode);
+        
+        // Verify storage was successful
+        const stored = sessionStorage.getItem(AUTH_TOKEN_KEY);
+        const storedUser = sessionStorage.getItem(AUTH_USER_KEY);
+        console.error('[MSAL] 🟢 Token storage verification:', { tokenStored: !!stored, tokenLength: stored?.length || 0, userStored: !!storedUser });
+        
+        if (!stored || !storedUser) {
+          console.error('[MSAL] ❌ CRITICAL: Token or user not stored in sessionStorage!');
+        }
+        
+        // ⚠️ COMMENTED OUT: Verify token immediately after login
+        // This call was causing a race condition - making API request before axios interceptor could attach JWT
+        // await authService.verifyTokenAfterLogin(data.token, data.user);
+        console.error('[MSAL] 🟢 JWT stored successfully, axios interceptor will use it for subsequent requests');
+      } else {
+        console.error('[MSAL] ❌ Response missing required fields:', {
+          hasSuccess: 'success' in data,
+          hasToken: 'token' in data,
+          hasUser: 'user' in data,
+          successValue: data.success,
+          tokenValue: data.token ? `${data.token.substring(0, 50)}...` : 'null',
+          userData: data.user ? JSON.stringify(data.user).substring(0, 100) : 'null'
+        });
       }
 
       return data;
     } catch (error: any) {
+      console.error('[MSAL] Login error:', error);
       return {
         success: false,
         message: error.message || 'Microsoft authentication failed'
       };
+    }
+  },
+
+  async verifyTokenAfterLogin(token: string, user: any): Promise<void> {
+    try {
+      console.log('[TokenVerify] Starting token verification after MSAL login...');
+      
+      // Call backend to decode and verify the token
+      const verifyResponse = await fetch(`${API_BASE}/token-verification/decode`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      });
+
+      if (!verifyResponse.ok) {
+        console.warn('[TokenVerify] Backend token verification failed:', verifyResponse.status);
+        return;
+      }
+
+      const verification = await verifyResponse.json();
+      
+      // Log token details
+      console.log('[TokenVerify] ✅ Token verified successfully:', {
+        issued: verification.issuedAt,
+        expires: verification.expiresAt,
+        isExpired: verification.isExpired,
+        userId: verification.claims?.userId,
+        tenantId: verification.claims?.tenantId,
+        email: verification.claims?.email,
+        role: verification.claims?.role,
+        issuer: verification.issuer,
+        audience: verification.audience
+      });
+
+      // Validate critical claims
+      const expectedUserId = user.id;
+      const expectedTenantId = user.tenantId;
+      const actualUserId = verification.claims?.userId;
+      const actualTenantId = verification.claims?.tenantId;
+
+      if (actualUserId !== expectedUserId) {
+        console.error('[TokenVerify] ❌ UserId mismatch!', {
+          expected: expectedUserId,
+          actual: actualUserId
+        });
+      } else {
+        console.log('[TokenVerify] ✅ UserId matches:', actualUserId);
+      }
+
+      if (actualTenantId !== expectedTenantId) {
+        console.error('[TokenVerify] ❌ TenantId mismatch!', {
+          expected: expectedTenantId,
+          actual: actualTenantId
+        });
+      } else {
+        console.log('[TokenVerify] ✅ TenantId matches:', actualTenantId);
+      }
+
+      // Store verification details for debugging
+      sessionStorage.setItem('prodvista_token_verified', JSON.stringify({
+        timestamp: new Date().toISOString(),
+        tokenLength: token.length,
+        expiresAt: verification.expiresAt,
+        claims: verification.claims,
+        verified: true
+      }));
+
+    } catch (error: any) {
+      console.warn('[TokenVerify] Token verification check failed (non-critical):', error.message);
+      // Don't block login if verification fails - it's a diagnostic check
     }
   },
 

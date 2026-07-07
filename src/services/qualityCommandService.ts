@@ -55,21 +55,61 @@ export interface SavePanelRequest {
 // ============================================================================
 
 export const smartQuery = async (prompt: string, connectionId?: string): Promise<SmartQueryResponse> => {
-  const response = await api.post<SmartQueryResponse>('/quality/smart-query', {
+  const response = await api.post<any>('/quality/smart-query', {
     prompt,
     connectionId: connectionId || undefined,
   });
-  return response.data;
+  // Handle wrapped response { success, result: SmartQueryResponse } or direct response
+  const data = response.data;
+  if (data && data.result && typeof data.result === 'object') {
+    return data.result as SmartQueryResponse;
+  }
+  if (data && typeof data === 'object' && ('success' in data || 'interpretation' in data)) {
+    return data as SmartQueryResponse;
+  }
+  console.warn('Unexpected smartQuery response structure:', data);
+  return { 
+    success: false, 
+    error: 'Invalid response format', 
+    totalCount: 0,
+    interpretation: {
+      endpointKey: '',
+      parameters: {},
+      visualizationType: 'table',
+      visualization: {},
+      suggestedName: '',
+      explanation: ''
+    }
+  };
 };
 
 export const getPanels = async (): Promise<QualityQueryPanelDto[]> => {
-  const response = await api.get<QualityQueryPanelDto[]>('/quality/panels');
-  return response.data;
+  const response = await api.get<any>('/quality/panels');
+  // Handle wrapped response { success, result: [...] } or direct array
+  const data = response.data;
+  if (Array.isArray(data)) {
+    return data;
+  }
+  if (data && Array.isArray(data.result)) {
+    return data.result;
+  }
+  // If neither, return empty array to prevent crashes
+  console.warn('Unexpected getPanels response structure:', data);
+  return [];
 };
 
 export const savePanel = async (request: SavePanelRequest): Promise<QualityQueryPanelDto> => {
-  const response = await api.post<QualityQueryPanelDto>('/quality/panels', request);
-  return response.data;
+  const response = await api.post<any>('/quality/panels', request);
+  // Handle wrapped response { success, result: {...} } or direct object
+  const data = response.data;
+  if (data && data.result && typeof data.result === 'object' && !Array.isArray(data.result)) {
+    return data.result;
+  }
+  if (data && typeof data === 'object' && !Array.isArray(data) && 'id' in data) {
+    return data as QualityQueryPanelDto;
+  }
+  console.warn('Unexpected savePanel response structure:', data);
+  throw new Error('Invalid savePanel response');
 };
 
 export const togglePin = async (id: string): Promise<void> => {

@@ -8,6 +8,7 @@ import {
   GitMerge, FileCode, TrendingUp, AlertTriangle
 } from 'lucide-react'
 import { PRDetailModal, PullRequestDetail, PRReviewer } from './PRDetailModal'
+import { AzureDevOpsUrlBuilder } from '../utils/azure-devops-url-builder'
 
 // ─────────────────────────────────────────
 // Types
@@ -801,7 +802,7 @@ function TableView({
                     <Eye className="w-4 h-4" />
                   </button>
                   <a
-                    href={pr.webUrl || pr.url}
+                    href={AzureDevOpsUrlBuilder.buildPullRequestUrl(pr, AzureDevOpsUrlBuilder.normalizeConfig()) || pr.webUrl || pr.url || '#'}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
@@ -941,7 +942,7 @@ function CompactView({ prs, onSelect }: { prs: PRItem[]; onSelect: (pr: PRItem) 
               {formatTimeAgo(pr.creationDate)}
             </span>
             <a
-              href={pr.webUrl || pr.url}
+              href={AzureDevOpsUrlBuilder.buildPullRequestUrl(pr, AzureDevOpsUrlBuilder.normalizeConfig()) || pr.webUrl || pr.url || '#'}
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}

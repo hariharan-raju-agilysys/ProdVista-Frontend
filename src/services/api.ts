@@ -41,8 +41,13 @@ function getUserSession(): { userId: string; tenantId: string } | null {
 // Add auth token interceptor with ENCRYPTED DevOps token support
 api.interceptors.request.use(async (config) => {
   const token = sessionStorage.getItem('prodvista_auth_token');
+  console.error('[axios-interceptor] Token check:', { hasToken: !!token, tokenLength: token?.length || 0, endpoint: config.url });
+  
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+    console.error('[axios-interceptor] 🟢 Authorization header set:', { endpoint: config.url, headerSet: true });
+  } else {
+    console.error('[axios-interceptor] ❌ NO TOKEN FOUND in sessionStorage!', { endpoint: config.url });
   }
   // Include Azure AD management token for resource discovery (from SSO login)
   const azureToken = sessionStorage.getItem('prodvista_azure_token');

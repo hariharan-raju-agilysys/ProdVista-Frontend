@@ -9,19 +9,20 @@ import { useNavigate } from 'react-router-dom'
 // import { useMsal } from '@azure/msal-react'
 import {
   Bug, GitPullRequest, Rocket, AlertTriangle, Activity, Users,
-  Clock, ExternalLink, RefreshCw, ChevronRight, Code2,
+  Clock, ExternalLink, RefreshCw, ChevronRight, ChevronLeft, Code2,
   BarChart3, Layers, MessageSquare, BookOpen,
-  CheckCircle2, Circle, AlertCircle, ArrowUpRight, TrendingUp,
-  Zap, Bot, FileText, Terminal,
+  CheckCircle2, Circle, AlertCircle, ArrowUpRight,
+  Zap, FileText, TrendingUp, Bot,
   Flame, RotateCcw, Target, Award,
   Rss, Star, Crown, Timer, GitMerge,
-  Cpu, Radio, Upload, Link2, Image, FileType,
-  ChevronLeft, Video, Cake, ChevronDown, ChevronUp, X, Shield,
+  Radio, Upload, Link2, Image, FileType, Cpu,
+  Video, X, Shield, Cake, Calendar,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../context/AuthContext'
 import AIInsightModal from '../components/AIInsightModal'
 import WorkItemDetailModal from '../components/WorkItemDetailModal'
+import IterationTreeSelector from '../components/IterationTreeSelector'
 import {
   getSummary, getPRSummaryWithFallback,
   type DashboardSummary, type PRInfo, type PRSummaryResponse,
@@ -34,6 +35,28 @@ import {
 // import { CalendarService, type CalendarEvent } from '../services/calendarService'
 import { type CalendarEvent } from '../services/calendarService'
 import { birthdaysService, type Birthday } from '../services/birthdaysService'
+import { AzureDevOpsUrlBuilder } from '../utils/azure-devops-url-builder'
+
+import {
+  SectionCard,
+  AIProductivityHub,
+  PRIORITY_CFG,
+  greeting,
+  todayLabel,
+  ageLabel,
+  timeAgo,
+  formatCalendarDate,
+  getReleaseNotesUrl,
+} from './DeveloperDashboard'
+
+// ── helper: construct PR web URL ─────────────────────────────────────────────
+function getPRWebUrl(pr: PRInfo): string {
+  // Construct web URL from PR data: https://dev.azure.com/AGYS-VisualOne/PMS/_git/{repo}/pullrequest/{id}
+  // Default to AGYS-VisualOne org and PMS project if not in data
+  const orgUrl = 'https://dev.azure.com/AGYS-VisualOne'
+  const project = 'PMS'
+  return `${orgUrl}/${project}/_git/${pr.repositoryName}/pullrequest/${pr.pullRequestId}`
+}
 
 // ── types ────────────────────────────────────────────────────────────────────
 interface HnItem {
@@ -56,55 +79,6 @@ interface TechByte {
   uploadedAt: Date
   tags: string[]
 }
-
-// ── helpers ───────────────────────────────────────────────────────────────────
-function greeting(name: string): string {
-  const h = new Date().getHours()
-  if (h < 12) return `Good morning, ${name} 🌤️`
-  if (h < 17) return `Good afternoon, ${name} ☀️`
-  return `Good evening, ${name} 🌙`
-}
-
-function todayLabel(): string {
-  return new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-}
-
-function ageLabel(dateStr?: string): string {
-  if (!dateStr) return '—'
-  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000)
-  if (days === 0) return 'Today'
-  if (days === 1) return '1d'
-  return `${days}d`
-}
-
-function timeAgo(ts: number): string {
-  const mins = Math.floor((Date.now() / 1000 - ts) / 60)
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  return `${Math.floor(hrs / 24)}d ago`
-}
-
-function daysUntilBirthday(birthMonth?: number, birthDay?: number): { days: number; isToday: boolean } {
-  if (!birthMonth || !birthDay) return { days: -1, isToday: false }
-  const today = new Date()
-  const thisYear = today.getFullYear()
-  const nextBirthday = new Date(thisYear, birthMonth - 1, birthDay)
-  if (nextBirthday < today) nextBirthday.setFullYear(thisYear + 1)
-  const diff = Math.floor((nextBirthday.getTime() - today.getTime()) / 86_400_000)
-  return { days: diff, isToday: diff === 0 }
-}
-
-function formatCalendarDate(date: Date): string {
-  return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-}
-
-const PRIORITY_CFG = [
-  { p: 1, label: 'P1 · Critical', short: 'P1', bar: 'bg-red-500',    badge: 'bg-red-100 text-red-700',      dot: 'bg-red-500',    flame: true  },
-  { p: 2, label: 'P2 · High',     short: 'P2', bar: 'bg-orange-400', badge: 'bg-orange-100 text-orange-700', dot: 'bg-orange-400', flame: false },
-  { p: 3, label: 'P3 · Medium',   short: 'P3', bar: 'bg-yellow-400', badge: 'bg-yellow-100 text-yellow-700', dot: 'bg-yellow-400', flame: false },
-  { p: 4, label: 'P4 · Low',      short: 'P4', bar: 'bg-gray-300',   badge: 'bg-gray-100 text-gray-500',     dot: 'bg-gray-300',   flame: false },
-]
 
 // ── sub-components ────────────────────────────────────────────────────────────
 function MiniCalendar({ events, selectedDate, onSelectDate, teamBirthdays, onEventClick }: {
@@ -472,35 +446,13 @@ function KpiCard({
   )
 }
 
-function SectionCard({ title, icon: Icon, iconColor, action, onAction, children, className }: {
-  title: string; icon?: React.ComponentType<{ className?: string }>; iconColor?: string;
-  action?: string; onAction?: () => void; children: React.ReactNode; className?: string;
-}) {
-  return (
-    <div className={clsx('bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden', className)}>
-      <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-50">
-        <div className="flex items-center gap-2">
-          {Icon && <Icon className={clsx('w-4 h-4', iconColor ?? 'text-gray-400')} />}
-          <h2 className="text-sm font-bold text-gray-700 uppercase tracking-widest">{title}</h2>
-        </div>
-        {action && (
-          <button onClick={onAction} className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1 font-medium">
-            {action} <ChevronRight className="w-3 h-3" />
-          </button>
-        )}
-      </div>
-      {children}
-    </div>
-  )
-}
-
 // ── Tech Pulse fetch (direct to HN Algolia — no backend needed) ───────────────
 async function fetchTechPulse(): Promise<HnItem[]> {
   const topics = ['angular dotnet typescript', 'react AI developer', 'csharp nodejs tooling']
   try {
     const results = await Promise.allSettled(
       topics.map(q =>
-        fetch(`https://hn.algolia.com/api/v1/search?tags=story&query=${encodeURIComponent(q)}&hitsPerPage=5&numericFilters=points%3E3`)
+        fetch(`https://hn.algolia.com/api/v1/search?tags=story&query=${encodeURIComponent(q)}&hitsPerPage=5`)
           .then(r => r.json() as Promise<{ hits: HnItem[] }>)
       )
     )
@@ -508,7 +460,7 @@ async function fetchTechPulse(): Promise<HnItem[]> {
     const items: HnItem[] = []
     for (const r of results) {
       if (r.status === 'fulfilled') {
-        for (const hit of r.value?.hits ?? []) {
+        for (const hit of (r.value?.hits ?? []).filter(h => h.points > 7)) {
           if (!seen.has(hit.objectID) && hit.url) {
             seen.add(hit.objectID)
             items.push(hit)
@@ -520,23 +472,6 @@ async function fetchTechPulse(): Promise<HnItem[]> {
   } catch {
     return []
   }
-}
-
-// ── AI Productivity shortcuts ─────────────────────────────────────────────────
-const AI_TOOLS = [
-  { label: 'AI Chat',       sub: 'Ask anything',    icon: Bot,        path: '/ai-chat',           gradient: 'bg-gradient-to-br from-violet-500 to-purple-600',  key: '⇧A' },
-  { label: 'AI Query',      sub: 'Natural → SQL',   icon: Terminal,   path: '/ai-query',          gradient: 'bg-gradient-to-br from-amber-500 to-orange-600',    key: '⇧Q' },
-  { label: 'Observability', sub: 'KQL & logs',      icon: Activity,   path: '/observability',     gradient: 'bg-gradient-to-br from-teal-500 to-cyan-600',        key: '⇧O' },
-  { label: 'Release Notes', sub: 'Auto-generate',   icon: FileText,   path: 'release-notes-redirect',     gradient: 'bg-gradient-to-br from-green-500 to-emerald-600',    key: '⇧R' },
-  { label: 'DevOps',        sub: 'Pipelines & PRs', icon: GitMerge,   path: '/devops',            gradient: 'bg-gradient-to-br from-blue-500 to-indigo-600',      key: '⇧G' },
-  { label: 'Dev Toolkit',   sub: 'Advanced tools',  icon: Cpu,        path: '/developer-toolkit', gradient: 'bg-gradient-to-br from-pink-500 to-rose-600',        key: '⇧D' },
-]
-
-// ── Release Notes URL builder ──────────────────────────────────────────────────
-function getReleaseNotesUrl(tenantCode?: string): string {
-  const code = tenantCode || 'versa'
-  const domain = 'https://aks-v1-dev.hospitalityrevolution.com'
-  return `${domain}/${code}releasenote`
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -570,11 +505,6 @@ export default function DeveloperDashboardPage() {
     return localStorage.getItem('prodvista_manager_iteration') || undefined
   })
   
-  // Birthday widget state
-  const [birthdaysMinimized, setBirthdaysMinimized] = useState<boolean>(() => {
-    return localStorage.getItem('prodvista_birthdays_minimized') === 'true'
-  })
-  
   // Work item modal state
   const [showWorkItemModal, setShowWorkItemModal] = useState(false)
   const [modalWorkItems, setModalWorkItems] = useState<QualityWorkItemDto[]>([])
@@ -603,6 +533,9 @@ export default function DeveloperDashboardPage() {
   const [selectedWorkItem, setSelectedWorkItem] = useState<QualityWorkItemDto | null>(null)
   const [showPRDetailModal, setShowPRDetailModal] = useState(false)
   const [selectedPRDetail, setSelectedPRDetail] = useState<any>(null)
+  const [showPRListModal, setShowPRListModal] = useState(false)
+  const [prListItems, setPrListItems] = useState<any[]>([])
+  const [prListTitle, setPrListTitle] = useState('')
   const [iterationSearchTerm, setIterationSearchTerm] = useState('')
   const [showIterationDropdown, setShowIterationDropdown] = useState(false)
   
@@ -618,20 +551,17 @@ export default function DeveloperDashboardPage() {
   const [teamBirthdays, setTeamBirthdays] = useState<Birthday[]>([])
   const [teamBirthdaysLoading, setTeamBirthdaysLoading] = useState(false)
   const [_releaseNotesLoading, _setReleaseNotesLoading] = useState(false)
+  
+  // 📊 Individual loading states for granular shimmer per section
+  const [loadingSummary, setLoadingSummary] = useState(false)
+  const [loadingPRData, setLoadingPRData] = useState(false)
+  const [loadingBugData, setLoadingBugData] = useState(false)
+  const [loadingManagerData, setLoadingManagerData] = useState(false)
 
   const displayName = user?.displayName || user?.email?.split('@')[0] || (isManager ? 'Manager' : 'Developer')
-  const userBirthday = user?.birthMonth && user?.birthDay ? daysUntilBirthday(user.birthMonth, user.birthDay) : null
 
   // ── Computed Values ────────────────────────────────────────────────────────
-  // Available iterations (from team or hardcoded defaults)
-  const availableIterations = iterations.length > 0 
-    ? iterations.map(i => i.path).filter(Boolean)
-    : ['Sprint 1', 'Sprint 2', 'Sprint 3'] // fallback
-  
-  // Filtered iterations based on search term
-  const filteredIterations = availableIterations.filter(iter =>
-    iter && iter.toLowerCase().includes(iterationSearchTerm.toLowerCase())
-  )
+  // (IterationTreeSelector now handles iteration filtering internally)
   
   // Bugs filtered by selected iteration
   const filteredBugsByIteration = selectedIteration
@@ -644,32 +574,6 @@ export default function DeveloperDashboardPage() {
     localStorage.setItem('prodvista_manager_iteration', iterationPath)
     // Reload data with new iteration
     load()
-  }
-  
-  // Handle birthday widget minimize/maximize
-  const toggleBirthdaysMinimized = () => {
-    const newState = !birthdaysMinimized
-    setBirthdaysMinimized(newState)
-    localStorage.setItem('prodvista_birthdays_minimized', String(newState))
-    // Fetch birthdays if expanding
-    if (!newState && teamBirthdays.length === 0) {
-      fetchBirthdays()
-    }
-  }
-  
-  // Fetch team birthdays (current month only)
-  const fetchBirthdays = async () => {
-    if (birthdaysMinimized) return // Don't call endpoint if minimized
-    setTeamBirthdaysLoading(true)
-    try {
-      const birthdays = await birthdaysService.getCurrentMonthBirthdays()
-      setTeamBirthdays(birthdays)
-    } catch (error) {
-      console.error('Failed to fetch birthdays:', error)
-      setTeamBirthdays([])
-    } finally {
-      setTeamBirthdaysLoading(false)
-    }
   }
   
   // Open work item modal with filtered data
@@ -742,70 +646,241 @@ export default function DeveloperDashboardPage() {
     setShowWorkItemDetailModal(true)
   }
 
+  // ════ SMART DATA LOADING: Separate functions for each data type ════
+  
+  // Load Summary & Quality metrics (independent)
+  const loadSummary = useCallback(async () => {
+    setLoadingSummary(true)
+    try {
+      const iterationFilter = !isDevView ? selectedIteration : undefined
+      const [sumRes, qsRes] = await Promise.allSettled([
+        getSummary(),
+        // Get quality summary with iteration filter + view filter (mine vs team)
+        view === 'mine'
+          ? getQualitySummary(undefined, iterationFilter)
+          : getQualitySummary(undefined, iterationFilter), // Team view gets full quality summary
+      ])
+      if (sumRes?.status === 'fulfilled') setSummary(sumRes.value)
+      if (qsRes?.status === 'fulfilled') setQualitySummary(qsRes.value)
+    } catch (err) {
+      console.error('Error loading summary:', err)
+    } finally {
+      setLoadingSummary(false)
+    }
+  }, [isDevView, selectedIteration, view])
+
+  // Load PR data (triggered by prView change - prView controls scope: 'pending' → 'mine', 'all' → 'all')
+  const loadPRData = useCallback(async () => {
+    setLoadingPRData(true)
+    try {
+      const scope = prView === 'pending' ? 'mine' : 'all'
+      const prRes = await getPRSummaryWithFallback(undefined, scope)
+      setPrData(prRes)
+    } catch (err) {
+      console.error('Error loading PR data:', err)
+    } finally {
+      setLoadingPRData(false)
+    }
+  }, [prView])
+
+  // Load bug data (triggered by view or iteration change)
+  // ✅ OPTIMIZED: Single API call, filter reopened bugs locally to eliminate duplicate request
+  const loadBugData = useCallback(async () => {
+    setLoadingBugData(true)
+    try {
+      // Single API call - get all bugs with iteration filter
+      const bugs = view === 'mine'
+        ? await getMyBugs(undefined, selectedIteration) // User's bugs with iteration filter
+        : await getBugs({ iterationPath: selectedIteration }) // All bugs with iteration filter
+
+      // ✅ ENRICH with devOpsUrl using centralized URL builder
+      // Handles fallback if backend didn't provide URL
+      const config = AzureDevOpsUrlBuilder.normalizeConfig({
+        organizationUrl: 'https://dev.azure.com/AGYS-VisualOne',
+        projectName: 'PMS',
+      })
+
+      const bugsWithUrls = bugs.map(bug => ({
+        ...bug,
+        devOpsUrl: AzureDevOpsUrlBuilder.buildWorkItemUrl(bug, config) || '',
+      }))
+
+      // Set main bug list (top 12)
+      setMyBugs(bugsWithUrls.slice(0, 12))
+
+      // Filter reopened bugs from the same response (no extra API call needed)
+      const reopened = bugsWithUrls
+        .filter(b => b.reopenCount > 0)
+        .sort((a, b) => b.reopenCount - a.reopenCount)
+        .slice(0, 6)
+      setReopenedBugs(reopened)
+    } catch (err) {
+      console.error('Error loading bug data:', err)
+    } finally {
+      setLoadingBugData(false)
+    }
+  }, [view, selectedIteration])
+
+  // Load manager data (triggered by iteration change only)
+  const loadManagerData = useCallback(async () => {
+    if (!isManager && !isAdmin) return
+    setLoadingManagerData(true)
+    try {
+      const [effRes] = await Promise.allSettled([
+        getOwnerEfficiency(undefined, selectedIteration),
+      ])
+      if (effRes?.status === 'fulfilled') {
+        setOwnerEfficiency(effRes.value as OwnerEfficiencyDto[])
+      }
+    } catch (err) {
+      console.error('Error loading manager data:', err)
+    } finally {
+      setLoadingManagerData(false)
+    }
+  }, [selectedIteration, isManager, isAdmin])
+
+  // Load iterations list (manager-only, one-time) — REMOVED auto-select to prevent cascade
+  const loadIterations = useCallback(async () => {
+    if (!isManager && !isAdmin) return
+    try {
+      const iters = await getIterations()
+      setIterations(iters)
+    } catch (err) {
+      console.error('Error loading iterations:', err)
+    }
+  }, [isManager, isAdmin])
+
+  // Full refresh (manual refresh button or initial load)
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [sumRes, prRes] = await Promise.allSettled([
-        getSummary(),
-        getPRSummaryWithFallback(undefined, view === 'mine' ? 'mine' : 'all'),
+      await Promise.allSettled([
+        loadSummary(),
+        loadPRData(),
+        loadBugData(),
+        loadManagerData(),
+        loadIterations(),
       ])
-      if (sumRes.status === 'fulfilled') setSummary(sumRes.value)
-      if (prRes.status === 'fulfilled') setPrData(prRes.value)
-
-      // Quality data (shared) - with iteration filter for manager view
-      try {
-        const iterationFilter = !isDevView ? selectedIteration : undefined
-        const [qsRes, bugsRes, reopenRes] = await Promise.allSettled([
-          getQualitySummary(undefined, iterationFilter),
-          view === 'mine'
-            ? getMyBugs(undefined, undefined, 'Active')
-            : getBugs({ state: 'Active' }),
-          getBugs({ state: 'Active' }),
-        ])
-        if (qsRes.status === 'fulfilled') setQualitySummary(qsRes.value)
-        if (bugsRes.status === 'fulfilled') setMyBugs((bugsRes.value as QualityWorkItemDto[]).slice(0, 12))
-        if (reopenRes.status === 'fulfilled') {
-          const all = reopenRes.value as QualityWorkItemDto[]
-          setReopenedBugs(
-            all.filter(b => b.reopenCount > 0)
-              .sort((a, b) => b.reopenCount - a.reopenCount)
-              .slice(0, 6)
-          )
-        }
-      } catch { /* quality not configured */ }
-
-      // Manager-only: owner efficiency with iteration filter + iterations list
-      if (isManager || isAdmin) {
-        const iterationFilter = selectedIteration
-        Promise.allSettled([
-          getOwnerEfficiency(undefined, iterationFilter),
-          getIterations(),
-        ]).then(([effRes, iterRes]) => {
-          if (effRes.status === 'fulfilled') setOwnerEfficiency(effRes.value)
-          if (iterRes.status === 'fulfilled') {
-            const iters = iterRes.value
-            setIterations(iters)
-            // Auto-select "Current" iteration if no selection stored
-            if (!selectedIteration) {
-              const current = iters.find(it => it.state === 'Current')
-              if (current) {
-                setSelectedIteration(current.path)
-                localStorage.setItem('prodvista_manager_iteration', current.path)
-              }
-            }
-          }
-        }).catch(() => {})
-        
-        // Fetch birthdays if not minimized
-        fetchBirthdays()
-      }
     } finally {
       setLoading(false)
       setLastRefresh(new Date())
     }
-  }, [view, isManager, isAdmin])
+  }, [loadSummary, loadPRData, loadBugData, loadManagerData, loadIterations])
+//#region unsed code
+  // const load = useCallback(async () => {
+  //   setLoading(true)
+  //   try {
+  //     const [sumRes, prRes] = await Promise.allSettled([
+  //       getSummary(),
+  //       getPRSummaryWithFallback(undefined, view === 'mine' ? 'mine' : 'all'),
+  //     ])
+  //     if (sumRes.status === 'fulfilled') setSummary(sumRes.value)
+  //     if (prRes.status === 'fulfilled') setPrData(prRes.value)
 
-  useEffect(() => { load() }, [load])
+  //     // Quality data (shared) - with iteration filter for manager view
+  //     try {
+  //       const iterationFilter = !isDevView ? selectedIteration : undefined
+  //       const [qsRes, bugsRes, reopenRes] = await Promise.allSettled([
+  //         getQualitySummary(undefined, iterationFilter),
+  //         view === 'mine'
+  //           ? getMyBugs(undefined, undefined, 'Active')
+  //           : getBugs({ state: 'Active' }),
+  //         getBugs({ state: 'Active' }),
+  //       ])
+  //       if (qsRes.status === 'fulfilled') setQualitySummary(qsRes.value)
+  //       if (bugsRes.status === 'fulfilled') setMyBugs((bugsRes.value as QualityWorkItemDto[]).slice(0, 12))
+  //       if (reopenRes.status === 'fulfilled') {
+  //         const all = reopenRes.value as QualityWorkItemDto[]
+  //         setReopenedBugs(
+  //           all.filter(b => b.reopenCount > 0)
+  //             .sort((a, b) => b.reopenCount - a.reopenCount)
+  //             .slice(0, 6)
+  //         )
+  //       }
+  //     } catch { /* quality not configured */ }
+
+  //     // Manager-only: owner efficiency with iteration filter + iterations list
+  //     if (isManager || isAdmin) {
+  //       const iterationFilter = selectedIteration
+  //       Promise.allSettled([
+  //         getOwnerEfficiency(undefined, iterationFilter),
+  //         getIterations(),
+  //       ]).then(([effRes, iterRes]) => {
+  //         if (effRes.status === 'fulfilled') setOwnerEfficiency(effRes.value)
+  //         if (iterRes.status === 'fulfilled') {
+  //           const iters = iterRes.value
+  //           setIterations(iters)
+  //           // Auto-select "Current" iteration if no selection stored
+  //           if (!selectedIteration) {
+  //             const current = iters.find(it => it.state === 'Current')
+  //             if (current) {
+  //               setSelectedIteration(current.path)
+  //               localStorage.setItem('prodvista_manager_iteration', current.path)
+  //             }
+  //           }
+  //         }
+  //       }).catch(() => {})
+        
+  //       // Fetch birthdays if not minimized
+  //       fetchBirthdays()
+  //     }
+  //   } finally {
+  //     setLoading(false)
+  //     setLastRefresh(new Date())
+  //   }
+  // }, [view, isManager, isAdmin])
+//#endregion 
+  // ──── SMART EFFECT TRIGGERS ────────────────────────────────────────────────
+  
+  // Initial load: Summary → Iterations (SEQUENCED, not parallel)
+  useEffect(() => {
+    const init = async () => {
+      setLoading(true)
+      try {
+        // Load summary FIRST (contains getSummary + getQualitySummary in parallel)
+        await loadSummary()
+        
+        // THEN load iterations (separate API call, doesn't overload network)
+        await loadIterations()
+      } finally {
+        setLoading(false)
+        setLastRefresh(new Date())
+      }
+    }
+    init()
+  }, []) // Empty deps: run only on mount
+  
+  // Auto-select "Current" iteration after iterations loaded (manager-only, one-time on mount)
+  useEffect(() => {
+    if (!iterations.length || !isManager || !isAdmin || selectedIteration) return
+    const current = iterations.find((it: QualityIteration) => it.state === 'Current')
+    if (current) {
+      setSelectedIteration(current.path)
+      localStorage.setItem('prodvista_manager_iteration', current.path)
+    }
+  }, []) // Empty deps: run only once on mount
+  
+  // When prView changes: reload PRs only with correct scope (pending='mine', all='all')
+  useEffect(() => {
+    loadPRData()
+  }, [prView])
+  
+  // When view changes (mine vs team): reload bugs + summary to filter correctly
+  useEffect(() => {
+    Promise.allSettled([
+      loadBugData(),
+      loadSummary(),
+    ])
+  }, [view])
+  
+  // When iteration changes: reload bugs + summary + manager data
+  useEffect(() => {
+    Promise.allSettled([
+      loadBugData(),
+      loadSummary(),
+      loadManagerData(),
+    ])
+  }, [selectedIteration])
 
   // ── Developer View: Fetch iterations and current release config ─────────────
   useEffect(() => {
@@ -1030,13 +1105,7 @@ export default function DeveloperDashboardPage() {
   }, [canOverrideView])
 
   // ── derived ────────────────────────────────────────────────────────────────
-  const openBugs         = qualitySummary?.activeBugs ?? 0
-  const criticalBugs     = qualitySummary?.criticalBugs ?? 0
-  const prsAwaitingReview = prData?.waitingApproval ?? prData?.totalActive ?? 0
-  const openPRs          = prData?.totalActive ?? summary?.devops?.openPRs ?? 0
-  const buildSuccessRate = summary?.devops?.buildSuccessRate ?? null
-  const activePipelines  = summary?.devops?.activePipelines ?? 0
-  const prsToReview      = (prData?.prs ?? []).filter((p: PRInfo) => p.needsMyReview || p.status === 'active')
+  // Removed old KPI variables (openBugs, criticalBugs, etc.) - now using iteration-filtered values
 
   // bug priority breakdown
   const bugsByPriority: Record<number, QualityWorkItemDto[]> = { 1: [], 2: [], 3: [], 4: [] }
@@ -1048,6 +1117,32 @@ export default function DeveloperDashboardPage() {
 
   // Build feed
   const buildFeed = ((summary?.devops as any)?.todayBuilds?.builds ?? []).slice(0, 5)
+
+  // ═══ NEW KPI COMPUTED VALUES ═══════════════════════════════════════════════
+  
+  // 1. In Progress Bugs - bugs in "In Progress" status in my name (filtered by iteration)
+  const inProgressBugs = myBugs.filter(b => 
+    (b.state === 'Active' || b.state === 'Pending Clarification' || b.state === 'Fixed' || b.state === 'Re-Open')
+    //  &&    (!selectedIteration || b.iterationPath?.includes(selectedIteration))
+  )
+  
+  // 2. My Critical Bugs - critical (P1) bugs in my name (filtered by iteration)
+  const myPCriticalBugs = myBugs.filter(b => 
+    b.priority === 1
+    //  &&    (!selectedIteration || b.iterationPath?.includes(selectedIteration))
+  )
+  
+  // 3. PRs to Review - PRs I created + PRs where I need to review
+  const myAndReviewPRs = (prData?.prs ?? []);
+  // .filter((p: PRInfo) => 
+  //   // p.needsMyReview || p.createdBy === user?.email
+  // )
+  
+  // 4. DevOps Progress - count of builds/pushes today
+  const devOpsProgressCount = buildFeed.length
+  const devOpsProgressDesc = `${devOpsProgressCount} build${devOpsProgressCount !== 1 ? 's' : ''} today`
+
+  // ──────────────────────────────────────────────────────────────────────────
 
   // ── Shared header bar ──────────────────────────────────────────────────────
   const header = (
@@ -1227,49 +1322,34 @@ export default function DeveloperDashboardPage() {
             </div>
           )}
           
-          {/* Team Birthdays Widget - Minimizable with localStorage */}
-          <div className="bg-gradient-to-br from-pink-50 to-purple-50 rounded-xl shadow-sm border-2 border-pink-200 overflow-hidden">
+          {/* Team Birthdays Widget */}
+          <div className="team-birthdays-widget bg-gradient-to-br from-pink-50 to-purple-50 rounded-xl shadow-sm border-2 border-pink-200 overflow-hidden">
             <div className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Cake className="w-5 h-5 text-pink-600" />
-                  <h3 className="text-sm font-bold text-gray-900">Team Birthdays</h3>
-                </div>
-                <button
-                  onClick={toggleBirthdaysMinimized}
-                  className="p-1 hover:bg-pink-100 rounded-lg transition-colors"
-                  title={birthdaysMinimized ? 'Expand' : 'Minimize'}
-                >
-                  {birthdaysMinimized ? (
-                    <ChevronRight className="w-4 h-4 text-pink-600" />
-                  ) : (
-                    <ChevronLeft className="w-4 h-4 text-pink-600" />
-                  )}
-                </button>
+              <div className="flex items-center gap-2 mb-3">
+                <Cake className="w-5 h-5 text-pink-600" />
+                <h3 className="text-sm font-bold text-gray-900">Team Birthdays</h3>
               </div>
               
-              {!birthdaysMinimized && (
-                <div className="space-y-2">
-                  {teamBirthdaysLoading ? (
-                    <div className="text-xs text-gray-500 italic">Loading...</div>
-                  ) : teamBirthdays.length === 0 ? (
-                    <div className="text-xs text-gray-600 italic bg-white rounded-lg p-3 border border-pink-100">
-                      🎉 No birthdays this month
-                    </div>
-                  ) : (
-                    <div className="max-h-32 overflow-y-auto space-y-1.5">
-                      {teamBirthdays.map(birthday => (
-                        <div key={birthday.userId} className="bg-white rounded-lg p-2 border border-pink-100 hover:border-pink-200 transition-colors">
-                          <div className="text-xs font-semibold text-gray-800">{birthday.userName}</div>
-                          <div className="text-[10px] text-pink-600 font-medium">
-                            {new Date(2024, birthday.month - 1, birthday.day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          </div>
+              <div className="space-y-2">
+                {teamBirthdaysLoading ? (
+                  <div className="text-xs text-gray-500 italic">Loading...</div>
+                ) : teamBirthdays.length === 0 ? (
+                  <div className="text-xs text-gray-600 italic bg-white rounded-lg p-3 border border-pink-100">
+                    🎉 No birthdays this month
+                  </div>
+                ) : (
+                  <div className="max-h-32 overflow-y-auto space-y-1.5">
+                    {teamBirthdays.map(birthday => (
+                      <div key={birthday.userId} className="bg-white rounded-lg p-2 border border-pink-100 hover:border-pink-200 transition-colors">
+                        <div className="text-xs font-semibold text-gray-800">{birthday.userName}</div>
+                        <div className="text-[10px] text-pink-600 font-medium">
+                          {new Date(2024, birthday.month - 1, birthday.day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1278,28 +1358,28 @@ export default function DeveloperDashboardPage() {
         {/* KPI cards are now clickable and show detailed work items in modal */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard label="Team Velocity"   value={`${completionRate}%`}
-            icon={TrendingUp}    gradient="bg-blue-500"    sub={`${workItemStats.totalCompleted} completed`}  loading={loading} 
+            icon={TrendingUp}    gradient="bg-blue-500"    sub={`${workItemStats.totalCompleted} completed`}  loading={loadingSummary} 
             onClick={() => {
               // Show completed work items
               const completedItems = myBugs.filter(b => b.state === 'Resolved' || b.state === 'Closed')
               openWorkItemModal('Completed Work Items', `${completedItems.length} items resolved in ${currentIterationInfo?.name || 'current iteration'}`, completedItems)
             }} />
           <KpiCard label="Active Work"   value={workItemStats.totalActive}
-            icon={Activity}      gradient="bg-indigo-500"  sub={`${workItemStats.bugs.active} bugs active`}    loading={loading} 
+            icon={Activity}      gradient="bg-indigo-500"  sub={`${workItemStats.bugs.active} bugs active`}    loading={loadingSummary} 
             onClick={() => {
               // Show active bugs
               const activeBugs = myBugs.filter(b => b.state === 'Active' || b.state === 'New')
               openWorkItemModal('Active Work Items', `${activeBugs.length} active bugs requiring attention`, activeBugs)
             }} />
           <KpiCard label="Critical Issues"  value={workItemStats.bugs.critical}
-            icon={AlertTriangle} gradient="bg-red-500"     sub={workItemStats.bugs.critical > 0 ? 'needs attention 🔥' : 'all clear ✓'} loading={loading} 
+            icon={AlertTriangle} gradient="bg-red-500"     sub={workItemStats.bugs.critical > 0 ? 'needs attention 🔥' : 'all clear ✓'} loading={loadingSummary} 
             onClick={() => {
               // Show critical bugs (priority 1)
               const criticalBugs = myBugs.filter(b => b.priority === 1)
               openWorkItemModal('Critical Priority Bugs', `${criticalBugs.length} critical issues requiring immediate action`, criticalBugs)
             }} />
           <KpiCard label="Resolution Quality" value={qualitySummary?.reopenedBugs ? `${(100 - (qualitySummary.reopenedBugs / Math.max(qualitySummary.resolvedBugs, 1)) * 100).toFixed(0)}%` : '100%'}
-            icon={Award}         gradient="bg-purple-500"  sub={`${qualitySummary?.reopenedBugs ?? 0} reopened`}  loading={loading} 
+            icon={Award}         gradient="bg-purple-500"  sub={`${qualitySummary?.reopenedBugs ?? 0} reopened`}  loading={loadingSummary} 
             onClick={() => {
               // Show reopened bugs
               openWorkItemModal('Reopened Bugs', `${reopenedBugs.length} bugs reopened after resolution`, reopenedBugs)
@@ -1415,9 +1495,9 @@ export default function DeveloperDashboardPage() {
               action="Detailed View" onAction={() => navigate('/engineering')}
             >
               <div className="overflow-x-auto">
-                {loading || ownerEfficiency.length === 0 ? (
+                {loadingManagerData || ownerEfficiency.length === 0 ? (
                   <div className="px-5 py-8 text-center text-sm text-gray-400">
-                    {loading ? (
+                    {loadingManagerData ? (
                       <div className="space-y-3 px-4">
                         {Array.from({ length: 8 }).map((_, i) => (
                           <div key={i} className="h-12 bg-gray-50 animate-pulse rounded-lg" />
@@ -1573,7 +1653,7 @@ export default function DeveloperDashboardPage() {
                 {/* Priority breakdown */}
                 <div className="space-y-2.5">
                   <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">By Priority</div>
-                  {loading ? (
+                  {loadingBugData ? (
                     Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-8 bg-gray-50 animate-pulse rounded-lg" />)
                   ) : (
                     PRIORITY_CFG.map(({ p, label, bar, badge }) => {
@@ -1834,125 +1914,30 @@ export default function DeveloperDashboardPage() {
       {header}
       
       {/* ─── Compact AI Productivity Hub ─────────────────────────────── */}
-      <div className={clsx(
-        'bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-700 rounded-2xl shadow-xl border border-indigo-400/20 transition-all duration-300',
-        aiHubExpanded ? 'shadow-indigo-500/30' : 'shadow-indigo-500/10'
-      )}>
-        <button
-          onClick={() => setAiHubExpanded(!aiHubExpanded)}
-          className="w-full flex items-center justify-between p-4 text-white hover:bg-white/5 rounded-2xl transition-all"
-        >
-          <div className="flex items-center gap-2">
-            <Bot className="w-5 h-5 animate-pulse" />
-            <h2 className="text-sm font-bold uppercase tracking-wider">AI Productivity Hub</h2>
-            <span className="text-xs text-white/60">{AI_TOOLS.length} tools</span>
-          </div>
-          {aiHubExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-        </button>
-        
-        {aiHubExpanded && (
-          <div className="px-4 pb-4">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-              {AI_TOOLS.map(({ label, sub, icon: Icon, path, gradient }) => (
-                <button key={path} onClick={() => {
-                  if (path === 'release-notes-redirect') {
-                    window.open(getReleaseNotesUrl(tenantCode), '_blank')
-                  } else {
-                    navigate(path)
-                  }
-                }}
-                  className="group flex flex-col gap-1.5 p-3 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur transition-all text-left hover:scale-105"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className={clsx('w-8 h-8 rounded-lg flex items-center justify-center', gradient)}>
-                      <Icon className="w-4 h-4 text-white" />
-                    </div>
-                  </div>
-                  <span className="text-xs font-bold text-white leading-tight">{label}</span>
-                  <span className="text-[10px] text-white/60 leading-tight">{sub}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+      <AIProductivityHub
+        expanded={aiHubExpanded}
+        onToggleExpand={() => setAiHubExpanded(!aiHubExpanded)}
+        onToolClick={(path) => {
+          if (path === 'release-notes-redirect') {
+            window.open(getReleaseNotesUrl(tenantCode), '_blank')
+          } else {
+            navigate(path)
+          }
+        }}
+      />
       
-      {/* ─── Birthday & Iteration Filter Bar ────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Birthday Widget */}
-        {userBirthday && userBirthday.days >= 0 && (
-          <div className={clsx(
-            'p-4 rounded-xl border-2',
-            userBirthday.isToday 
-              ? 'bg-gradient-to-br from-pink-50 to-rose-50 border-pink-300'
-              : 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200'
-          )}>
-            <div className="flex items-center gap-3">
-              <div className={clsx(
-                'w-12 h-12 rounded-full flex items-center justify-center text-2xl',
-                userBirthday.isToday ? 'bg-pink-100' : 'bg-blue-100'
-              )}>
-                🎂
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-gray-800">
-                  {userBirthday.isToday ? '🎉 Happy Birthday!' : `Birthday in ${userBirthday.days} days`}
-                </p>
-                <p className="text-xs text-gray-600">Have a great day! 🎈</p>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {/* Iteration Filter */}
-        <div className="relative p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
-          <label className="block text-xs font-semibold text-gray-600 mb-2">Current Release / Iteration</label>
-          <div className="relative">
-            <button
-              onClick={() => setShowIterationDropdown(!showIterationDropdown)}
-              className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg hover:border-indigo-300 transition-colors"
-            >
-              <span className="text-sm text-gray-800 truncate">
-                {selectedIteration || 'Select iteration...'}
-              </span>
-              <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
-            </button>
-            
-            {showIterationDropdown && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-64 overflow-hidden">
-                <div className="p-2 border-b border-gray-100">
-                  <input
-                    type="text"
-                    value={iterationSearchTerm}
-                    onChange={(e) => setIterationSearchTerm(e.target.value)}
-                    placeholder="Search iterations..."
-                    className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    autoFocus
-                  />
-                </div>
-                <div className="max-h-48 overflow-y-auto">
-                  {filteredIterations.map(iter => (
-                    <button
-                      key={iter}
-                      onClick={() => {
-                        setSelectedIteration(iter)
-                        setShowIterationDropdown(false)
-                        setIterationSearchTerm('')
-                      }}
-                      className={clsx(
-                        'w-full text-left px-3 py-2 text-sm hover:bg-indigo-50 transition-colors',
-                        iter === selectedIteration ? 'bg-indigo-100 text-indigo-700 font-semibold' : 'text-gray-700'
-                      )}
-                    >
-                      {iter}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      {/* ─── Iteration Filter Bar ────────────────────────────────────── */}
+      <IterationTreeSelector
+        iterations={iterations}
+        selectedPath={selectedIteration}
+        onSelect={(path) => {
+          handleIterationChange(path)
+        }}
+        searchTerm={iterationSearchTerm}
+        onSearchChange={setIterationSearchTerm}
+        isOpen={showIterationDropdown}
+        onOpenChange={setShowIterationDropdown}
+      />
 
       {/* Admin/Manager Dev Preview mode indicator */}
       {canOverrideView && viewOverride === 'dev' && (
@@ -1970,22 +1955,57 @@ export default function DeveloperDashboardPage() {
 
       {/* ── KPI row ─────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard label="Active Bugs"    value={openBugs}
-          icon={Bug}           gradient="bg-gradient-to-br from-red-500 to-red-600"
-          sub={criticalBugs > 0 ? `${criticalBugs} critical 🔥` : '0 critical ✓'}
-          loading={loading}    onClick={() => navigate('/quality')} />
-        <KpiCard label="PRs to Review" value={prsAwaitingReview}
+        
+        {/* KPI 1: In Progress Bugs */}
+        <KpiCard label="In Progress" value={inProgressBugs.length}
+          icon={Bug} gradient="bg-gradient-to-br from-blue-500 to-blue-600"
+          sub={inProgressBugs.length > 0 ? `${inProgressBugs.filter((b: any) => view === 'mine' ? b.assignedToMe : true).length} bugs assigned` : 'all paused ✓'}
+          loading={loadingBugData}
+          onClick={() => {
+            setSelectedBugDetail({
+              label: 'In Progress',
+              bugs: inProgressBugs
+            })
+            setShowBugDetailModal(true)
+          }}
+        />
+        
+        {/* KPI 2: PRs to Review */}
+        <KpiCard label="PRs to Review" value={myAndReviewPRs.length}
           icon={GitPullRequest} gradient="bg-gradient-to-br from-purple-500 to-purple-600"
-          sub={openPRs > 0 ? `${openPRs} open total` : 'all clear'}
-          loading={loading}    onClick={() => navigate('/pull-requests')} />
-        <KpiCard label="Critical Bugs" value={criticalBugs}
-          icon={Flame}         gradient="bg-gradient-to-br from-orange-500 to-orange-600"
-          sub={criticalBugs > 0 ? 'needs immediate fix' : 'clean slate ✓'}
-          loading={loading}    onClick={() => navigate('/quality')} />
-        <KpiCard label="Build Rate"    value={buildSuccessRate != null ? `${Math.round(buildSuccessRate)}%` : '—'}
-          icon={TrendingUp}    gradient="bg-gradient-to-br from-green-500 to-green-600"
-          sub={`${activePipelines} pipeline${activePipelines !== 1 ? 's' : ''} active`}
-          loading={loading}    onClick={() => navigate('/devops')} />
+          sub={myAndReviewPRs.length > 0 ? `${myAndReviewPRs.filter((p: any) => view === 'mine' ? (p.needsMyReview || p.createdBy === user?.email) : true).length} need action` : 'all reviewed ✓'}
+          loading={loadingPRData}
+          onClick={() => {
+            setPrListTitle('PRs to Review')
+            setPrListItems(myAndReviewPRs)
+            setShowPRListModal(true)
+          }}
+        />
+        
+        {/* KPI 3: Critical Bugs */}
+        <KpiCard label="Critical Issues" value={myPCriticalBugs.length}
+          icon={Flame} gradient="bg-gradient-to-br from-red-500 to-orange-600"
+          sub={myPCriticalBugs.length > 0 ? `🔥 P1 priorities` : 'no critical ✓'}
+          loading={loadingBugData}
+          onClick={() => {
+            setSelectedBugDetail({
+              label: 'Critical Bugs (P1)',
+              bugs: myPCriticalBugs
+            })
+            setShowBugDetailModal(true)
+          }}
+        />
+        
+        {/* KPI 4: DevOps Progress */}
+        <KpiCard label="Progress" value={devOpsProgressCount}
+          icon={TrendingUp} gradient="bg-gradient-to-br from-green-500 to-emerald-600"
+          sub={devOpsProgressDesc}
+          loading={loading}
+          onClick={() => {
+            // Navigate to DevOps page to see full build pipeline
+            navigate('/devops')
+          }}
+        />
       </div>
 
       {/* ── Main Content Grid ───────────────────────────────────────────────────── */}
@@ -2066,12 +2086,12 @@ export default function DeveloperDashboardPage() {
           </SectionCard>
 
           {/* ────────────── Reopened Issues ──────────────────────────────── */}
-          {(reopenedBugs.length > 0 || loading) && (
+          {(reopenedBugs.length > 0 || loadingBugData) && (
             <SectionCard title="Reopened Issues" icon={RotateCcw} iconColor="text-orange-500"
               action="View All" onAction={() => navigate('/quality')}
             >
               <div className="divide-y divide-gray-50">
-                {loading ? (
+                {loadingBugData ? (
                   Array.from({ length: 3 }).map((_, i) => (
                     <div key={i} className="px-5 py-3 flex items-center gap-3">
                       <div className="w-8 h-4 bg-gray-100 animate-pulse rounded" />
@@ -2123,23 +2143,23 @@ export default function DeveloperDashboardPage() {
               </div>
             </div>
             <div className="divide-y divide-gray-50">
-              {loading ? (
+              {loadingPRData ? (
                 Array.from({ length: 3 }).map((_, i) => (
                   <div key={i} className="px-5 py-3 flex items-center gap-3">
                     <div className="flex-1 h-4 bg-gray-100 animate-pulse rounded" />
                     <div className="w-16 h-4 bg-gray-100 animate-pulse rounded" />
                   </div>
                 ))
-              ) : prsToReview.length === 0 ? (
+              ) : myAndReviewPRs.filter(pr => prView == 'pending' ? pr.needsMyReview : true)?.length === 0 ? (
                 <div className="px-5 py-8 text-center text-gray-400 text-sm">
                   <CheckCircle2 className="w-8 h-8 text-green-300 mx-auto mb-2" />
                   <p>No PRs waiting for review</p>
                   {!prData && <p className="text-xs mt-1">Connect Azure DevOps to see PRs</p>}
                 </div>
               ) : (
-                prsToReview.slice(0, 6).map((pr: PRInfo) => (
+                myAndReviewPRs.filter(pr => prView == 'pending' ? pr.needsMyReview : true)?.slice(0, 6)?.map((pr: PRInfo) => (
                   <button
-                    key={pr.pullRequestId}
+                    key={pr?.pullRequestId}
                     onClick={() => {
                       setSelectedPRDetail(pr)
                       setShowPRDetailModal(true)
@@ -2335,7 +2355,7 @@ export default function DeveloperDashboardPage() {
           </SectionCard>
 
           {/* ── Calendar & Events ──────────────────────────────────────── */}
-          <MiniCalendar 
+          {/* <MiniCalendar 
             events={calendarEvents} 
             selectedDate={selectedCalendarDate} 
             onSelectDate={setSelectedCalendarDate} 
@@ -2344,7 +2364,7 @@ export default function DeveloperDashboardPage() {
               if (birthday) setSelectedBirthday(birthday)
               if (event) setSelectedEvent(event)
             }}
-          />
+          /> */}
 
           {/* ── Event Detail Modal ────────────────────────────────────────────*/}
           <EventDetailModal 
@@ -2361,7 +2381,19 @@ export default function DeveloperDashboardPage() {
           {/* ── Team Birthdays (Current Month) ────────────────────────────── */}
           {isDevView && (
             <SectionCard title="Team Birthdays" icon={Cake} iconColor="text-pink-500">
-              <div className="px-5 py-3 divide-y divide-gray-50">
+              <div className="max-h-64
+                              overflow-y-auto
+                              space-y-1.5
+                              px-5
+                              py-3
+                              divide-y
+                              divide-gray-50
+                              pr-2
+                              [&::-webkit-scrollbar]:w-2
+                              [&::-webkit-scrollbar-track]:bg-transparent
+                              [&::-webkit-scrollbar-thumb]:bg-pink-200
+                              [&::-webkit-scrollbar-thumb]:rounded-full
+                              hover:[&::-webkit-scrollbar-thumb]:bg-pink-300">
                 {teamBirthdaysLoading ? (
                   <div className="px-5 py-6 text-center text-gray-400 text-sm">
                     <div className="w-6 h-6 rounded-full border-2 border-gray-200 border-t-gray-400 animate-spin mx-auto mb-2" />
@@ -2409,12 +2441,6 @@ export default function DeveloperDashboardPage() {
                   icon: <Layers className="w-3.5 h-3.5 text-purple-400" />, color: 'text-purple-600' },
                 { label: 'Open incidents', value: (summary?.support as any)?.openIncidents ?? 0,
                   icon: <AlertTriangle className="w-3.5 h-3.5 text-red-400" />, color: 'text-red-600' },
-                ...(userBirthday && userBirthday.days >= 0 ? [{
-                  label: userBirthday.isToday ? '🎂 Birthday today!' : 'Days to birthday',
-                  value: userBirthday.isToday ? '🎉' : `${userBirthday.days}d`,
-                  icon: <Cake className="w-3.5 h-3.5 text-pink-400" />,
-                  color: userBirthday.isToday ? 'text-pink-700 font-bold' : 'text-pink-600'
-                }] : []),
               ].map(({ label, value, icon, color }) => (
                 <div key={label} className="flex items-center justify-between py-1 border-b border-gray-50 last:border-0">
                   <div className="flex items-center gap-2 text-xs text-gray-500">{icon}{label}</div>
@@ -2451,72 +2477,286 @@ export default function DeveloperDashboardPage() {
         </div>
       </div>
 
-      {/* ─── Bug Detail Modal ──────────────────────────────────────────── */}
-      {showBugDetailModal && selectedBugDetail && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-red-500 to-orange-500 px-6 py-4 flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-bold text-white">{selectedBugDetail.label} Bugs</h3>
-                <p className="text-sm text-white/80 mt-0.5">{selectedBugDetail.bugs.length} items</p>
+      {/* ─── ADVANCED WORK ITEM LIST MODAL (dev view) - BIG, CLICKABLE, WITH EXTERNAL LINKS ─────────────────────────── */}
+      {showWorkItemModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowWorkItemModal(false)}>
+            <div className="bg-white rounded-2xl shadow-2xl max-w-7xl w-full max-h-[92vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+              {/* HEADER - Large & Professional */}
+              <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 px-8 py-6 flex-shrink-0">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h2 className="text-3xl font-bold text-white">{modalTitle}</h2>
+                    <p className="text-sm text-indigo-100 mt-2">{modalSubtitle}</p>
+                  </div>
+                  <button onClick={() => setShowWorkItemModal(false)} className="p-2.5 hover:bg-white/20 rounded-lg transition-colors flex-shrink-0">
+                    <X className="w-6 h-6 text-white" />
+                  </button>
+                </div>
               </div>
-              <button onClick={() => setShowBugDetailModal(false)}
-                className="w-8 h-8 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
-              >
-                <X className="w-5 h-5 text-white" />
-              </button>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6 overflow-y-auto max-h-[70vh]">
-              <div className="space-y-3">
-                {selectedBugDetail.bugs.map((bug: QualityWorkItemDto) => (
-                  <div key={bug.id} className="p-4 border border-gray-200 rounded-xl hover:border-red-300 hover:shadow-md transition-all">
-                    <div className="flex items-start gap-3 mb-2">
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-gray-900">{bug.title}</p>
-                        <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-                          <span className="font-mono">#{bug.id}</span>
-                          <span>•</span>
-                          <span>Assigned: {bug.assignedTo || 'Unassigned'}</span>
-                          <span>•</span>
-                          <span>Age: {bug.ageDays || 0}d</span>
-                          {bug.iterationPath && (
-                            <>
-                              <span>•</span>
-                              <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px]">{bug.iterationPath}</span>
-                            </>
+              
+              {/* CONTENT - Scrollable, Responsive Grid */}
+              <div className="flex-1 overflow-y-auto p-8">
+                {modalWorkItems.length === 0 ? (
+                  <div className="text-center py-20">
+                    <CheckCircle2 className="w-24 h-24 text-green-400 mx-auto mb-4 opacity-75" />
+                    <p className="text-2xl font-bold text-gray-700">No work items found</p>
+                    <p className="text-gray-500 mt-2">All items in this category have been resolved ✓</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4 grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    {modalWorkItems.map(item => (
+                      <div key={item.id} 
+                        className="group border-2 border-gray-200 rounded-xl p-6 hover:border-indigo-400 hover:shadow-xl hover:bg-gradient-to-br hover:from-indigo-50 hover:to-purple-50 transition-all duration-200 cursor-pointer flex flex-col h-full"
+                        onClick={() => {
+                          // If external URL available, open it
+                          if (item.devOpsUrl) {
+                            window.open(item.devOpsUrl, '_blank')
+                          } else {
+                            handleWorkItemClick(item)
+                          }
+                        }}
+                      >
+                        {/* Top: Type, Priority, Status, Reopens */}
+                        <div className="flex items-center gap-2 mb-3 flex-wrap">
+                          <span className="px-3 py-1.5 bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg whitespace-nowrap">{item.workItemType}</span>
+                          {item.priority && (
+                            <span className={clsx('px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap',
+                              item.priority === 1 ? 'bg-red-100 text-red-700 ring-1 ring-red-300' :
+                              item.priority === 2 ? 'bg-orange-100 text-orange-700 ring-1 ring-orange-300' :
+                              item.priority === 3 ? 'bg-yellow-100 text-yellow-700 ring-1 ring-yellow-300' :
+                              'bg-gray-100 text-gray-700 ring-1 ring-gray-300'
+                            )}>🎯 P{item.priority}</span>
+                          )}
+                          <span className={clsx('px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap',
+                            item.state === 'Active' || item.state === 'New' ? 'bg-red-100 text-red-700' :
+                            item.state === 'In Progress' || item.state === 'In Development' ? 'bg-blue-100 text-blue-700' :
+                            item.state === 'Resolved' || item.state === 'Closed' ? 'bg-green-100 text-green-700' :
+                            'bg-gray-100 text-gray-700'
+                          )}>{item.state}</span>
+                          {item.reopenCount > 0 && (
+                            <span className="px-3 py-1.5 bg-orange-100 text-orange-700 text-xs font-bold rounded-lg flex items-center gap-1.5 whitespace-nowrap ring-1 ring-orange-300">
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              {item.reopenCount}x Reopened
+                            </span>
                           )}
                         </div>
+
+                        {/* Title */}
+                        <h3 className="font-bold text-lg text-gray-900 mb-3 break-words group-hover:text-indigo-700 transition-colors line-clamp-2">{item.title}</h3>
+
+                        {/* Metadata */}
+                        <div className="space-y-2 text-sm mb-4 flex-1">
+                          <div className="flex items-center gap-2 text-gray-700">
+                            <span className="font-mono bg-gray-100 px-2.5 py-1 rounded font-semibold text-gray-800">#{item.id}</span>
+                            <span className="text-gray-500">•</span>
+                            <span className="font-semibold">{item.assignedTo || '🔓 Unassigned'}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-gray-600">
+                            <Calendar className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+                            <span>{ageLabel(item.createdDate)}</span>
+                            {item.ageDays > 0 && <span className="text-gray-500">• {item.ageDays}d in backlog</span>}
+                          </div>
+                          {item.iterationPath && (
+                            <div className="flex items-center gap-2 text-gray-600">
+                              <Target className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                              <span className="px-2.5 py-0.5 bg-purple-50 text-purple-700 rounded font-semibold text-xs">{item.iterationPath}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Tags */}
+                        {item.tags && item.tags.length > 0 && (
+                          <div className="flex items-center gap-1.5 flex-wrap pt-3 border-t border-gray-200">
+                            {item.tags.slice(0, 4).map((tag, idx) => (
+                              <span key={idx} className="px-2.5 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-full font-medium">{tag}</span>
+                            ))}
+                            {item.tags.length > 4 && (
+                              <span className="px-2.5 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full font-medium">+{item.tags.length - 4}</span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* External Link Button */}
+                        {item.devOpsUrl && (
+                          <div className="mt-4 pt-3 border-t border-gray-200 flex items-center justify-between">
+                            <span className="text-xs text-gray-500">Click to open in Azure DevOps</span>
+                            <a href={item.devOpsUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+                              className="p-2.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-600 rounded-lg transition-all transform group-hover:scale-110 group-hover:shadow-md"
+                              title="Open in Azure DevOps"
+                            >
+                              <ArrowUpRight className="w-5 h-5" />
+                            </a>
+                          </div>
+                        )}
                       </div>
-                      {bug.devOpsUrl && (
-                        <a href={bug.devOpsUrl} target="_blank" rel="noreferrer"
-                          className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-semibold rounded-lg transition-colors"
-                        >
-                          Open <ArrowUpRight className="w-3 h-3" />
-                        </a>
-                      )}
-                    </div>
-                    {bug.tags && bug.tags.length > 0 && (
-                      <div className="flex items-center gap-1.5 flex-wrap mt-2">
-                        {bug.tags.map((tag, idx) => (
-                          <span key={idx} className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] rounded">{tag}</span>
-                        ))}
-                      </div>
-                    )}
+                    ))}
                   </div>
-                ))}
+                )}
+              </div>
+              
+              {/* FOOTER - Info & Close Button */}
+              <div className="bg-gradient-to-r from-gray-50 via-gray-50 to-gray-100 px-8 py-5 border-t-2 border-gray-200 flex items-center justify-between flex-shrink-0">
+                <div className="text-sm">
+                  <span className="text-gray-700">Showing <strong className="text-indigo-700 font-bold text-base">{modalWorkItems.length}</strong> work items</span>
+                  <span className="text-gray-500 ml-3">• Click any item to view details or open in external system</span>
+                </div>
+                <button onClick={() => setShowWorkItemModal(false)}
+                  className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-sm font-bold rounded-lg transition-all shadow-md hover:shadow-lg"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+      {/* ─── ENHANCED BUG DETAIL MODAL - LARGE, GRID, EXTERNAL LINKS ─────────────────────── */}
+      {showBugDetailModal && selectedBugDetail && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowBugDetailModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-7xl w-full max-h-[92vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+            {/* HEADER - Gradient Background */}
+            <div className="bg-gradient-to-r from-red-600 via-orange-500 to-red-700 px-8 py-6 flex-shrink-0">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-3xl font-bold text-white">{selectedBugDetail.label}</h2>
+                  <p className="text-sm text-red-100 mt-2">{selectedBugDetail.bugs.length} items • Click any item to view or open in Azure DevOps</p>
+                </div>
+                <button onClick={() => setShowBugDetailModal(false)} className="p-2.5 hover:bg-white/20 rounded-lg transition-colors flex-shrink-0">
+                  <X className="w-6 h-6 text-white" />
+                </button>
               </div>
             </div>
 
-            {/* Modal Footer */}
-            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-              <div className="text-sm text-gray-600">
-                Showing <strong className="text-gray-900">{selectedBugDetail.bugs.length}</strong> {selectedBugDetail.label} bugs
+            {/* CONTENT - Table/List View */}
+            <div className="flex-1 overflow-auto p-0">
+              {selectedBugDetail.bugs.length === 0 ? (
+                <div className="text-center py-20">
+                  <CheckCircle2 className="w-24 h-24 text-green-400 mx-auto mb-4 opacity-75" />
+                  <p className="text-2xl font-bold text-gray-700">No bugs found</p>
+                </div>
+              ) : (
+                <table className="w-full border-collapse">
+                  {/* Table Header */}
+                  <thead className="sticky top-0 bg-gradient-to-r from-red-50 to-orange-50 border-b-2 border-red-200">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 w-20">Type</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 w-16">ID</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 flex-1 min-w-60">Title</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 w-28">Assigned To</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 w-16">Priority</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 w-20">Age</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 w-28">Iteration</th>
+                    </tr>
+                  </thead>
+                  {/* Table Body */}
+                  <tbody>
+                    {selectedBugDetail.bugs.map((bug: QualityWorkItemDto, idx: number) => (
+                      <tr 
+                        key={bug.id}
+                        className={clsx(
+                          'border-b border-gray-200 hover:bg-gray-50 transition-colors duration-150 group',
+                          idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
+                        )}
+                      >
+                        {/* Type Column - Dynamic */}
+                        <td className="px-4 py-3 text-center">
+                          <span className="inline-flex items-center justify-center">
+                            <span className="px-2.5 py-1 bg-red-100 text-red-700 text-xs font-bold rounded-lg flex items-center gap-1">
+                              <Bug className="w-3.5 h-3.5" />
+                              Bug
+                            </span>
+                          </span>
+                        </td>
+
+                        {/* ID Column - Clickable Hyperlink */}
+                        <td className="px-4 py-3">
+                          {bug.devOpsUrl && bug.devOpsUrl.trim() ? (
+                            <a 
+                              href={bug.devOpsUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              className="font-mono bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded font-bold text-red-800 text-sm hover:text-red-900 hover:shadow-md transition-all inline-block cursor-pointer underline underline-offset-2"
+                              title={`Click to open #${bug.id} in Azure DevOps`}
+                            >
+                              #{bug.id}
+                            </a>
+                          ) : (
+                            <span className="font-mono bg-red-50 px-2.5 py-1 rounded font-bold text-red-800 text-sm opacity-50">
+                              #{bug.id}
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Title Column */}
+                        <td className="px-4 py-3">
+                          <span className="text-sm font-semibold text-gray-900 group-hover:text-red-700 transition-colors line-clamp-1">
+                            {bug.title}
+                          </span>
+                          {bug.reopenCount > 0 && (
+                            <div className="text-xs text-orange-600 flex items-center gap-1 mt-0.5">
+                              <RotateCcw className="w-3 h-3" />
+                              {bug.reopenCount}x Reopened
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Assigned To Column */}
+                        <td className="px-4 py-3">
+                          <span className={clsx(
+                            'text-sm font-medium',
+                            bug.assignedTo ? 'text-gray-700' : 'text-gray-400 italic'
+                          )}>
+                            {bug.assignedTo || 'Unassigned'}
+                          </span>
+                        </td>
+
+                        {/* Priority Column */}
+                        <td className="px-4 py-3">
+                          <span className={clsx(
+                            'px-2 py-1 text-xs font-bold rounded whitespace-nowrap',
+                            bug.priority === 1 ? 'bg-red-100 text-red-700 ring-1 ring-red-300' :
+                            bug.priority === 2 ? 'bg-orange-100 text-orange-700 ring-1 ring-orange-300' :
+                            bug.priority === 3 ? 'bg-yellow-100 text-yellow-700 ring-1 ring-yellow-300' :
+                            'bg-gray-100 text-gray-700'
+                          )}>
+                            P{bug.priority || 4}
+                          </span>
+                        </td>
+
+                        {/* Age Column */}
+                        <td className="px-4 py-3">
+                          <span className="text-sm text-gray-600 flex items-center gap-1">
+                            <Calendar className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                            {bug.ageDays > 0 ? `${bug.ageDays}d` : 'Today'}
+                          </span>
+                        </td>
+
+                        {/* Iteration Column */}
+                        <td className="px-4 py-3">
+                          {bug.iterationPath ? (
+                            <span className="px-2.5 py-0.5 bg-purple-50 text-purple-700 rounded font-semibold text-xs whitespace-nowrap inline-block">
+                              {bug.iterationPath.split('/').pop()}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* FOOTER */}
+            <div className="bg-gradient-to-r from-gray-50 via-gray-50 to-gray-100 px-8 py-5 border-t-2 border-gray-200 flex items-center justify-between flex-shrink-0">
+              <div className="text-sm">
+                <span className="text-gray-700">Showing <strong className="text-red-700 font-bold text-base">{selectedBugDetail.bugs.length}</strong> {selectedBugDetail.label}</span>
+                <span className="text-gray-500 ml-3">• Click any bug to open in external system</span>
               </div>
               <button onClick={() => setShowBugDetailModal(false)}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white text-sm font-bold rounded-lg transition-all shadow-md hover:shadow-lg"
               >
                 Close
               </button>
@@ -2589,8 +2829,8 @@ export default function DeveloperDashboardPage() {
 
             {/* Modal Footer */}
             <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-              {selectedPRDetail.webUrl && (
-                <a href={selectedPRDetail.webUrl} target="_blank" rel="noreferrer"
+              {selectedPRDetail && (
+                <a href={getPRWebUrl(selectedPRDetail)} target="_blank" rel="noreferrer"
                   className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
                 >
                   Open in Azure DevOps <ArrowUpRight className="w-4 h-4" />
@@ -2598,6 +2838,90 @@ export default function DeveloperDashboardPage() {
               )}
               <button onClick={() => setShowPRDetailModal(false)}
                 className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors ml-auto"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── ENHANCED PR List Modal ───────────────────────────────────────────────── */}
+      {showPRListModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowPRListModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[92vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+            
+            {/* Header */}
+            <div className="bg-gradient-to-r from-purple-600 via-blue-600 to-cyan-600 px-8 py-6 flex items-start justify-between flex-shrink-0">
+              <div>
+                <h3 className="text-3xl font-bold text-white">{prListTitle}</h3>
+                <p className="text-sm text-purple-100 mt-2">{prListItems.length} pull requests • Click any PR to view details</p>
+              </div>
+              <button onClick={() => setShowPRListModal(false)}
+                className="p-2.5 hover:bg-white/20 rounded-lg transition-colors flex-shrink-0"
+              >
+                <X className="w-6 h-6 text-white" />
+              </button>
+            </div>
+
+            {/* List Content */}
+            <div className="overflow-y-auto flex-1">
+              {prListItems.length === 0 ? (
+                <div className="p-12 text-center text-gray-400">
+                  <CheckCircle2 className="w-20 h-20 mx-auto mb-4 opacity-50 text-green-300" />
+                  <p className="text-lg font-semibold">No PRs to display</p>
+                  <p className="text-sm mt-1">All PRs are up to date ✓</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-200">
+                  {prListItems.map((pr: any) => (
+                    <button key={pr.pullRequestId}
+                      onClick={() => {
+                        setSelectedPRDetail(pr)
+                        setShowPRListModal(false)
+                        setShowPRDetailModal(true)
+                      }}
+                      className="w-full px-8 py-5 hover:bg-gradient-to-r hover:from-purple-50 hover:to-blue-50 transition-all text-left group border-b border-gray-100 last:border-0"
+                    >
+                      <div className="flex items-start gap-5">
+                        <div className={clsx(
+                          'mt-1 flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110',
+                          pr.needsMyReview ? 'bg-purple-100' : 'bg-blue-100'
+                        )}>
+                          <GitPullRequest className={clsx('w-5 h-5', pr.needsMyReview ? 'text-purple-600' : 'text-blue-600')} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-lg text-gray-900 group-hover:text-purple-700 transition-colors truncate">{pr.title}</p>
+                          <div className="flex items-center gap-3 mt-2 text-sm text-gray-600 flex-wrap">
+                            <span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded font-mono text-xs font-semibold">#{pr.pullRequestId}</span>
+                            <span className="text-gray-400">•</span>
+                            <span>{pr.repositoryName}</span>
+                            <span className="text-gray-400">•</span>
+                            <span>by {pr.createdBy}</span>
+                            {pr.needsMyReview && (
+                              <>
+                                <span className="text-gray-400">•</span>
+                                <span className="px-2.5 py-1 bg-purple-100 text-purple-700 rounded font-semibold text-xs">⭐ Needs Your Review</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-purple-400 transition-colors flex-shrink-0 mt-1" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="bg-gradient-to-r from-gray-50 via-gray-50 to-gray-100 px-8 py-5 border-t-2 border-gray-200 flex items-center justify-between flex-shrink-0">
+              <div className="text-sm">
+                <span className="text-gray-700">Showing <strong className="text-purple-700 font-bold text-base">{prListItems.length}</strong> pull requests</span>
+                <span className="text-gray-500 ml-3">• Click any PR to view details and comments</span>
+              </div>
+              <button onClick={() => setShowPRListModal(false)}
+                className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white text-sm font-bold rounded-lg transition-all shadow-md hover:shadow-lg"
               >
                 Close
               </button>

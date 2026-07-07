@@ -15,6 +15,7 @@ import { useMsal } from '@azure/msal-react'
 import { InteractionRequiredAuthError } from '@azure/msal-browser'
 import { devopsScopes, isMsalConfigured } from '../config/msalConfig'
 import { storeEncryptedDevOpsToken } from '../utils/tokenEncryption'
+import { AzureDevOpsUrlBuilder } from '../utils/azure-devops-url-builder'
 
 type TabId = 'general' | 'llm' | 'azure-setup' | 'azure' | 'devops' | 'regions' | 'users'
 
@@ -475,7 +476,7 @@ export function ManagerSettingsPage() {
                             <div>
                               <p className="text-sm font-medium text-green-400">Connected</p>
                               <p className="text-xs text-gray-400">
-                                {devopsSavedConfig.organizationUrl.replace('https://dev.azure.com/', '')} / {devopsSavedConfig.projectNames?.length ? devopsSavedConfig.projectNames.join(', ') : devopsSavedConfig.projectName}
+                                {AzureDevOpsUrlBuilder.extractOrganization(devopsSavedConfig.organizationUrl) || 'Unknown'} / {devopsSavedConfig.projectNames?.length ? devopsSavedConfig.projectNames.join(', ') : devopsSavedConfig.projectName}
                               </p>
                             </div>
                           </div>
@@ -537,7 +538,7 @@ export function ManagerSettingsPage() {
                             ))}
                             {devopsSavedConfig && !devopsOrgs.find(o => o.accountUri === devopsSavedConfig.organizationUrl) && (
                               <option value={devopsSavedConfig.organizationUrl}>
-                                {devopsSavedConfig.organizationUrl.replace('https://dev.azure.com/', '')}
+                                {AzureDevOpsUrlBuilder.extractOrganization(devopsSavedConfig.organizationUrl) || 'Unknown'}
                               </option>
                             )}
                           </select>

@@ -5,7 +5,7 @@ import { InteractionStatus, InteractionRequiredAuthError } from '@azure/msal-bro
 import { authService, TenantInfo } from '../services/authService';
 import { useAuth } from '../context/AuthContext';
 import { getStoredOrgCode, getStoredOrgInfo } from '../context/AuthContext';
-import { graphScopes, armScopes, isMsalConfigured } from '../config/msalConfig';
+import { graphScopes, isMsalConfigured } from '../config/msalConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Building2, Loader2, ArrowRight, Terminal,
@@ -14,7 +14,8 @@ import {
 import BrandedSplash from '../components/BrandedSplash';
 
 const basePath = import.meta.env.VITE_BASE_PATH || '';
-const isDev = import.meta.env.DEV;
+// keep dev flag available for future use
+// const isDev = import.meta.env.DEV;
 
 // Module-level flags — survive component unmount/remount cycles caused by
 // AuthGate blocking during MSAL status transitions. Without these, useRef
@@ -42,7 +43,13 @@ export default function LoginPage() {
   const hasNavigated = useRef(_hasNavigated);
   const ssoAttempted = useRef(_ssoAttempted);
   const { instance: msalInstance, inProgress, accounts } = useMsal();
-  const { setUserFromLocal, updateOrgInfo } = useAuth();
+  const { setUserFromLocal, updateOrgInfo, clearSessionExpired } = useAuth();
+
+  // Clear session expired state when user lands on login page
+  // This prevents the modal from showing again if another 401 occurs during login
+  useEffect(() => {
+    clearSessionExpired();
+  }, [clearSessionExpired]);
 
   // On first real mount (not a remount), reset module-level flags if the user
   // is not authenticated — this means they explicitly navigated to /login
@@ -186,12 +193,9 @@ export default function LoginPage() {
         if (response.user) setUserFromLocal(response.user as any);
         updateOrgInfo(storedOrgCode, { code: storedOrgCode, name: response.user?.tenantName || storedOrgInfo?.name || storedOrgCode });
 
-        // Acquire ARM token — silent only, consent granted via login extraScopesToConsent
-        try {
-          const armRes = await msalInstance.acquireTokenSilent({ ...armScopes, account }).catch((e: unknown) => { console.warn('[MSAL] ARM token silent failed:', e); return null; });
-          if (armRes?.accessToken) sessionStorage.setItem('prodvista_azure_token', armRes.accessToken);
-        } catch (err) { console.warn('[MSAL] ARM token acquisition error:', err); }
-        // DevOps token is acquired on-demand when user accesses DevOps features (not during login)
+        // ⚠️ ARM and DevOps tokens are NOT acquired during login
+        // They are acquired on-demand when user navigates to those features
+        // This prevents consent prompts and token refresh failures
 
         hasNavigated.current = true;
         navigate('/', { replace: true });
@@ -214,26 +218,53 @@ export default function LoginPage() {
   /* ---------------------------------------------------------------- */
   useEffect(() => {
     if (hasNavigated.current) return;
-    if (inProgress !== InteractionStatus.None) return;
 
     const savedTenant = sessionStorage.getItem('msal_pending_tenant');
-    if (!savedTenant || accounts.length === 0) {
-      if (hasPendingMsal) {
+    
+    // STRONG DEBUG INDICATOR - This WILL show in console as error
+    console.error('🔴 [LoginPage] MSAL redirect handler called! savedTenant:', savedTenant, 'inProgress:', inProgress, 'accounts:', accounts.length);
+    if (savedTenant && inProgress === InteractionStatus.None && accounts.length > 0) {
+      console.error('🟢 [LoginPage] ✅ All conditions met! Proceeding with MSAL login...');
+    }
+    
+    // If no pending MSAL and not in progress, clear and exit
+    if (!savedTenant) {
+      console.error('🟠 [LoginPage] No pending MSAL found, exiting handler');
+      if (hasPendingMsal && inProgress === InteractionStatus.None) {
         sessionStorage.removeItem('msal_pending_tenant');
         setPhase('tenant');
       }
       return;
     }
 
+    // We have a pending MSAL login, but check if we're still waiting for MSAL
+    if (inProgress !== InteractionStatus.None) {
+      console.log('[LoginPage] Still waiting for MSAL (inProgress !== None), skipping...');
+      return;
+    }
+
+    // Now safe to process — MSAL is done and we have a pending tenant
+    if (accounts.length === 0) {
+      console.error('[LoginPage] No accounts found after Microsoft login!');
+      sessionStorage.removeItem('msal_pending_tenant');
+      setError('No account found after Microsoft login');
+      setPhase('tenant');
+      return;
+    }
+
+    console.log('[LoginPage] Processing MSAL login for tenant:', savedTenant, 'account:', accounts[0].username);
     sessionStorage.removeItem('msal_pending_tenant');
     setPhase('connecting');
     setConnectingOrg(savedTenant);
 
     const acquireGraphToken = async () => {
       try {
+        console.log('[LoginPage] Attempting acquireTokenSilent for Graph API...');
         return await msalInstance.acquireTokenSilent({ ...graphScopes, account: accounts[0] });
       } catch (silentErr) {
+        console.error('[LoginPage] acquireTokenSilent failed:', silentErr);
         if (silentErr instanceof InteractionRequiredAuthError) {
+          console.log('[LoginPage] InteractionRequiredAuthError detected, triggering acquireTokenRedirect...');
           sessionStorage.setItem('msal_pending_tenant', savedTenant);
           await msalInstance.acquireTokenRedirect({ ...graphScopes, account: accounts[0] });
           return null;
@@ -243,30 +274,34 @@ export default function LoginPage() {
     };
 
     acquireGraphToken().then(async (tokenResponse) => {
+      console.log('[LoginPage] acquireGraphToken completed. TokenResponse:', tokenResponse ? { accessToken: `${tokenResponse.accessToken?.substring(0, 50)}...`, expiresOn: tokenResponse.expiresOn } : null);
       if (tokenResponse?.accessToken) {
+        console.log('[LoginPage] Calling authService.loginWithMsal with tenant:', savedTenant, 'and token length:', tokenResponse.accessToken.length);
         const response = await authService.loginWithMsal(savedTenant, tokenResponse.accessToken);
+        console.log('[LoginPage] authService.loginWithMsal response:', { success: response.success, message: response.message, hasToken: response.token ? true : false });
         if (response.success) {
+          console.log('[LoginPage] Login successful! Setting user and navigating to dashboard...');
           if (response.user) setUserFromLocal(response.user as any);
           updateOrgInfo(savedTenant, { code: savedTenant, name: response.user?.tenantName || savedTenant });
 
-          // Acquire ARM token — silent (consent granted via login extraScopesToConsent)
-          try {
-            const armRes = await msalInstance.acquireTokenSilent({ ...armScopes, account: accounts[0] }).catch((e: unknown) => { console.warn('[MSAL] ARM token silent failed:', e); return null; });
-            if (armRes?.accessToken) sessionStorage.setItem('prodvista_azure_token', armRes.accessToken);
-          } catch (err) { console.warn('[MSAL] ARM token acquisition error:', err); }
-          // DevOps token is acquired on-demand when user accesses DevOps features (not during login)
+          // ⚠️ ARM and DevOps tokens are NOT acquired during login
+          // They are acquired on-demand when user navigates to those features
+          // This prevents consent prompts and token refresh failures
 
           hasNavigated.current = true;
           navigate('/', { replace: true });
         } else {
+          console.error('[LoginPage] Login failed:', response.message);
           setError(response.message || 'Microsoft login failed');
           setPhase('tenant');
         }
       } else {
+        console.error('[LoginPage] No access token in tokenResponse!');
         setError('No access token received from Microsoft');
         setPhase('tenant');
       }
     }).catch((err: any) => {
+      console.error('[LoginPage] acquireGraphToken().then() caught error:', err);
       setError(err.message || 'Failed to complete Microsoft login');
       setPhase('tenant');
     });
@@ -299,11 +334,9 @@ export default function LoginPage() {
             if (response.user) setUserFromLocal(response.user as any);
             updateOrgInfo(info.code, { code: info.code, name: response.user?.tenantName || info.name });
 
-            try {
-              const armRes = await msalInstance.acquireTokenSilent({ ...armScopes, account }).catch((e: unknown) => { console.warn('[MSAL] ARM token silent failed:', e); return null; });
-              if (armRes?.accessToken) sessionStorage.setItem('prodvista_azure_token', armRes.accessToken);
-            } catch (err) { console.warn('[MSAL] ARM token acquisition error:', err); }
-            // DevOps token is acquired on-demand when user accesses DevOps features (not during login)
+            // ⚠️ ARM and DevOps tokens are NOT acquired during login
+            // They are acquired on-demand when user navigates to those features
+            // This prevents consent prompts and token refresh failures
 
             hasNavigated.current = true;
             navigate('/', { replace: true });
@@ -364,24 +397,49 @@ export default function LoginPage() {
 
   const handleAzureCliLogin = async () => {
     const code = tenantCode.trim().toLowerCase();
-    if (!code) return;
+    if (!code) {
+      setError('Please enter organization code');
+      return;
+    }
 
     setLoading(true);
     setError('');
     try {
+      console.log('[UI] Azure CLI login starting for tenant:', code);
+      
       const info = await authService.validateTenant(code);
-      if (!info) { setError('Organization not found'); setLoading(false); return; }
+      if (!info) {
+        console.warn('[UI] Tenant not found:', code);
+        setError('Organization not found. Please check the org code and try again.');
+        setLoading(false);
+        return;
+      }
+      
+      console.log('[UI] Tenant validated:', info.code);
+      
       const response = await authService.loginWithAzure(info.code);
       if (response.success) {
         if (response.user) setUserFromLocal(response.user as any);
         updateOrgInfo(info.code, info);
         hasNavigated.current = true;
+        console.log('[UI] Login successful, navigating to dashboard');
         navigate('/', { replace: true });
       } else {
-        setError(response.message || 'Azure CLI login failed. Run "az login" first.');
+        const errMsg = response.message || 'Azure CLI login failed';
+        console.error('[UI] Login failed:', errMsg);
+        
+        // Provide specific guidance based on error
+        if (errMsg.includes('az login') || errMsg.includes('authentication required')) {
+          setError(`${errMsg}\n\nRun in your terminal:\n  az login`);
+        } else if (errMsg.includes('not found') || errMsg.includes('Invalid')) {
+          setError(`${errMsg}\n\nContact your administrator.`);
+        } else {
+          setError(errMsg);
+        }
       }
     } catch (err: any) {
-      setError(err.message || 'Azure authentication failed');
+      console.error('[UI] Exception:', err);
+      setError(`Authentication error: ${err.message || 'Unknown error'}\n\nCheck browser console for details.`);
     } finally {
       setLoading(false);
     }
@@ -741,22 +799,23 @@ export default function LoginPage() {
                 </motion.button>
               </form>
 
-              {/* DEV: Azure CLI shortcut */}
-              {isDev && (
-                <div className="mt-5 pt-4 border-t border-gray-100">
-                  <motion.button
-                    onClick={handleAzureCliLogin}
-                    disabled={loading || !tenantCode.trim()}
-                    whileHover={{ scale: 1.01 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="w-full py-2.5 px-4 bg-gray-50 border border-gray-200 text-gray-600 font-medium rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-40 hover:bg-gray-100 text-sm"
-                  >
-                    <Terminal className="w-4 h-4 text-emerald-500" />
-                    Azure CLI Login
-                    <span className="text-[10px] text-gray-400 ml-1">(dev)</span>
-                  </motion.button>
-                </div>
-              )}
+              {/* Azure CLI Login for developers */}
+              <div className="mt-5 pt-4 border-t border-gray-100">
+                <motion.button
+                  onClick={handleAzureCliLogin}
+                  disabled={loading || !tenantCode.trim()}
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="w-full py-2.5 px-4 bg-emerald-50 border border-emerald-200 text-emerald-700 font-medium rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-40 hover:bg-emerald-100 text-sm"
+                >
+                  <Terminal className="w-4 h-4 text-emerald-600" />
+                  Azure CLI Login
+                </motion.button>
+                <p className="text-xs text-gray-600 mt-2.5 text-center leading-relaxed">
+                  For developers using <code className="bg-gray-100 px-1.5 py-0.5 rounded text-[11px] font-mono">az login</code>: 
+                  <br />Run in terminal first, then sign in here
+                </p>
+              </div>
             </div>
           </motion.div>
 

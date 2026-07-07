@@ -9,6 +9,7 @@ import engineeringService, {
   type DevOpsOverviewData, type AzureDevOpsWorkItem, type AzureDevOpsPullRequest,
   type AzureDevOpsIterationPath, type EngineeringConfig,
 } from '../services/engineeringService';
+import { AzureDevOpsUrlBuilder } from '../utils/azure-devops-url-builder';
 
 // --- Helper functions ---
 
@@ -421,7 +422,7 @@ export default function DevOpsOverviewPage() {
                               {wi.tags && <span className="flex items-center gap-1"><Tag className="w-3 h-3" />{wi.tags}</span>}
                               {wi.severity && <span>Severity: {wi.severity}</span>}
                             </div>
-                            <a href={`${config?.organizationUrl}/${config?.projectName}/_workitems/edit/${wi.id}`}
+                            <a href={AzureDevOpsUrlBuilder.buildWorkItemUrl(wi, config) || '#'}
                               target="_blank" rel="noopener noreferrer"
                               className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline">
                               Open in Azure DevOps <ExternalLink className="w-3 h-3" />
@@ -510,7 +511,8 @@ export default function DevOpsOverviewPage() {
                                 );
                               })}
                             </div>
-                            <a href={pr.url} target="_blank" rel="noopener noreferrer"
+                            <a href={AzureDevOpsUrlBuilder.buildPullRequestUrl(pr, config) || '#'} 
+                              target="_blank" rel="noopener noreferrer"
                               className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline">
                               Open in Azure DevOps <ExternalLink className="w-3 h-3" />
                             </a>
@@ -535,7 +537,7 @@ export default function DevOpsOverviewPage() {
                   ) : (
                     <div className="space-y-2 max-h-[240px] overflow-y-auto">
                       {data.todayBugs.slice(0, 15).map(bug => (
-                        <a key={bug.id} href={`${config?.organizationUrl}/${config?.projectName}/_workitems/edit/${bug.id}`}
+                        <a key={bug.id} href={AzureDevOpsUrlBuilder.buildWorkItemUrl(bug, config) || '#'}
                           target="_blank" rel="noopener noreferrer"
                           className="block p-2.5 rounded-lg border border-gray-100 dark:border-slate-700 hover:border-red-200 dark:hover:border-red-800 hover:bg-red-50/50 dark:hover:bg-red-950/20 transition-all">
                           <div className="flex items-start gap-2">
@@ -592,7 +594,7 @@ export default function DevOpsOverviewPage() {
                                 <div className="space-y-1">
                                   <p className="text-[11px] text-gray-500 dark:text-slate-400 mb-1">{iterWorkItems.length} items</p>
                                   {iterWorkItems.slice(0, 10).map(wi => (
-                                    <a key={wi.id} href={`${config?.organizationUrl}/${config?.projectName}/_workitems/edit/${wi.id}`}
+                                    <a key={wi.id} href={AzureDevOpsUrlBuilder.buildWorkItemUrl(wi, config) || '#'}
                                       target="_blank" rel="noopener noreferrer"
                                       className="flex items-center gap-2 py-1 text-[11px] text-gray-600 dark:text-slate-400 hover:text-blue-500 transition-colors">
                                       <span>{typeIcon(wi.workItemType)}</span>

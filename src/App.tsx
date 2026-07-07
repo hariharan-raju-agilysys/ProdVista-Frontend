@@ -16,7 +16,7 @@ import TokenExpirationWarning from './components/TokenExpirationWarning'
 import { AdminConsentModal } from './components/AdminConsentModal'
 import { registerTokenRefresh } from './services/api'
 import { tokenSyncService } from './services/tokenSyncService'
-import { graphScopes, armScopes } from './config/msalConfig'
+import { graphScopes } from './config/msalConfig'
 import { lazyWithRetry, lazyNamedWithRetry } from './utils/lazyWithRetry'
 
 // ---------------------------------------------------------------------------
@@ -188,27 +188,62 @@ function MsalTokenRefreshRegistrar({ children }: { children: React.ReactNode }) 
       } catch (silentErr) {
         if (silentErr instanceof InteractionRequiredAuthError) {
           // Redirect to Microsoft login — will return to app after re-auth
+          console.warn('[MSAL] Interaction required - redirecting to login for consent');
           await instance.acquireTokenRedirect({ ...graphScopes, account });
           return false; // Redirect started; page will reload
         }
-        throw silentErr;
+        // Other errors (network, invalid scope, etc.) — don't throw, just fail gracefully
+        console.error('[MSAL] Silent token refresh failed:', silentErr);
+        return false;
       }
 
       if (!tokenResponse?.accessToken) return false;
 
-      // Refresh Azure Management (ARM) token
+      // ARM tokens are acquired on-demand when user accesses Azure features (not during automatic refresh)
+      // This prevents "consent_required" errors from breaking the token refresh chain
+      // DevOps tokens are also acquired on-demand, not automatically
+
+      // Refresh backend JWT token by calling refresh endpoint
+      // This is called when a 401 occurs (current JWT expired)
       try {
-        const armResponse = await instance.acquireTokenSilent({
-          ...armScopes, account, forceRefresh: true
-        }).catch(() => null);
-        if (armResponse?.accessToken) {
-          sessionStorage.setItem('prodvista_azure_token', armResponse.accessToken);
+        // Use the current JWT to authenticate the refresh request
+        const currentJwt = sessionStorage.getItem('prodvista_auth_token');
+        if (currentJwt) {
+          const refreshResponse = await fetch('/api/auth/refresh-token', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${currentJwt}`
+            },
+            body: JSON.stringify({})  // Include body to avoid any server-side issues
+          });
+
+          if (refreshResponse.ok) {
+            const data = await refreshResponse.json();
+            if (data?.token) {
+              sessionStorage.setItem('prodvista_auth_token', data.token);
+              console.debug('[TOKEN] Backend JWT refreshed successfully');
+              return true;
+            } else {
+              const errorMsg = data?.message || 'No token in response';
+              console.error('[TOKEN] Backend JWT response missing token:', errorMsg);
+              return false;
+            }
+          } else {
+            // Response not ok — try to get error details
+            let errorDetails = { status: refreshResponse.status, statusText: refreshResponse.statusText };
+            try {
+              errorDetails = { ...errorDetails, ...(await refreshResponse.json()) };
+            } catch { /* unable to parse response body */ }
+            console.error('[TOKEN] Backend JWT refresh failed:', errorDetails);
+            // If refresh fails, token is truly expired — require full re-auth
+            return false;
+          }
         }
       } catch (err) {
-        console.warn('[MSAL] ARM token refresh failed:', err);
+        console.error('[TOKEN] Backend JWT refresh error:', err);
+        // Refresh error — don't block, but session will likely expire
       }
-
-      // DevOps token is acquired on-demand when user accesses DevOps features (not during token refresh)
 
       return true;
     } catch {
@@ -221,32 +256,18 @@ function MsalTokenRefreshRegistrar({ children }: { children: React.ReactNode }) 
     return () => registerTokenRefresh(null);
   }, [refreshTokens]);
 
-  // Proactively acquire Azure ARM token on mount if missing (covers existing sessions)
-  useEffect(() => {
-    const ensureAzureToken = async () => {
-      if (sessionStorage.getItem('prodvista_azure_token')) return;
-      const account = accounts[0] || instance.getActiveAccount();
-      if (!account) return;
-      try {
-        const response = await instance.acquireTokenSilent({ ...armScopes, account });
-        if (response?.accessToken) {
-          sessionStorage.setItem('prodvista_azure_token', response.accessToken);
-        }
-      } catch (err) {
-        if (err instanceof InteractionRequiredAuthError) {
-          // ARM consent not yet granted — don't auto-redirect (disruptive UX).
-          // The Azure Setup page will show a "Grant access" button instead.
-          console.warn('[MSAL] ARM token requires consent — user can grant via Azure Setup page');
-        } else {
-          console.warn('[MSAL] ARM token silent acquisition failed:', err);
-        }
-      }
-    };
-    ensureAzureToken();
-  }, [instance, accounts]);
-
-  // DevOps token is acquired on-demand when user accesses DevOps features
-  // This prevents unnecessary OAuth2 consent prompts during login
+  // ⚠️ CRITICAL: ARM and DevOps tokens are ONLY acquired on-demand
+  // Do NOT proactively acquire them during login or app mount.
+  // This prevents "consent_required" errors that break the token refresh chain.
+  //
+  // On-demand acquisition happens in:
+  // - AzureAuthContext.tsx - when user navigates to Azure features
+  // - ManagerSettings.tsx - when user accesses DevOps settings
+  //
+  // Benefits:
+  // 1. No unwanted consent prompts during login
+  // 2. Token refresh chain stays intact
+  // 3. Better UX - consent only when explicitly needed
 
   return <>{children}</>;
 }
