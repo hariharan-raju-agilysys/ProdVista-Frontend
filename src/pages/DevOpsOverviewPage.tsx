@@ -9,7 +9,7 @@ import engineeringService, {
   type DevOpsOverviewData, type AzureDevOpsWorkItem, type AzureDevOpsPullRequest,
   type AzureDevOpsIterationPath, type EngineeringConfig,
 } from '../services/engineeringService';
-import { AzureDevOpsUrlBuilder } from '../utils/azure-devops-url-builder';
+import { AzureDevOpsConfig, AzureDevOpsUrlBuilder } from '../utils/azure-devops-url-builder';
 
 // --- Helper functions ---
 
@@ -385,52 +385,54 @@ export default function DevOpsOverviewPage() {
                   <div className="divide-y divide-gray-100 dark:divide-slate-700 max-h-[520px] overflow-y-auto">
                     {filteredWorkItems.length === 0 ? (
                       <div className="px-5 py-12 text-center text-gray-400 dark:text-slate-500 text-sm">No work items match filters</div>
-                    ) : filteredWorkItems.map(wi => (
-                      <div key={wi.id} className="hover:bg-gray-50 dark:hover:bg-slate-750 transition-colors">
-                        <button onClick={() => setExpandedWi(expandedWi === wi.id ? null : wi.id)}
-                          className="w-full px-5 py-3 flex items-center gap-3 text-left">
-                          <span className="text-base flex-shrink-0">{typeIcon(wi.workItemType)}</span>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-400 dark:text-slate-500 font-mono">#{wi.id}</span>
-                              <span className="text-sm font-medium text-gray-900 dark:text-white truncate">{wi.title}</span>
+                    ) : filteredWorkItems.map(wi => {
+                      return (
+                        <div key={wi.id} className="hover:bg-gray-50 dark:hover:bg-slate-750 transition-colors">
+                          <button onClick={() => setExpandedWi(expandedWi === wi.id ? null : wi.id)}
+                            className="w-full px-5 py-3 flex items-center gap-3 text-left">
+                            <span className="text-base flex-shrink-0">{typeIcon(wi.workItemType)}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-400 dark:text-slate-500 font-mono">#{wi.id}</span>
+                                <span className="text-sm font-medium text-gray-900 dark:text-white truncate">{wi.title}</span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className={clsx('px-1.5 py-0.5 text-[10px] rounded-md font-medium', stateColor(wi.state))}>{wi.state}</span>
+                                <span className={clsx('px-1.5 py-0.5 text-[10px] rounded-md font-medium', priorityLabel(wi.priority).color)}>{priorityLabel(wi.priority).text}</span>
+                                {wi.assignedTo && (
+                                  <span className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-slate-400">
+                                    <User className="w-3 h-3" />{wi.assignedTo.split('<')[0].trim()}
+                                  </span>
+                                )}
+                                {wi.iterationPath && (
+                                  <span className="text-[11px] text-gray-400 dark:text-slate-500 truncate max-w-[120px]">{wi.iterationPath.split('\\').pop()}</span>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className={clsx('px-1.5 py-0.5 text-[10px] rounded-md font-medium', stateColor(wi.state))}>{wi.state}</span>
-                              <span className={clsx('px-1.5 py-0.5 text-[10px] rounded-md font-medium', priorityLabel(wi.priority).color)}>{priorityLabel(wi.priority).text}</span>
-                              {wi.assignedTo && (
-                                <span className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-slate-400">
-                                  <User className="w-3 h-3" />{wi.assignedTo.split('<')[0].trim()}
-                                </span>
-                              )}
-                              {wi.iterationPath && (
-                                <span className="text-[11px] text-gray-400 dark:text-slate-500 truncate max-w-[120px]">{wi.iterationPath.split('\\').pop()}</span>
-                              )}
+                            <span className="text-[11px] text-gray-400 dark:text-slate-500 flex-shrink-0">
+                              {wi.changedDate ? timeAgo(wi.changedDate) : wi.createdDate ? timeAgo(wi.createdDate) : ''}
+                            </span>
+                            {expandedWi === wi.id ? <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" /> : <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />}
+                          </button>
+                          {expandedWi === wi.id && (
+                            <div className="px-5 pb-4 pl-14 space-y-2 animate-in slide-in-from-top-1">
+                              {wi.description && <p className="text-xs text-gray-600 dark:text-slate-400 line-clamp-3">{wi.description.replace(/<[^>]+>/g, '')}</p>}
+                              <div className="flex flex-wrap gap-3 text-xs text-gray-500 dark:text-slate-400">
+                                {wi.areaPath && <span className="flex items-center gap-1"><Tag className="w-3 h-3" />Area: {wi.areaPath}</span>}
+                                {wi.iterationPath && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />Iteration: {wi.iterationPath}</span>}
+                                {wi.tags && <span className="flex items-center gap-1"><Tag className="w-3 h-3" />{wi.tags}</span>}
+                                {wi.severity && <span>Severity: {wi.severity}</span>}
+                              </div>
+                              <a href={AzureDevOpsUrlBuilder.buildWorkItemUrl(wi, { projectName: config?.projectName , organizationUrl: config?.organizationUrl } as AzureDevOpsConfig) || '#'}
+                                target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                                Open in Azure DevOps <ExternalLink className="w-3 h-3" />
+                              </a>
                             </div>
-                          </div>
-                          <span className="text-[11px] text-gray-400 dark:text-slate-500 flex-shrink-0">
-                            {wi.changedDate ? timeAgo(wi.changedDate) : wi.createdDate ? timeAgo(wi.createdDate) : ''}
-                          </span>
-                          {expandedWi === wi.id ? <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" /> : <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />}
-                        </button>
-                        {expandedWi === wi.id && (
-                          <div className="px-5 pb-4 pl-14 space-y-2 animate-in slide-in-from-top-1">
-                            {wi.description && <p className="text-xs text-gray-600 dark:text-slate-400 line-clamp-3">{wi.description.replace(/<[^>]+>/g, '')}</p>}
-                            <div className="flex flex-wrap gap-3 text-xs text-gray-500 dark:text-slate-400">
-                              {wi.areaPath && <span className="flex items-center gap-1"><Tag className="w-3 h-3" />Area: {wi.areaPath}</span>}
-                              {wi.iterationPath && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />Iteration: {wi.iterationPath}</span>}
-                              {wi.tags && <span className="flex items-center gap-1"><Tag className="w-3 h-3" />{wi.tags}</span>}
-                              {wi.severity && <span>Severity: {wi.severity}</span>}
-                            </div>
-                            <a href={AzureDevOpsUrlBuilder.buildWorkItemUrl(wi, config) || '#'}
-                              target="_blank" rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline">
-                              Open in Azure DevOps <ExternalLink className="w-3 h-3" />
-                            </a>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -511,7 +513,7 @@ export default function DevOpsOverviewPage() {
                                 );
                               })}
                             </div>
-                            <a href={AzureDevOpsUrlBuilder.buildPullRequestUrl(pr, config) || '#'} 
+                            <a href={AzureDevOpsUrlBuilder.buildPullRequestUrl(pr,  { projectName: config?.projectName , organizationUrl: config?.organizationUrl } as AzureDevOpsConfig) || '#'} 
                               target="_blank" rel="noopener noreferrer"
                               className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline">
                               Open in Azure DevOps <ExternalLink className="w-3 h-3" />
@@ -537,7 +539,7 @@ export default function DevOpsOverviewPage() {
                   ) : (
                     <div className="space-y-2 max-h-[240px] overflow-y-auto">
                       {data.todayBugs.slice(0, 15).map(bug => (
-                        <a key={bug.id} href={AzureDevOpsUrlBuilder.buildWorkItemUrl(bug, config) || '#'}
+                        <a key={bug.id} href={AzureDevOpsUrlBuilder.buildWorkItemUrl(bug,  { projectName: config?.projectName , organizationUrl: config?.organizationUrl } as AzureDevOpsConfig) || '#'}
                           target="_blank" rel="noopener noreferrer"
                           className="block p-2.5 rounded-lg border border-gray-100 dark:border-slate-700 hover:border-red-200 dark:hover:border-red-800 hover:bg-red-50/50 dark:hover:bg-red-950/20 transition-all">
                           <div className="flex items-start gap-2">
@@ -594,7 +596,7 @@ export default function DevOpsOverviewPage() {
                                 <div className="space-y-1">
                                   <p className="text-[11px] text-gray-500 dark:text-slate-400 mb-1">{iterWorkItems.length} items</p>
                                   {iterWorkItems.slice(0, 10).map(wi => (
-                                    <a key={wi.id} href={AzureDevOpsUrlBuilder.buildWorkItemUrl(wi, config) || '#'}
+                                    <a key={wi.id} href={AzureDevOpsUrlBuilder.buildWorkItemUrl(wi, { projectName: config?.projectName , organizationUrl: config?.organizationUrl } as AzureDevOpsConfig) || '#'}
                                       target="_blank" rel="noopener noreferrer"
                                       className="flex items-center gap-2 py-1 text-[11px] text-gray-600 dark:text-slate-400 hover:text-blue-500 transition-colors">
                                       <span>{typeIcon(wi.workItemType)}</span>

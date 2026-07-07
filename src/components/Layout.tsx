@@ -43,8 +43,6 @@ import {
   GitBranch,
   CalendarDays,
   Clock,
-  Layers,
-  ListFilter,
   BarChart3,
   Globe,
   TrendingUp,

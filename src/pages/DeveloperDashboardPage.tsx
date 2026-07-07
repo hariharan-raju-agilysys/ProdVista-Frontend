@@ -48,6 +48,7 @@ import {
   formatCalendarDate,
   getReleaseNotesUrl,
 } from './DeveloperDashboard'
+import engineeringService, { EngineeringConfig } from '@/services/engineeringService'
 
 // ── helper: construct PR web URL ─────────────────────────────────────────────
 function getPRWebUrl(pr: PRInfo): string {
@@ -81,161 +82,161 @@ interface TechByte {
 }
 
 // ── sub-components ────────────────────────────────────────────────────────────
-function MiniCalendar({ events, selectedDate, onSelectDate, teamBirthdays, onEventClick }: {
-  events: CalendarEvent[]
-  selectedDate: Date
-  onSelectDate: (date: Date) => void
-  teamBirthdays: Birthday[]
-  onEventClick?: (event: CalendarEvent | null, birthday?: Birthday) => void
-}) {
-  const [currentMonth, setCurrentMonth] = useState(new Date())
-  const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
-  const lastDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0)
-  const daysInMonth = lastDay.getDate()
-  const startingDayOfWeek = firstDay.getDay()
+// function MiniCalendar({ events, selectedDate, onSelectDate, teamBirthdays, onEventClick }: {
+//   events: CalendarEvent[]
+//   selectedDate: Date
+//   onSelectDate: (date: Date) => void
+//   teamBirthdays: Birthday[]
+//   onEventClick?: (event: CalendarEvent | null, birthday?: Birthday) => void
+// }) {
+//   const [currentMonth, setCurrentMonth] = useState(new Date())
+//   const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
+//   const lastDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0)
+//   const daysInMonth = lastDay.getDate()
+//   const startingDayOfWeek = firstDay.getDay()
   
-  const isBirthdayToday = (day: number) => {
-    return teamBirthdays.some(b => 
-      currentMonth.getMonth() === b.month - 1 && day === b.day
-    )
-  }
+//   const isBirthdayToday = (day: number) => {
+//     return teamBirthdays.some(b => 
+//       currentMonth.getMonth() === b.month - 1 && day === b.day
+//     )
+//   }
 
-  const getEventsForDay = (day: number) => {
-    const dateStr = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day).toDateString()
-    return events.filter(e => new Date(e.date).toDateString() === dateStr)
-  }
+//   const getEventsForDay = (day: number) => {
+//     const dateStr = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day).toDateString()
+//     return events.filter(e => new Date(e.date).toDateString() === dateStr)
+//   }
 
-  const hasEvent = (day: number) => {
-    const dateStr = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day).toDateString()
-    return events.some(e => new Date(e.date).toDateString() === dateStr) || isBirthdayToday(day)
-  }
+//   const hasEvent = (day: number) => {
+//     const dateStr = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day).toDateString()
+//     return events.some(e => new Date(e.date).toDateString() === dateStr) || isBirthdayToday(day)
+//   }
 
-  const isSelected = (day: number) => {
-    const dateStr = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day).toDateString()
-    return selectedDate.toDateString() === dateStr
-  }
+//   const isSelected = (day: number) => {
+//     const dateStr = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day).toDateString()
+//     return selectedDate.toDateString() === dateStr
+//   }
 
-  const isToday = (day: number) => {
-    const today = new Date().toDateString()
-    const dateStr = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day).toDateString()
-    return today === dateStr
-  }
+//   const isToday = (day: number) => {
+//     const today = new Date().toDateString()
+//     const dateStr = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day).toDateString()
+//     return today === dateStr
+//   }
 
-  const getEventIndicators = (day: number) => {
-    const dayEvents = getEventsForDay(day)
-    const types = new Set(dayEvents.map(e => e.type))
-    if (isBirthdayToday(day)) types.add('birthday')
-    return Array.from(types)
-  }
+//   const getEventIndicators = (day: number) => {
+//     const dayEvents = getEventsForDay(day)
+//     const types = new Set(dayEvents.map(e => e.type))
+//     if (isBirthdayToday(day)) types.add('birthday')
+//     return Array.from(types)
+//   }
 
-  const indicatorColor = (type: string) => {
-    switch (type) {
-      case 'birthday': return 'bg-pink-500'
-      case 'release-notes': return 'bg-green-500'
-      case 'call': return 'bg-purple-500'
-      case 'meeting': return 'bg-blue-500'
-      case 'todo': return 'bg-amber-500'
-      default: return 'bg-gray-500'
-    }
-  }
+//   const indicatorColor = (type: string) => {
+//     switch (type) {
+//       case 'birthday': return 'bg-pink-500'
+//       case 'release-notes': return 'bg-green-500'
+//       case 'call': return 'bg-purple-500'
+//       case 'meeting': return 'bg-blue-500'
+//       case 'todo': return 'bg-amber-500'
+//       default: return 'bg-gray-500'
+//     }
+//   }
 
-  return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-      <div className="flex items-center justify-between mb-4">
-        <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
-          className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <ChevronLeft className="w-4 h-4 text-gray-600" />
-        </button>
-        <h3 className="text-sm font-bold text-gray-700">
-          {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-        </h3>
-        <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
-          className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <ChevronRight className="w-4 h-4 text-gray-600" />
-        </button>
-      </div>
+//   return (
+//     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+//       <div className="flex items-center justify-between mb-4">
+//         <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
+//           className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+//         >
+//           <ChevronLeft className="w-4 h-4 text-gray-600" />
+//         </button>
+//         <h3 className="text-sm font-bold text-gray-700">
+//           {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+//         </h3>
+//         <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
+//           className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+//         >
+//           <ChevronRight className="w-4 h-4 text-gray-600" />
+//         </button>
+//       </div>
 
-      <div className="grid grid-cols-7 gap-1 mb-3 text-center">
-        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-          <div key={d} className="text-[10px] font-bold text-gray-400 uppercase py-1">{d}</div>
-        ))}
-      </div>
+//       <div className="grid grid-cols-7 gap-1 mb-3 text-center">
+//         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+//           <div key={d} className="text-[10px] font-bold text-gray-400 uppercase py-1">{d}</div>
+//         ))}
+//       </div>
 
-      <div className="grid grid-cols-7 gap-1">
-        {Array.from({ length: startingDayOfWeek }).map((_, i) => (
-          <div key={`empty-${i}`} />
-        ))}
-        {Array.from({ length: daysInMonth }).map((_, i) => {
-          const day = i + 1
-          const selected = isSelected(day)
-          const today = isToday(day)
-          const hasevt = hasEvent(day)
-          const isBirthday = isBirthdayToday(day)
-          const indicators = getEventIndicators(day)
-          return (
-            <div
-              key={day}
-              className={clsx(
-                'relative aspect-square rounded-lg transition-all group',
-                selected ? 'ring-2 ring-indigo-500' : ''
-              )}
-            >
-              <button
-                onClick={() => onSelectDate(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day))}
-                className={clsx(
-                  'relative w-full h-full text-xs font-semibold rounded-lg transition-all',
-                  selected ? 'bg-indigo-600 text-white' : isBirthday ? 'bg-pink-100 text-pink-700 ring-2 ring-pink-300' : today ? 'bg-indigo-100 text-indigo-700' : 'text-gray-700 hover:bg-gray-100'
-                )}
-                title={hasevt ? `${indicators.length} event${indicators.length > 1 ? 's' : ''}` : ''}
-              >
-                {day}
-              </button>
+//       <div className="grid grid-cols-7 gap-1">
+//         {Array.from({ length: startingDayOfWeek }).map((_, i) => (
+//           <div key={`empty-${i}`} />
+//         ))}
+//         {Array.from({ length: daysInMonth }).map((_, i) => {
+//           const day = i + 1
+//           const selected = isSelected(day)
+//           const today = isToday(day)
+//           const hasevt = hasEvent(day)
+//           const isBirthday = isBirthdayToday(day)
+//           const indicators = getEventIndicators(day)
+//           return (
+//             <div
+//               key={day}
+//               className={clsx(
+//                 'relative aspect-square rounded-lg transition-all group',
+//                 selected ? 'ring-2 ring-indigo-500' : ''
+//               )}
+//             >
+//               <button
+//                 onClick={() => onSelectDate(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day))}
+//                 className={clsx(
+//                   'relative w-full h-full text-xs font-semibold rounded-lg transition-all',
+//                   selected ? 'bg-indigo-600 text-white' : isBirthday ? 'bg-pink-100 text-pink-700 ring-2 ring-pink-300' : today ? 'bg-indigo-100 text-indigo-700' : 'text-gray-700 hover:bg-gray-100'
+//                 )}
+//                 title={hasevt ? `${indicators.length} event${indicators.length > 1 ? 's' : ''}` : ''}
+//               >
+//                 {day}
+//               </button>
               
-              {/* Event indicators - Clickable */}
-              {hasevt && (
-                <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 flex gap-0.5 z-10">
-                  {indicators.slice(0, 3).map((type, idx) => {
-                    const dayEvents = getEventsForDay(day)
-                    const event = dayEvents.find(e => e.type === type)
-                    const birthday = isBirthday && type === 'birthday' ? teamBirthdays.find(b => 
-                      currentMonth.getMonth() === b.month - 1 && day === b.day
-                    ) : null
+//               {/* Event indicators - Clickable */}
+//               {hasevt && (
+//                 <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 flex gap-0.5 z-10">
+//                   {indicators.slice(0, 3).map((type, idx) => {
+//                     const dayEvents = getEventsForDay(day)
+//                     const event = dayEvents.find(e => e.type === type)
+//                     const birthday = isBirthday && type === 'birthday' ? teamBirthdays.find(b => 
+//                       currentMonth.getMonth() === b.month - 1 && day === b.day
+//                     ) : null
                     
-                    return (
-                      <button
-                        key={idx}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (event) onEventClick?.(event)
-                          else if (birthday) onEventClick?.(null, birthday)
-                        }}
-                        className={clsx('w-2 h-2 rounded-full hover:scale-150 transition-transform cursor-pointer', indicatorColor(type))}
-                        title={event?.title || birthday?.userName}
-                      />
-                    )
-                  })}
-                  {indicators.length > 3 && (
-                    <span className="text-[6px] text-gray-400 ml-0.5">+{indicators.length - 3}</span>
-                  )}
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
+//                     return (
+//                       <button
+//                         key={idx}
+//                         onClick={(e) => {
+//                           e.stopPropagation()
+//                           if (event) onEventClick?.(event)
+//                           else if (birthday) onEventClick?.(null, birthday)
+//                         }}
+//                         className={clsx('w-2 h-2 rounded-full hover:scale-150 transition-transform cursor-pointer', indicatorColor(type))}
+//                         title={event?.title || birthday?.userName}
+//                       />
+//                     )
+//                   })}
+//                   {indicators.length > 3 && (
+//                     <span className="text-[6px] text-gray-400 ml-0.5">+{indicators.length - 3}</span>
+//                   )}
+//                 </div>
+//               )}
+//             </div>
+//           )
+//         })}
+//       </div>
 
-      {/* Legend */}
-      <div className="mt-4 pt-3 border-t border-gray-100 grid grid-cols-2 gap-2 text-[9px]">
-        <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-pink-500" /><span>Birthday</span></div>
-        <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-green-500" /><span>Release</span></div>
-        <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-purple-500" /><span>Call</span></div>
-        <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-blue-500" /><span>Meeting</span></div>
-      </div>
-    </div>
-  )
-}
+//       {/* Legend */}
+//       <div className="mt-4 pt-3 border-t border-gray-100 grid grid-cols-2 gap-2 text-[9px]">
+//         <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-pink-500" /><span>Birthday</span></div>
+//         <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-green-500" /><span>Release</span></div>
+//         <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-purple-500" /><span>Call</span></div>
+//         <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-blue-500" /><span>Meeting</span></div>
+//       </div>
+//     </div>
+//   )
+// }
 
 // ── Event Detail Modal ─────────────────────────────────────────────────────
 function EventDetailModal({ event, birthday, isOpen, onClose, tenantCode }: {
@@ -497,6 +498,7 @@ export default function DeveloperDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
 
+  // const [config, setConfig] = useState<EngineeringConfig | null>(() => engineeringService.getSavedConfig());
   // manager-only
   const [ownerEfficiency, setOwnerEfficiency] = useState<OwnerEfficiencyDto[]>([])
   const [iterations, setIterations] = useState<QualityIteration[]>([])
@@ -542,8 +544,8 @@ export default function DeveloperDashboardPage() {
   // New: Tech bytes & Calendar
   const [techBytes, setTechBytes] = useState<TechByte[]>([])
   const [techBytesLoading, setTechBytesLoading] = useState(false)
-  const [selectedCalendarDate, setSelectedCalendarDate] = useState(new Date())
-  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([])
+  // const [selectedCalendarDate, setSelectedCalendarDate] = useState(new Date())
+  const [setCalendarEvents] = useState<CalendarEvent[]>([])
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
   const [selectedBirthday, setSelectedBirthday] = useState<Birthday | null>(null)
   
@@ -696,8 +698,8 @@ export default function DeveloperDashboardPage() {
       // ✅ ENRICH with devOpsUrl using centralized URL builder
       // Handles fallback if backend didn't provide URL
       const config = AzureDevOpsUrlBuilder.normalizeConfig({
-        organizationUrl: 'https://dev.azure.com/AGYS-VisualOne',
-        projectName: 'PMS',
+        organizationUrl: config.azureDevOpsOrgUrl || '',
+        projectName: config.projectName,
       })
 
       const bugsWithUrls = bugs.map(bug => ({
