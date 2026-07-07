@@ -6,6 +6,7 @@
  * Configuration for building Azure DevOps URLs
  */
 export interface AzureDevOpsConfig {
+  [x: string]: string;
   organizationUrl: string;  // e.g. "https://dev.azure.com/AGYS-VisualOne"
   projectName: string;      // e.g. "PMS"
 }

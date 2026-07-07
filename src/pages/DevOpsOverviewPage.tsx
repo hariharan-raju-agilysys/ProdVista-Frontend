@@ -165,6 +165,7 @@ export default function DevOpsOverviewPage() {
       );
       setData(result);
       setLastRefresh(new Date());
+      setConfig(config); // Save config in state
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load DevOps data');
     } finally {

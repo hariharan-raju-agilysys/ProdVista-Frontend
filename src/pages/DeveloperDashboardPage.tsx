@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom'
 // import { useMsal } from '@azure/msal-react'
 import {
   Bug, GitPullRequest, Rocket, AlertTriangle, Activity, Users,
-  Clock, ExternalLink, RefreshCw, ChevronRight, ChevronLeft, Code2,
+  Clock, ExternalLink, RefreshCw, ChevronRight, Code2,
   BarChart3, Layers, MessageSquare, BookOpen,
   CheckCircle2, Circle, AlertCircle, ArrowUpRight,
   Zap, FileText, TrendingUp, Bot,
@@ -498,7 +498,7 @@ export default function DeveloperDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
 
-  // const [config, setConfig] = useState<EngineeringConfig | null>(() => engineeringService.getSavedConfig());
+  const [configs, setConfig] = useState<EngineeringConfig | null>(() => engineeringService.getSavedConfig());
   // manager-only
   const [ownerEfficiency, setOwnerEfficiency] = useState<OwnerEfficiencyDto[]>([])
   const [iterations, setIterations] = useState<QualityIteration[]>([])
@@ -545,10 +545,9 @@ export default function DeveloperDashboardPage() {
   const [techBytes, setTechBytes] = useState<TechByte[]>([])
   const [techBytesLoading, setTechBytesLoading] = useState(false)
   // const [selectedCalendarDate, setSelectedCalendarDate] = useState(new Date())
-  const [setCalendarEvents] = useState<CalendarEvent[]>([])
+  // const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([])
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
   const [selectedBirthday, setSelectedBirthday] = useState<Birthday | null>(null)
-  
   // Team birthdays (current month only)
   const [teamBirthdays, setTeamBirthdays] = useState<Birthday[]>([])
   const [teamBirthdaysLoading, setTeamBirthdaysLoading] = useState(false)
@@ -698,8 +697,8 @@ export default function DeveloperDashboardPage() {
       // ✅ ENRICH with devOpsUrl using centralized URL builder
       // Handles fallback if backend didn't provide URL
       const config = AzureDevOpsUrlBuilder.normalizeConfig({
-        organizationUrl: config.azureDevOpsOrgUrl || '',
-        projectName: config.projectName,
+        organizationUrl: configs?.organizationUrl || '',
+        projectName: configs?.projectName || '',
       })
 
       const bugsWithUrls = bugs.map(bug => ({
@@ -844,6 +843,7 @@ export default function DeveloperDashboardPage() {
         
         // THEN load iterations (separate API call, doesn't overload network)
         await loadIterations()
+        setConfig(engineeringService.getSavedConfig())
       } finally {
         setLoading(false)
         setLastRefresh(new Date())
@@ -1081,10 +1081,10 @@ export default function DeveloperDashboardPage() {
           })
         })
 
-        setCalendarEvents(allEvents)
+        // setCalendarEvents(allEvents)
       } catch (error) {
         console.error('Failed to build calendar events:', error)
-        setCalendarEvents([])
+        // setCalendarEvents([])
       } finally {
         _setReleaseNotesLoading(false)
       }
