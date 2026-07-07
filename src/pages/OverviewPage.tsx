@@ -23,7 +23,6 @@ import { AdvancedPRListModal } from '../components/AdvancedPRListModal';
 import CustomerDetailPopup from '../components/CustomerDetailPopup';
 import { WidgetConfigModal } from '../components/WidgetConfigModal';
 import DevOpsConnectionSetup from '../components/DevOpsConnectionSetup';
-import { AzureDevOpsUrlBuilder } from '../utils/azure-devops-url-builder';
 
 // ── Admin View Context - Controls visibility of admin features ───────────────
 const AdminViewContext = createContext<boolean>(true);

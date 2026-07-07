@@ -61,7 +61,7 @@ export default function TenantAdminPage() {
       ])
       setConfig(configData)
       setProviders(providerData)
-    } catch (err) {
+    } catch (_) {
       setError('Failed to load tenant configuration')
     } finally {
       setLoading(false)
@@ -78,7 +78,7 @@ export default function TenantAdminPage() {
       setConfig(updated)
       setSuccessMsg('Configuration updated')
       setTimeout(() => setSuccessMsg(null), 2000)
-    } catch (err) {
+    } catch (_) {
       setError('Failed to update configuration')
     } finally {
       setSaving(false)

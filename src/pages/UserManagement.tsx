@@ -95,7 +95,7 @@ export function UserManagement() {
       } else {
         setError('Failed to load users')
       }
-    } catch (err) {
+    } catch (_) {
       setError('Failed to connect to server')
     } finally {
       setIsLoading(false)
@@ -162,7 +162,7 @@ export function UserManagement() {
         const error = await response.json()
         setError(error.message || 'Failed to update role')
       }
-    } catch (err) {
+    } catch (_) {
       setError('Failed to update role')
     }
   }
@@ -189,7 +189,7 @@ export function UserManagement() {
         const error = await response.json()
         setError(error.message || 'Failed to update status')
       }
-    } catch (err) {
+    } catch (_) {
       setError('Failed to update status')
     }
   }

@@ -80,7 +80,7 @@ export default function ObservabilityDashboardPage() {
       setLoading(true)
       const data = await monitoringService.getDashboardStatus()
       setStatus(data)
-    } catch (err) {
+    } catch (_) {
       setError('Failed to load monitoring status')
     } finally {
       setLoading(false)

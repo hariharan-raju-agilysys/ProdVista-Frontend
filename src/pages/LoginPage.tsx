@@ -66,7 +66,6 @@ export default function LoginPage() {
       _hasNavigated = hasNavigated.current;
       _ssoAttempted = ssoAttempted.current;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const hasPendingMsal = !!sessionStorage.getItem('msal_pending_tenant');
@@ -456,8 +455,7 @@ export default function LoginPage() {
     if (autoLoginSecs !== 0 || phase !== 'tenant' || loading) return;
     localStorage.removeItem('prodvista_sso_cooldown');
     formRef.current?.requestSubmit();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoLoginSecs]);
+  }, [autoLoginSecs, phase, loading]);
   useEffect(() => { if (error) setAutoLoginSecs(-1); }, [error]);
 
   /* ================================================================ */

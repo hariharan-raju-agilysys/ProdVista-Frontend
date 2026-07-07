@@ -1745,7 +1745,6 @@ const ManagerOverviewTab: React.FC<ManagerOverviewProps> = ({
 // ============================================================================
 // My Bugs Tab — personal work item tracker
 // ============================================================================
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const _OverviewTabLegacy: React.FC<any> = ({ kpi, bugs, trendData, agingData, todayActivity, birthdays, bugFilter, setBugFilter, sortField, sortDir, toggleSort, onBugClick, selectedBugId, onContextMenu }) => {
   const [expandedPrRepo, setExpandedPrRepo] = useState<string | null>(null);
   const [expandedCommitRepo, setExpandedCommitRepo] = useState<string | null>(null);

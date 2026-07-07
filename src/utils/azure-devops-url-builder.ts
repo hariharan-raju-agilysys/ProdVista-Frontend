@@ -113,7 +113,7 @@ export class AzureDevOpsUrlBuilder {
   /**
    * Build Pull Request URL
    */
-  static buildPullRequestUrl(entity: AzureDevOpsEntity, config?: AzureDevOpsConfig): string | null {
+  static buildPullRequestUrl(entity: AzureDevOpsEntity, _config?: AzureDevOpsConfig): string | null {
     if (!entity.pullRequestId) return null;
     if (entity.repository?.webUrl) {
       return `${entity.repository.webUrl}/pullrequest/${entity.pullRequestId}`;

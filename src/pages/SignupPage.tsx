@@ -202,7 +202,7 @@ export default function SignupPage() {
       } else {
         setError(response.message || 'Registration failed');
       }
-    } catch (err) {
+    } catch (_) {
       setError('An error occurred. Please try again.');
     }
 
