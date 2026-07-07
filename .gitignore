@@ -1,199 +1,40 @@
-# ============================================================================
-# ProdVista - Enterprise-Grade .gitignore
-# Last Updated: 2026-07-07
-# ============================================================================
+# ==============================================
+# ProdVista Frontend .gitignore
+# ==============================================
 
-# SECTION 1: Environment & Secrets
-# ============================================================================
+# ----- Node / Frontend -----
+node_modules/
+dist/
+.cache/
+*.tsbuildinfo
+
+# ----- Environment & Secrets -----
 .env
 .env.local
-.env.*.local
 .env.development
 .env.production
-.env.staging
-.env.test
+.env.*.local
 
-# AWS
-.aws/
-credentials
-*.pem
-*.key
-
-# Azure
-.azure/
-*.pfx
-*.p12
-*.cert
-
-# SSH Keys
-*.pub
-id_rsa
-id_ecdsa
-id_ed25519
-
-# Credentials & Tokens
-*.credentials
-*.token
-secrets.json
-*-secret.json
-appsettings.*.Development.json
-
-# SECTION 2: Build & Dependencies
-# ============================================================================
-
-# npm / Node
-node_modules/
-package-lock.json
-npm-debug.log
-npm-error.log
-yarn-error.log
-pnpm-lock.yaml
-.pnpm-store/
-dist/
-build/
-
-# .NET / Visual Studio
-bin/
-obj/
-.vs/
-.vscode/settings.json
-*.user
-*.suo
-*.sln.docstates
-*.userprefs
-project.lock.json
-project.assets.json
-
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-venv/
-ENV/
-
-# Go
-vendor/
-/go.sum
-
-# SECTION 3: IDE & Editor Artifacts
-# ============================================================================
-.vscode/
-!.vscode/extensions.json
-!.vscode/settings.example.json
-
+# ----- IDE / Editor -----
 .idea/
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
-*.sublime-project
-.DS_Store
-
-# SECTION 4: OS & System Files
-# ============================================================================
-.DS_Store
-Thumbs.db
 *.swp
 *.swo
 *~
-.directory
-.AppleDouble
-.LSOverride
+.vscode/settings.json
+.vscode/launch.json
 
-# SECTION 5: Runtime & Logs
-# ============================================================================
-logs/
+# ----- OS Files -----
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# ----- Logs -----
 *.log
-*.log.gz
-*.out
-.tmp/
-tmp/
-temp/
+logs/
 
-# SECTION 6: Database & Cache
-# ============================================================================
-*.db
-*.sqlite
-*.sqlite3
-.db/
-.cache/
-*.rdb
-
-# SECTION 7: Docker
-# ============================================================================
-docker-compose.override.yml
-.dockerignore
-
-# SECTION 8: Testing & Coverage
-# ============================================================================
-coverage/
-.nyc_output/
-*.lcov
-test-results/
-jest.config.json.bak
-
-# SECTION 9: Generated Files
-# ============================================================================
-dist-server/
-dist-client/
-public/docs/
-.next/
-out/
-
-# SECTION 10: CI/CD Specific
-# ============================================================================
-.github/workflows/secrets.yml
-.gitlab-ci.yml.local
-.circleci/local.yml
-jenkins/local/
-azure-pipelines.local.yml
-
-# SECTION 11: Local Development
-# ============================================================================
-local.json
-.local/
-.env.override
-
-# SECTION 12: Documentation Build Artifacts
-# ============================================================================
-docs/_build/
-site/
-
-# SECTION 13: Misc Local Files (NOT to be committed)
-# ============================================================================
-*.backup
+# ----- Misc -----
 *.bak
-*.tmp
-.#*
-*~
-[._]*.s[a-w][a-z]
-[._]s[a-w][a-z]
-Session.vim
-.netrwhist
-__MACOSX/
-
-# SECTION 14: ProdVista Specific
-# ============================================================================
-ProdVista-Server/Server/ProdVista.Api/appsettings.Development.json
-ProdVista-Server/ProdVista.Api/Logs/
-ProdVista-Frontend/.env
-ProdVista-Frontend/.env.development
-ProdVista-Frontend/.env.local
-
-# SECTION 15: Azure & Cloud
-# ============================================================================
-.terraform/
-*.tfstate
-*.tfstate.backup
-terraform.tfvars
-.terraformrc
-
-# SECTION 16: Performance & Profiling
-# ============================================================================
-*.prof
-*.pprof
-*.trace
-*.dat
+*.zip
+*.tar.gz
+*.rar
