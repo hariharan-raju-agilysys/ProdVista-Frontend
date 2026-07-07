@@ -1,6 +1,6 @@
 import { WidgetConfigProps } from './types';
 
-interface KpiConfigProps extends Pick<WidgetConfigProps, 'config' | 'setConfig'> {}
+type KpiConfigProps = Pick<WidgetConfigProps, 'config' | 'setConfig'>;
 
 export function KpiConfig({ config, setConfig }: KpiConfigProps) {
   const updateConfig = (key: string, value: unknown) => {

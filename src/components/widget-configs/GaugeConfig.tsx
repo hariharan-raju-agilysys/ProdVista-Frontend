@@ -1,6 +1,6 @@
 import { WidgetConfigProps } from './types';
 
-interface GaugeConfigProps extends Pick<WidgetConfigProps, 'config' | 'setConfig'> {}
+type GaugeConfigProps = Pick<WidgetConfigProps, 'config' | 'setConfig'>;
 
 export function GaugeConfig({ config, setConfig }: GaugeConfigProps) {
   const updateConfig = (key: string, value: unknown) => {

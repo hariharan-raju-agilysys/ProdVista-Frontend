@@ -1,6 +1,6 @@
 import { WidgetConfigProps } from './types';
 
-interface LogsConfigProps extends Pick<WidgetConfigProps, 'config' | 'setConfig'> {}
+type LogsConfigProps = Pick<WidgetConfigProps, 'config' | 'setConfig'>;
 
 export function LogsConfig({ config, setConfig }: LogsConfigProps) {
   const updateConfig = (key: string, value: unknown) => {

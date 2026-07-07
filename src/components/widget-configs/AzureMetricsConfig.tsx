@@ -11,7 +11,7 @@ import {
 } from '../../services/dynamicDashboardService';
 import { getResourceGraphSubscriptions } from '../../services/api';
 
-interface AzureMetricsConfigProps extends Pick<WidgetConfigProps, 'config' | 'setConfig'> {}
+type AzureMetricsConfigProps = Pick<WidgetConfigProps, 'config' | 'setConfig'>;
 
 // Common Azure resource types for filtering
 const RESOURCE_TYPE_FILTERS = [

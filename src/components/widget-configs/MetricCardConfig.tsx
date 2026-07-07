@@ -1,6 +1,6 @@
 import { WidgetConfigProps } from './types';
 
-interface MetricCardConfigProps extends Pick<WidgetConfigProps, 'config' | 'setConfig'> {}
+type MetricCardConfigProps = Pick<WidgetConfigProps, 'config' | 'setConfig'>;
 
 export function MetricCardConfig({ config, setConfig }: MetricCardConfigProps) {
   const updateConfig = (key: string, value: unknown) => {

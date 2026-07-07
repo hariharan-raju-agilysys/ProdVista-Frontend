@@ -11,7 +11,7 @@ interface TableColumn {
   format?: string;
 }
 
-interface TableConfigProps extends Pick<WidgetConfigProps, 'config' | 'setConfig'> {}
+type TableConfigProps = Pick<WidgetConfigProps, 'config' | 'setConfig'>;
 
 export function TableConfig({ config, setConfig }: TableConfigProps) {
   const columns = (config.columns as TableColumn[]) || [];

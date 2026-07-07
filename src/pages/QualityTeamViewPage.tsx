@@ -23,7 +23,7 @@ import {
 // Quality Team View — Executive Dashboard (Big, Bold, Clear)
 // ============================================================================
 export default function QualityTeamViewPage() {
-  const { } = useAuth();
+  useAuth();
 
   // State
   const [connections, setConnections] = useState<QualityConnection[]>([]);
